@@ -103,10 +103,11 @@ export function Header() {
           </Button>
           <Button
             onClick={openSos}
-            className="relative hidden rounded-full gradient-emergency font-semibold text-emergency-foreground hover:opacity-90 sm:inline-flex"
+            className="relative rounded-full gradient-emergency font-semibold text-emergency-foreground hover:opacity-90"
           >
-            <Siren className="mr-1.5 h-4 w-4" />
-            Emergency SOS
+            <Siren className="h-4 w-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">Emergency SOS</span>
+            <span className="sr-only sm:hidden">Emergency SOS</span>
           </Button>
           <Button
             variant="ghost"
