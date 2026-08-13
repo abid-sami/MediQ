@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Menu, Moon, Siren, Sun, X } from "lucide-react";
+import { Menu, Moon, Siren, Sun, X, Stethoscope, User, Activity, Pill, Droplet, Microscope, UserCheck, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,48 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
+          <a
+            href="/laboratory-staff"
+            className="hidden items-center gap-1.5 rounded-full border border-teal/40 bg-teal/10 px-3.5 py-1.5 text-xs font-bold text-teal transition-all hover:bg-teal hover:text-teal-foreground md:inline-flex"
+          >
+            <Microscope className="h-3.5 w-3.5" /> Lab Portal
+          </a>
+          <a
+            href="/ambulance-driver"
+            className="hidden items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-3.5 py-1.5 text-xs font-bold text-destructive transition-all hover:bg-destructive hover:text-white md:inline-flex"
+          >
+            <Siren className="h-3.5 w-3.5" /> Ambulance Portal
+          </a>
+          <a
+            href="/blood-bank-staff"
+            className="hidden items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3.5 py-1.5 text-xs font-bold text-red-600 dark:text-red-400 transition-all hover:bg-red-500 hover:text-white md:inline-flex"
+          >
+            <Droplet className="h-3.5 w-3.5" /> Blood Bank Portal
+          </a>
+          <a
+            href="/pharmacy"
+            className="hidden items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 transition-all hover:bg-amber-500 hover:text-white md:inline-flex"
+          >
+            <Pill className="h-3.5 w-3.5" /> Pharmacy Portal
+          </a>
+          <a
+            href="/nurse"
+            className="hidden items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/10 px-3.5 py-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 transition-all hover:bg-purple-500 hover:text-white md:inline-flex"
+          >
+            <Activity className="h-3.5 w-3.5" /> Nurse Portal
+          </a>
+          <a
+            href="/patient"
+            className="hidden items-center gap-1.5 rounded-full border border-teal/40 bg-teal/10 px-3.5 py-1.5 text-xs font-bold text-teal transition-all hover:bg-teal hover:text-teal-foreground md:inline-flex"
+          >
+            <User className="h-3.5 w-3.5" /> Patient Portal
+          </a>
+          <a
+            href="/doctor"
+            className="hidden items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition-all hover:bg-primary hover:text-primary-foreground md:inline-flex"
+          >
+            <Stethoscope className="h-3.5 w-3.5" /> Doctor Portal
+          </a>
           <Button
             variant="ghost"
             size="icon"

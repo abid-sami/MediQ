@@ -10,33 +10,154 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AmbulanceDriverRouteImport } from './routes/ambulance-driver'
+import { Route as BloodBankStaffRouteImport } from './routes/blood-bank-staff'
+import { Route as DoctorRouteImport } from './routes/doctor'
+import { Route as LaboratoryStaffRouteImport } from './routes/laboratory-staff'
+import { Route as NurseRouteImport } from './routes/nurse'
+import { Route as PatientRouteImport } from './routes/patient'
+import { Route as PharmacyRouteImport } from './routes/pharmacy'
+import { Route as ReceptionistRouteImport } from './routes/receptionist'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AmbulanceDriverRoute = AmbulanceDriverRouteImport.update({
+  id: '/ambulance-driver',
+  path: '/ambulance-driver',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BloodBankStaffRoute = BloodBankStaffRouteImport.update({
+  id: '/blood-bank-staff',
+  path: '/blood-bank-staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DoctorRoute = DoctorRouteImport.update({
+  id: '/doctor',
+  path: '/doctor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LaboratoryStaffRoute = LaboratoryStaffRouteImport.update({
+  id: '/laboratory-staff',
+  path: '/laboratory-staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NurseRoute = NurseRouteImport.update({
+  id: '/nurse',
+  path: '/nurse',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PatientRoute = PatientRouteImport.update({
+  id: '/patient',
+  path: '/patient',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PharmacyRoute = PharmacyRouteImport.update({
+  id: '/pharmacy',
+  path: '/pharmacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReceptionistRoute = ReceptionistRouteImport.update({
+  id: '/receptionist',
+  path: '/receptionist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/ambulance-driver': typeof AmbulanceDriverRoute
+  '/blood-bank-staff': typeof BloodBankStaffRoute
+  '/doctor': typeof DoctorRoute
+  '/laboratory-staff': typeof LaboratoryStaffRoute
+  '/nurse': typeof NurseRoute
+  '/patient': typeof PatientRoute
+  '/pharmacy': typeof PharmacyRoute
+  '/receptionist': typeof ReceptionistRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/ambulance-driver': typeof AmbulanceDriverRoute
+  '/blood-bank-staff': typeof BloodBankStaffRoute
+  '/doctor': typeof DoctorRoute
+  '/laboratory-staff': typeof LaboratoryStaffRoute
+  '/nurse': typeof NurseRoute
+  '/patient': typeof PatientRoute
+  '/pharmacy': typeof PharmacyRoute
+  '/receptionist': typeof ReceptionistRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/ambulance-driver': typeof AmbulanceDriverRoute
+  '/blood-bank-staff': typeof BloodBankStaffRoute
+  '/doctor': typeof DoctorRoute
+  '/laboratory-staff': typeof LaboratoryStaffRoute
+  '/nurse': typeof NurseRoute
+  '/patient': typeof PatientRoute
+  '/pharmacy': typeof PharmacyRoute
+  '/receptionist': typeof ReceptionistRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/ambulance-driver'
+    | '/blood-bank-staff'
+    | '/doctor'
+    | '/laboratory-staff'
+    | '/nurse'
+    | '/patient'
+    | '/pharmacy'
+    | '/receptionist'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/ambulance-driver'
+    | '/blood-bank-staff'
+    | '/doctor'
+    | '/laboratory-staff'
+    | '/nurse'
+    | '/patient'
+    | '/pharmacy'
+    | '/receptionist'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/ambulance-driver'
+    | '/blood-bank-staff'
+    | '/doctor'
+    | '/laboratory-staff'
+    | '/nurse'
+    | '/patient'
+    | '/pharmacy'
+    | '/receptionist'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  AmbulanceDriverRoute: typeof AmbulanceDriverRoute
+  BloodBankStaffRoute: typeof BloodBankStaffRoute
+  DoctorRoute: typeof DoctorRoute
+  LaboratoryStaffRoute: typeof LaboratoryStaffRoute
+  NurseRoute: typeof NurseRoute
+  PatientRoute: typeof PatientRoute
+  PharmacyRoute: typeof PharmacyRoute
+  ReceptionistRoute: typeof ReceptionistRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +169,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ambulance-driver': {
+      id: '/ambulance-driver'
+      path: '/ambulance-driver'
+      fullPath: '/ambulance-driver'
+      preLoaderRoute: typeof AmbulanceDriverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blood-bank-staff': {
+      id: '/blood-bank-staff'
+      path: '/blood-bank-staff'
+      fullPath: '/blood-bank-staff'
+      preLoaderRoute: typeof BloodBankStaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/doctor': {
+      id: '/doctor'
+      path: '/doctor'
+      fullPath: '/doctor'
+      preLoaderRoute: typeof DoctorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/laboratory-staff': {
+      id: '/laboratory-staff'
+      path: '/laboratory-staff'
+      fullPath: '/laboratory-staff'
+      preLoaderRoute: typeof LaboratoryStaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nurse': {
+      id: '/nurse'
+      path: '/nurse'
+      fullPath: '/nurse'
+      preLoaderRoute: typeof NurseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/patient': {
+      id: '/patient'
+      path: '/patient'
+      fullPath: '/patient'
+      preLoaderRoute: typeof PatientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pharmacy': {
+      id: '/pharmacy'
+      path: '/pharmacy'
+      fullPath: '/pharmacy'
+      preLoaderRoute: typeof PharmacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/receptionist': {
+      id: '/receptionist'
+      path: '/receptionist'
+      fullPath: '/receptionist'
+      preLoaderRoute: typeof ReceptionistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  AmbulanceDriverRoute: AmbulanceDriverRoute,
+  BloodBankStaffRoute: BloodBankStaffRoute,
+  DoctorRoute: DoctorRoute,
+  LaboratoryStaffRoute: LaboratoryStaffRoute,
+  NurseRoute: NurseRoute,
+  PatientRoute: PatientRoute,
+  PharmacyRoute: PharmacyRoute,
+  ReceptionistRoute: ReceptionistRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
