@@ -93,7 +93,7 @@ export function HeroVisual() {
             transition={{ delay: 0.15 + i * 0.08, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           >
             <motion.div
-              animate={reduce ? undefined : { y: [0, -5, 0] }}
+              animate={reduce ? { y: 0 } : { y: [0, -5, 0] }}
               transition={{ duration: 4 + i * 0.3, repeat: Infinity, ease: "easeInOut" }}
               className="flex flex-col items-center gap-1.5"
             >
