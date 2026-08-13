@@ -27,8 +27,8 @@ const nodes: Node[] = [
   { id: "heart", label: "Vitals", icon: HeartPulse, x: 50, y: 50, accent: "teal" },
   { id: "location", label: "Nearby", icon: MapPin, x: 15, y: 62, accent: "primary" },
   { id: "blood", label: "Blood Bank", icon: Droplet, x: 85, y: 62, accent: "emergency" },
-  { id: "pharmacy", label: "Pharmacy", icon: Pill, x: 30, y: 88, accent: "teal" },
-  { id: "report", label: "Diagnostics", icon: FileHeart, x: 70, y: 88, accent: "primary" },
+  { id: "pharmacy", label: "Pharmacy", icon: Pill, x: 28, y: 82, accent: "teal" },
+  { id: "report", label: "Diagnostics", icon: FileHeart, x: 72, y: 82, accent: "primary" },
 ];
 
 const links: [string, string][] = [
@@ -113,7 +113,7 @@ export function HeroVisual() {
       })}
 
       <motion.div
-        className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft"
+        className="absolute -bottom-6 left-1/2 -translate-x-1/2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1, duration: 0.4 }}
