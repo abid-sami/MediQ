@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -20,6 +22,7 @@ import {
   ChevronRight,
   Stethoscope,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import {
   initialPharmacistProfile,
@@ -63,10 +66,12 @@ export type PharmacyTab =
 
 export function PharmacyLayout() {
   const { theme, toggleTheme } = useTheme();
+  const { profile: authProfile, signOut } = useAuth();
 
   const [activeTab, setActiveTab] = useState<PharmacyTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   // Global Pharmacy State
   const [profile, setProfile] = useState<PharmacistProfile>(initialPharmacistProfile);
@@ -74,6 +79,19 @@ export function PharmacyLayout() {
   const [orders, setOrders] = useState<PharmacyOrder[]>(initialPharmacyOrders);
   const [medicines, setMedicines] = useState<PharmacyMedicine[]>(initialMedicines);
   const [suppliers, setSuppliers] = useState<PharmacySupplier[]>(initialSuppliers);
+
+  useEffect(() => {
+    if (authProfile) {
+      setProfile((prev) => ({
+        ...prev,
+        id: authProfile.id || prev.id,
+        name: authProfile.name || prev.name,
+        avatar: authProfile.avatarUrl || prev.avatar,
+        email: authProfile.email || prev.email,
+        phone: authProfile.phone || prev.phone,
+      }));
+    }
+  }, [authProfile]);
 
   // Fetch data from Supabase on mount
   useEffect(() => {
@@ -129,6 +147,12 @@ export function PharmacyLayout() {
   }, []);
 
   const pendingRxCount = prescriptions.filter((p) => p.verificationStatus === "Pending").length;
+
+  const handleConfirmLogout = async () => {
+    setLogoutConfirmOpen(false);
+    await signOut();
+    window.location.href = "/";
+  };
 
   // Handlers
   const handleVerifyPrescription = (id: string) => {
@@ -325,8 +349,16 @@ export function PharmacyLayout() {
 
               <Button
                 variant="ghost"
-                size="icon"
-                onClick={() => setActiveTab("prescriptions")}
+                size="icon"                onClick={() => setLogoutConfirmOpen(true)}
+                className="rounded-full text-destructive hover:text-destructive"
+                aria-label="Sign out"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"                onClick={() => setActiveTab("prescriptions")}
                 className="relative rounded-full text-teal"
                 aria-label="Prescriptions"
               >
@@ -413,6 +445,28 @@ export function PharmacyLayout() {
           )}
         </main>
       </div>
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="max-w-xs rounded-2xl border-border bg-card p-6">
+          <DialogHeader>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <LogOut className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-center text-xl">Confirm Sign Out</DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground">
+              Are you sure you want to sign out of your MediQ account?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setLogoutConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={handleConfirmLogout}>
+              Sign Out
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

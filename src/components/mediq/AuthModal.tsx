@@ -47,8 +47,8 @@ export function AuthModal() {
   const isLogin = loginOpen;
 
   // Login state
-  const [identifier, setIdentifier] = useState("sami@mediq.health");
-  const [password, setPassword] = useState("123456");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
@@ -71,50 +71,6 @@ export function AuthModal() {
     closeRegister();
   };
 
-  /**
-   * Auto-detect role from Supabase auth metadata, profiles table, or email heuristics
-   */
-  const detectUserRole = async (emailOrPhone: string, authUser?: any): Promise<string> => {
-    // 1. Check Auth User Metadata if present
-    if (authUser?.user_metadata?.role) {
-      return authUser.user_metadata.role;
-    }
-
-    // 2. Query Supabase profiles table
-    try {
-      if (authUser?.id) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", authUser.id)
-          .maybeSingle();
-        if (data?.role) return data.role;
-      } else {
-        const { data } = await supabase
-          .from("profiles")
-          .select("role")
-          .or(`email.eq.${emailOrPhone},phone.eq.${emailOrPhone}`)
-          .maybeSingle();
-        if (data?.role) return data.role;
-      }
-    } catch (e) {
-      console.warn("Profiles query fallback:", e);
-    }
-
-    // 3. Fallback heuristics based on identifier patterns
-    const lower = emailOrPhone.toLowerCase().trim();
-    if (lower.includes("alex") || lower.includes("admin")) return "Super Admin";
-    if (lower.includes("sarah") || lower.includes("doctor") || lower.includes("dr.")) return "Doctor";
-    if (lower.includes("elena") || lower.includes("nurse")) return "Nurse";
-    if (lower.includes("tariq.anwar") || lower.includes("pharma")) return "Pharmacist";
-    if (lower.includes("rafiqul") || lower.includes("blood")) return "Blood Bank Staff";
-    if (lower.includes("driver") || lower.includes("ambulance") || lower.includes("tariqul.driver")) return "Ambulance Driver";
-    if (lower.includes("mahmudul") || lower.includes("lab") || lower.includes("pathol")) return "Lab Staff";
-    if (lower.includes("sadia") || lower.includes("reception")) return "Receptionist";
-
-    return "Patient";
-  };
-
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -131,33 +87,27 @@ export function AuthModal() {
     setIsLoggingIn(true);
 
     try {
-      // 1. Sign in with Supabase
-      const { error } = await signIn(identifier, password);
+      // 1. Sign in with Supabase & resolve role directly from profile
+      const { error, role: resolvedRole } = await signIn(identifier, password);
       
-      // 2. Get current authenticated user session if available
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // 3. Auto-detect the user's role
-      const detectedRole = await detectUserRole(identifier, session?.user);
-      const mapped = mapRole(detectedRole) || "Patient";
-      setLocalRole(mapped);
+      if (error) {
+        toast.error(error.message || "Invalid credentials. Please check your email/phone and password.");
+        setIsLoggingIn(false);
+        return;
+      }
 
-      const targetRoute = getRouteForRole(mapped);
+      const activeRole = resolvedRole || "Patient";
+      setLocalRole(activeRole);
 
-      toast.success(`Login Successful! Entering ${mapped} Dashboard...`);
+      const targetRoute = getRouteForRole(activeRole);
+
+      toast.success(`Login Successful! Entering ${activeRole} Dashboard...`);
       handleClose();
       
       // Immediate redirection to the detected role dashboard
       window.location.href = targetRoute;
     } catch (err: any) {
-      // Fallback role detection
-      const fallbackRole = await detectUserRole(identifier);
-      const mapped = mapRole(fallbackRole) || "Patient";
-      setLocalRole(mapped);
-      
-      toast.success(`Welcome back! Entering ${mapped} Dashboard...`);
-      handleClose();
-      window.location.href = getRouteForRole(mapped);
+      toast.error(err?.message || "Login failed. Please try again.");
     } finally {
       setIsLoggingIn(false);
     }
@@ -192,7 +142,7 @@ export function AuthModal() {
       const mapped = mapRole(regRole) || "Patient";
       setLocalRole(mapped);
 
-      await signUp({
+      const { error, role: registeredRole } = await signUp({
         name: regName,
         email: regEmail,
         phone: regNumber,
@@ -202,14 +152,18 @@ export function AuthModal() {
         address: regAddress,
       });
 
-      toast.success(`Account Registered Successfully for ${regName} (${mapped})!`);
+      if (error) {
+        toast.error(error.message || "Registration failed. Please try again.");
+        setIsRegistering(false);
+        return;
+      }
+
+      const finalRole = registeredRole || mapped;
+      toast.success(`Account Registered Successfully for ${regName} (${finalRole})!`);
       handleClose();
-      window.location.href = getRouteForRole(mapped);
+      window.location.href = getRouteForRole(finalRole);
     } catch (err: any) {
-      const mapped = mapRole(regRole) || "Patient";
-      setLocalRole(mapped);
-      handleClose();
-      window.location.href = getRouteForRole(mapped);
+      toast.error(err?.message || "Registration encountered an error.");
     } finally {
       setIsRegistering(false);
     }

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   Droplet,
@@ -18,6 +20,7 @@ import {
   ChevronRight,
   Stethoscope,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import {
   initialBloodBankStaffProfile,
@@ -61,10 +64,12 @@ export type BloodBankTab =
 
 export function BloodBankLayout() {
   const { theme, toggleTheme } = useTheme();
+  const { profile: authProfile, signOut } = useAuth();
 
   const [activeTab, setActiveTab] = useState<BloodBankTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   // Global State
   const [staffProfile, setStaffProfile] = useState<BloodBankStaffProfile>(initialBloodBankStaffProfile);
@@ -73,6 +78,19 @@ export function BloodBankLayout() {
   const [donors, setDonors] = useState<BloodDonor[]>(initialDonors);
   const [donations, setDonations] = useState<BloodDonation[]>(initialDonations);
   const [reservations, setReservations] = useState<BloodReservation[]>(initialReservations);
+
+  useEffect(() => {
+    if (authProfile) {
+      setStaffProfile((prev) => ({
+        ...prev,
+        id: authProfile.id || prev.id,
+        name: authProfile.name || prev.name,
+        avatar: authProfile.avatarUrl || prev.avatar,
+        email: authProfile.email || prev.email,
+        phone: authProfile.phone || prev.phone,
+      }));
+    }
+  }, [authProfile]);
 
   // Fetch data from Supabase on mount
   useEffect(() => {
@@ -109,6 +127,12 @@ export function BloodBankLayout() {
 
   const pendingRequestsCount = requests.filter((r) => r.status === "Pending").length;
   const emergencyCount = requests.filter((r) => r.urgency === "Emergency" && r.status === "Pending").length;
+
+  const handleConfirmLogout = async () => {
+    setLogoutConfirmOpen(false);
+    await signOut();
+    window.location.href = "/";
+  };
 
   // Handlers
   const handleApproveRequest = (id: string) => {
@@ -450,6 +474,28 @@ export function BloodBankLayout() {
           )}
         </main>
       </div>
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="max-w-xs rounded-2xl border-border bg-card p-6">
+          <DialogHeader>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <LogOut className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-center text-xl">Confirm Sign Out</DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground">
+              Are you sure you want to sign out of your MediQ account?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setLogoutConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={handleConfirmLogout}>
+              Sign Out
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

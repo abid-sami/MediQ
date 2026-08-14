@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   FileText,
@@ -19,6 +21,7 @@ import {
   ChevronRight,
   Microscope,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import {
   initialLabStaffProfile,
@@ -61,10 +64,12 @@ export type LabStaffTab =
 
 export function LabStaffLayout() {
   const { theme, toggleTheme } = useTheme();
+  const { profile: authProfile, signOut } = useAuth();
 
   const [activeTab, setActiveTab] = useState<LabStaffTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   // Global State
   const [profile, setProfile] = useState<LabStaffProfile>(initialLabStaffProfile);
@@ -72,6 +77,19 @@ export function LabStaffLayout() {
   const [processingItems, setProcessingItems] = useState<LabProcessingItem[]>(initialProcessingItems);
   const [parameters, setParameters] = useState<LabResultParameter[]>(initialResultParameters);
   const [catalog, setCatalog] = useState<LabCatalogItem[]>(initialLabCatalog);
+
+  useEffect(() => {
+    if (authProfile) {
+      setProfile((prev) => ({
+        ...prev,
+        id: authProfile.id || prev.id,
+        name: authProfile.name || prev.name,
+        avatar: authProfile.avatarUrl || prev.avatar,
+        email: authProfile.email || prev.email,
+        phone: authProfile.phone || prev.phone,
+      }));
+    }
+  }, [authProfile]);
 
   // Fetch data from Supabase on mount
   useEffect(() => {
@@ -102,6 +120,12 @@ export function LabStaffLayout() {
 
   const pendingSamplesCount = orders.filter((o) => o.status === "Sample Pending" || o.status === "Requested").length;
   const statCount = orders.filter((o) => o.priority === "STAT Emergency" && o.status !== "Completed").length;
+
+  const handleConfirmLogout = async () => {
+    setLogoutConfirmOpen(false);
+    await signOut();
+    window.location.href = "/";
+  };
 
   // Handlers
   const handleUpdateOrderStatus = (id: string, newStatus: LabTestOrderStatus) => {
@@ -278,6 +302,16 @@ export function LabStaffLayout() {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => setLogoutConfirmOpen(true)}
+                className="rounded-full text-destructive hover:text-destructive"
+                aria-label="Sign out"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setActiveTab("test-orders")}
                 className="relative rounded-full text-destructive"
                 aria-label="Test Orders"
@@ -359,6 +393,28 @@ export function LabStaffLayout() {
           )}
         </main>
       </div>
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="max-w-xs rounded-2xl border-border bg-card p-6">
+          <DialogHeader>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <LogOut className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-center text-xl">Confirm Sign Out</DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground">
+              Are you sure you want to sign out of your MediQ account?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setLogoutConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={handleConfirmLogout}>
+              Sign Out
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

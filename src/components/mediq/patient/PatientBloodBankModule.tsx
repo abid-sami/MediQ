@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -19,28 +19,38 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PatientBloodRequest } from "@/data/patient-data";
+import { fetchSupabaseBloodInventory } from "@/services/supabase-service";
 
 interface PatientBloodBankModuleProps {
   requests: PatientBloodRequest[];
   onRequestBlood: (req: PatientBloodRequest) => void;
 }
 
-const BLOOD_UNITS = [
-  { group: "A+", units: 18, status: "Available" },
-  { group: "A-", units: 5, status: "Limited" },
-  { group: "B+", units: 22, status: "Available" },
-  { group: "B-", units: 3, status: "Limited" },
-  { group: "AB+", units: 11, status: "Available" },
-  { group: "AB-", units: 1, status: "Critical" },
-  { group: "O+", units: 26, status: "Available" },
-  { group: "O-", units: 0, status: "Unavailable" },
-];
-
 export function PatientBloodBankModule({
   requests,
   onRequestBlood,
 }: PatientBloodBankModuleProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bloodUnits, setBloodUnits] = useState<{ group: string; units: number; status: string }[]>([]);
+
+  useEffect(() => {
+    fetchSupabaseBloodInventory().then((data) => {
+      setBloodUnits(
+        data.map((b: any) => ({
+          group: b.group || b.blood_group,
+          units: b.availableUnits ?? b.available_units ?? 0,
+          status:
+            (b.availableUnits ?? 0) === 0
+              ? "Unavailable"
+              : (b.availableUnits ?? 0) <= 5
+              ? "Critical"
+              : (b.availableUnits ?? 0) <= 10
+              ? "Limited"
+              : "Available",
+        }))
+      );
+    });
+  }, []);
   const [bloodGroup, setBloodGroup] = useState("O+");
   const [units, setUnits] = useState(1);
   const [urgency, setUrgency] = useState<PatientBloodRequest["urgency"]>("Routine");
@@ -107,7 +117,7 @@ export function PatientBloodBankModule({
         </h3>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {BLOOD_UNITS.map((b) => (
+          {bloodUnits.map((b) => (
             <div
               key={b.group}
               className="bg-card border border-border rounded-xl p-3 text-center space-y-1 hover:border-red-500/40 transition-all"

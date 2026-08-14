@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   Calendar,
@@ -82,11 +84,13 @@ export type SidebarTab =
 
 export function DoctorLayout() {
   const { theme, toggleTheme } = useTheme();
+  const { profile: authProfile, signOut } = useAuth();
 
   // Active Tab state
   const [activeTab, setActiveTab] = useState<SidebarTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   // Global State
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile>(initialDoctorProfile);
@@ -107,6 +111,19 @@ export function DoctorLayout() {
   const [selectedReportForView, setSelectedReportForView] = useState<MedicalReport | null>(null);
 
   // Fetch data from Supabase on mount
+  useEffect(() => {
+    if (authProfile) {
+      setDoctorProfile((prev) => ({
+        ...prev,
+        id: authProfile.id || prev.id,
+        name: authProfile.name || prev.name,
+        avatar: authProfile.avatarUrl || prev.avatar,
+        email: authProfile.email || prev.email,
+        phone: authProfile.phone || prev.phone,
+      }));
+    }
+  }, [authProfile]);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -158,6 +175,12 @@ export function DoctorLayout() {
 
   // Unread notifications
   const unreadNotifCount = notifications.filter((n) => !n.read).length;
+
+  const handleConfirmLogout = async () => {
+    setLogoutConfirmOpen(false);
+    await signOut();
+    window.location.href = "/";
+  };
 
   // Navigation handlers
   const handleOpenPatientProfile = (patient: Patient) => {
@@ -383,6 +406,16 @@ export function DoctorLayout() {
                 aria-label="Toggle theme"
               >
                 {theme === "dark" ? <Sun className="h-5 w-5 text-amber-400" /> : <Moon className="h-5 w-5" />}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLogoutConfirmOpen(true)}
+                className="rounded-full text-destructive hover:text-destructive"
+                aria-label="Sign out"
+              >
+                <LogOut className="h-5 w-5" />
               </Button>
 
               <Button

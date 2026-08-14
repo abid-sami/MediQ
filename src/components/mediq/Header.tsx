@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 import { useMediQActions } from "./actions-context";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, getRouteForRole } from "@/hooks/use-auth";
 
 function Logo() {
   return (
@@ -35,7 +35,7 @@ function Logo() {
 export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { openSos, openLogin, openRegister } = useMediQActions();
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string>("#home");
@@ -271,6 +271,16 @@ export function Header() {
                 </motion.a>
               ))}
               
+              {user && role && (
+                <a
+                  href={getRouteForRole(role)}
+                  onClick={() => setOpen(false)}
+                  className="mt-2 flex items-center justify-center gap-2 rounded-xl gradient-primary py-2.5 text-sm font-bold text-white shadow-soft"
+                >
+                  <ShieldCheck className="h-4 w-4" /> Go to {role} Portal
+                </a>
+              )}
+
               {!user ? (
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Button

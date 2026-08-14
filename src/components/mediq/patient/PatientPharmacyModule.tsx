@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,27 +14,33 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PatientPharmacyOrder } from "@/data/patient-data";
+import { fetchSupabasePharmacyMedicines } from "@/services/supabase-service";
 
 interface PatientPharmacyModuleProps {
   orders: PatientPharmacyOrder[];
   onNewOrder: (order: PatientPharmacyOrder) => void;
 }
 
-const SAMPLE_MEDICINES = [
-  { name: "Napa Extra (Paracetamol 500mg)", price: 1.5, rx: false },
-  { name: "Tab. Concor 2.5mg (Bisoprolol)", price: 12.0, rx: true },
-  { name: "Cap. Omeprazole 20mg", price: 8.0, rx: true },
-  { name: "Vitamin D3 2000 IU Capsules", price: 9.5, rx: false },
-  { name: "First Aid Antiseptic Bandages", price: 4.0, rx: false },
-];
-
 export function PatientPharmacyModule({
   orders,
   onNewOrder,
 }: PatientPharmacyModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [medicines, setMedicines] = useState<{ name: string; price: number; rx: boolean }[]>([]);
 
-  const handleOrderMedicine = (med: (typeof SAMPLE_MEDICINES)[0]) => {
+  useEffect(() => {
+    fetchSupabasePharmacyMedicines().then((data) => {
+      setMedicines(
+        data.map((m: any) => ({
+          name: m.medicineName || m.name || m.medicine_name || "Medicine",
+          price: m.pricePerUnit || m.price || m.price_per_unit || 0,
+          rx: m.prescriptionRequired ?? m.prescription_required ?? false,
+        }))
+      );
+    });
+  }, []);
+
+  const handleOrderMedicine = (med: { name: string; price: number; rx: boolean }) => {
     const newOrd: PatientPharmacyOrder = {
       id: `ph-${Date.now()}`,
       orderNo: `ORD-PH-2026-${Math.floor(100 + Math.random() * 900)}`,
@@ -44,7 +50,7 @@ export function PatientPharmacyModule({
       prescriptionRequired: med.rx,
       prescriptionVerified: med.rx,
       status: "Processing",
-      deliveryAddress: "House 42, Road 11, Dhanmondi, Dhaka",
+      deliveryAddress: "Home Address",
     };
     onNewOrder(newOrd);
     toast.success(`Ordered ${med.name}`, {
@@ -122,7 +128,7 @@ export function PatientPharmacyModule({
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {SAMPLE_MEDICINES.map((med, idx) => (
+          {medicines.map((med, idx) => (
             <div
               key={idx}
               className="p-4 rounded-xl border border-border bg-card hover:border-primary/40 transition-all flex flex-col justify-between space-y-3"

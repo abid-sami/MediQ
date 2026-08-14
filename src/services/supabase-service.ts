@@ -1,10 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { initialBloodGroups, initialBloodRequests } from "@/data/blood-bank-data";
-import { initialLabOrders, initialLabCatalog } from "@/data/lab-staff-data";
-import { initialPharmacyOrders, initialMedicines, initialSuppliers } from "@/data/pharmacy-data";
-import { initialNetworkHospitals, initialAdminSOS, initialSystemUsers, initialAdminAuditLogs } from "@/data/admin-data";
-import { initialWardBeds } from "@/data/nurse-data";
-import { initialAppointments } from "@/data/doctor-data";
+
 
 // ============================================================================
 // 1. AUTH & USER PROFILES SERVICE
@@ -86,7 +81,7 @@ export async function fetchSupabaseAppointments() {
       .order("created_at", { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return initialAppointments;
+      return [];
     }
 
     return data.map((a: any) => ({
@@ -107,7 +102,7 @@ export async function fetchSupabaseAppointments() {
     }));
   } catch (e) {
     console.warn("Using local appointments store:", e);
-    return initialAppointments;
+    return [];
   }
 }
 
@@ -149,7 +144,7 @@ export async function fetchSupabaseHospitals() {
   try {
     const { data, error } = await supabase.from("hospitals").select("*");
     if (error || !data || data.length === 0) {
-      return initialNetworkHospitals;
+      return [];
     }
     return data.map((h: any) => ({
       id: h.id,
@@ -162,7 +157,7 @@ export async function fetchSupabaseHospitals() {
       occupancyPercent: h.occupancy_percent,
     }));
   } catch (e) {
-    return initialNetworkHospitals;
+    return [];
   }
 }
 
@@ -193,7 +188,7 @@ export async function fetchSupabaseBeds() {
   try {
     const { data, error } = await supabase.from("beds").select("*");
     if (error || !data || data.length === 0) {
-      return initialWardBeds;
+      return [];
     }
     return data.map((b: any) => ({
       id: b.id,
@@ -207,7 +202,7 @@ export async function fetchSupabaseBeds() {
       admissionDate: b.admission_date,
     }));
   } catch (e) {
-    return initialWardBeds;
+    return [];
   }
 }
 
@@ -219,7 +214,7 @@ export async function fetchSupabaseLabOrders() {
   try {
     const { data, error } = await supabase.from("lab_test_orders").select("*").order("created_at", { ascending: false });
     if (error || !data || data.length === 0) {
-      return initialLabOrders;
+      return [];
     }
     return data.map((o: any) => ({
       id: o.id,
@@ -236,7 +231,7 @@ export async function fetchSupabaseLabOrders() {
       collectionTime: o.collection_time,
     }));
   } catch (e) {
-    return initialLabOrders;
+    return [];
   }
 }
 
@@ -274,7 +269,7 @@ export async function fetchSupabasePharmacyOrders() {
   try {
     const { data, error } = await supabase.from("pharmacy_orders").select("*").order("created_at", { ascending: false });
     if (error || !data || data.length === 0) {
-      return initialPharmacyOrders;
+      return [];
     }
     return data.map((p: any) => ({
       id: p.id,
@@ -288,7 +283,7 @@ export async function fetchSupabasePharmacyOrders() {
       orderTime: p.created_at ? new Date(p.created_at).toLocaleTimeString() : "Just now",
     }));
   } catch (e) {
-    return initialPharmacyOrders;
+    return [];
   }
 }
 
@@ -323,7 +318,7 @@ export async function fetchSupabaseBloodInventory() {
   try {
     const { data, error } = await supabase.from("blood_inventory").select("*");
     if (error || !data || data.length === 0) {
-      return initialBloodGroups;
+      return [];
     }
     return data.map((b: any) => ({
       group: b.blood_group,
@@ -333,7 +328,7 @@ export async function fetchSupabaseBloodInventory() {
       status: b.status,
     }));
   } catch (e) {
-    return initialBloodGroups;
+    return [];
   }
 }
 
@@ -341,7 +336,7 @@ export async function fetchSupabaseBloodRequests() {
   try {
     const { data, error } = await supabase.from("blood_requests").select("*").order("created_at", { ascending: false });
     if (error || !data || data.length === 0) {
-      return initialBloodRequests;
+      return [];
     }
     return data.map((r: any) => ({
       id: r.id,
@@ -357,7 +352,7 @@ export async function fetchSupabaseBloodRequests() {
       status: r.status,
     }));
   } catch (e) {
-    return initialBloodRequests;
+    return [];
   }
 }
 
@@ -397,7 +392,7 @@ export async function fetchSupabaseSOS() {
   try {
     const { data, error } = await supabase.from("sos_requests").select("*").order("created_at", { ascending: false });
     if (error || !data || data.length === 0) {
-      return initialAdminSOS;
+      return [];
     }
     return data.map((s: any) => ({
       id: s.id,
@@ -412,7 +407,7 @@ export async function fetchSupabaseSOS() {
       ambulanceStatus: s.ambulance_status,
     }));
   } catch (e) {
-    return initialAdminSOS;
+    return [];
   }
 }
 
@@ -452,7 +447,7 @@ export async function fetchSupabasePharmacyMedicines() {
   try {
     const { data, error } = await supabase.from("pharmacy_inventory").select("*").order("medicine_name", { ascending: true });
     if (error || !data || data.length === 0) {
-      return initialMedicines;
+      return [];
     }
     return data.map((m: any) => ({
       id: m.id,
@@ -468,7 +463,7 @@ export async function fetchSupabasePharmacyMedicines() {
       stockStatus: m.stock_status,
     }));
   } catch (e) {
-    return initialMedicines;
+    return [];
   }
 }
 
@@ -522,7 +517,7 @@ export async function fetchSupabaseLabCatalog() {
   try {
     const { data, error } = await supabase.from("lab_catalog").select("*").order("test_name", { ascending: true });
     if (error || !data || data.length === 0) {
-      return initialLabCatalog;
+      return [];
     }
     return data.map((t: any) => ({
       id: t.id,
@@ -535,7 +530,7 @@ export async function fetchSupabaseLabCatalog() {
       referenceRange: t.reference_range,
     }));
   } catch (e) {
-    return initialLabCatalog;
+    return [];
   }
 }
 
@@ -643,7 +638,7 @@ export async function fetchSupabaseAuditLogs() {
   try {
     const { data, error } = await supabase.from("audit_logs").select("*").order("timestamp", { ascending: false });
     if (error || !data || data.length === 0) {
-      return initialAdminAuditLogs;
+      return [];
     }
     return data.map((log: any) => ({
       id: log.id,
@@ -656,7 +651,7 @@ export async function fetchSupabaseAuditLogs() {
       details: log.details,
     }));
   } catch (e) {
-    return initialAdminAuditLogs;
+    return [];
   }
 }
 
