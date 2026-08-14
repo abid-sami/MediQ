@@ -113,16 +113,32 @@ export function AppointmentModal() {
 
     setSubmitting(true);
 
-    window.setTimeout(() => {
-      // Increment booking count and get serial
-      const newSerialNum = incrementDoctorBookings(doctorId);
-      const formattedSerial = `Serial #${String(newSerialNum).padStart(2, "0")}`;
-      const hoursText = activeDoctorSchedule
-        ? `${activeDoctorSchedule.startTime} - ${activeDoctorSchedule.endTime}`
-        : "09:00 AM - 05:00 PM";
+    // Increment booking count and get serial
+    const newSerialNum = incrementDoctorBookings(doctorId);
+    const formattedSerial = `Serial #${String(newSerialNum).padStart(2, "0")}`;
+    const hoursText = activeDoctorSchedule
+      ? `${activeDoctorSchedule.startTime} - ${activeDoctorSchedule.endTime}`
+      : "09:00 AM - 05:00 PM";
+    const aptId = `APT-${Math.floor(10000 + Math.random() * 89999)}`;
 
+    // Asynchronously sync with Supabase Database
+    import("@/services/supabase-service").then(({ createSupabaseAppointment }) => {
+      createSupabaseAppointment({
+        appointmentId: aptId,
+        patientName: name,
+        patientPhone: phone,
+        doctorName: doctor.name,
+        specialty: category,
+        appointmentDate: format(date, "yyyy-MM-dd"),
+        appointmentTime: time,
+        serialNumber: newSerialNum,
+        serialToken: formattedSerial,
+      });
+    });
+
+    window.setTimeout(() => {
       setBooking({
-        id: `APT-${Math.floor(10000 + Math.random() * 89999)}`,
+        id: aptId,
         serialNo: formattedSerial,
         doctor: doctor.name,
         department: category,
@@ -134,7 +150,7 @@ export function AppointmentModal() {
       });
       setSubmitting(false);
       toast.success(`Appointment Confirmed! Assigned ${formattedSerial}`);
-    }, 1000);
+    }, 600);
   };
 
   return (
