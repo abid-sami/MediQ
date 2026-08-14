@@ -106,10 +106,10 @@ export function mapRole(role: string | null | undefined): UserRole {
   if (
     normalized === "nurse" ||
     normalized === "rn" ||
+    normalized === "registered nurse" ||
+    normalized === "nursing" ||
     normalized === "staff nurse" ||
-    normalized === "head nurse" ||
-    normalized === "charge nurse" ||
-    normalized === "nursing"
+    normalized === "charge nurse"
   ) {
     return "Nurse";
   }
@@ -119,21 +119,19 @@ export function mapRole(role: string | null | undefined): UserRole {
     normalized === "pharmacist" ||
     normalized === "pharmacy" ||
     normalized === "pharmacy staff" ||
-    normalized === "chemist" ||
-    normalized === "rph" ||
-    normalized === "apothecary"
+    normalized === "druggist" ||
+    normalized === "chemist"
   ) {
     return "Pharmacist";
   }
 
   // Blood Bank Staff
   if (
-    normalized === "blood bank" ||
     normalized === "blood bank staff" ||
-    normalized === "bloodbank" ||
+    normalized === "blood bank" ||
     normalized === "blood bank officer" ||
-    normalized === "transfusion" ||
-    normalized === "transfusion officer"
+    normalized === "transfusion officer" ||
+    normalized === "blood bank technician"
   ) {
     return "Blood Bank Staff";
   }
@@ -142,10 +140,10 @@ export function mapRole(role: string | null | undefined): UserRole {
   if (
     normalized === "ambulance driver" ||
     normalized === "driver" ||
-    normalized === "paramedic driver" ||
-    normalized === "emt" ||
     normalized === "ambulance" ||
-    normalized === "driver staff"
+    normalized === "emt" ||
+    normalized === "paramedic" ||
+    normalized === "ambulance crew"
   ) {
     return "Ambulance Driver";
   }
@@ -194,6 +192,122 @@ export function getRouteForRole(role: UserRole): string {
   return role ? (routes[role] || "/") : "/";
 }
 
+// Define fetchProfile BEFORE AuthProvider so it can be used inside
+const fetchProfile = async (
+  userId: string,
+  userMeta?: any,
+  userEmail?: string,
+  setProfile?: (profile: UserProfile | null) => void,
+  setRole?: (role: UserRole) => void
+): Promise<UserRole> => {
+  try {
+    // 1. Try querying profiles table by user ID
+    let profileRow: any = null;
+    let queryError: string | null = null;
+
+    const { data: byIdData, error: byIdError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (byIdError) {
+      queryError = byIdError.message;
+      console.warn("Profile query by ID error:", byIdError.message);
+    }
+
+    if (byIdData) {
+      profileRow = byIdData;
+      console.log("[fetchProfile] Found profile by ID:", { id: profileRow.id, role: profileRow.role });
+    } else {
+      // 2. Try querying profiles table by email
+      const emailToQuery = userEmail || userMeta?.email;
+      if (emailToQuery) {
+        const { data: byEmailData, error: byEmailError } = await supabase
+          .from("profiles")
+          .select("*")
+          .ilike("email", emailToQuery.trim())
+          .maybeSingle();
+
+        if (byEmailError) {
+          queryError = byEmailError.message;
+          console.warn("Profile query by email error:", byEmailError.message);
+        }
+
+        if (byEmailData) {
+          profileRow = byEmailData;
+          console.log("[fetchProfile] Found profile by email:", { id: profileRow.id, role: profileRow.role });
+        }
+      }
+    }
+
+    // Determine raw role (priority: profiles table > user metadata)
+    const rawRole: string | undefined = profileRow?.role || userMeta?.role;
+
+    // Map to standardized UserRole
+    const resolvedRole = mapRole(rawRole) || "Patient";
+
+    console.log("[fetchProfile] Raw role from DB:", rawRole, "-> Mapped role:", resolvedRole, "User metadata role:", userMeta?.role);
+
+    if (profileRow) {
+      const userProfile: UserProfile = {
+        id: profileRow.id,
+        name: profileRow.name || userMeta?.name || "User",
+        email: profileRow.email || userEmail || "",
+        phone: profileRow.phone || "",
+        role: resolvedRole,
+        bloodGroup: profileRow.blood_group,
+        address: profileRow.address,
+        avatarUrl: profileRow.avatar_url,
+        badgeId: profileRow.badge_id,
+        specialty: profileRow.specialty,
+        licenseNo: profileRow.license_no,
+        workingHours: profileRow.working_hours,
+        patientCapacity: profileRow.patient_capacity,
+        onlineBookingEnabled: profileRow.online_booking_enabled,
+      };
+      setProfile?.(userProfile);
+    } else if (userId) {
+      const newProfile: UserProfile = {
+        id: userId,
+        name: userMeta?.name || userEmail?.split("@")[0] || "User",
+        email: userEmail || userMeta?.email || "",
+        phone: userMeta?.phone || "",
+        role: resolvedRole,
+      };
+      setProfile?.(newProfile);
+      try {
+        await supabase.from("profiles").upsert({
+          id: userId,
+          name: newProfile.name,
+          email: newProfile.email,
+          phone: newProfile.phone,
+          role: resolvedRole,
+        });
+      } catch (err) {
+        console.warn("Auto profile sync note:", err);
+      }
+    }
+
+    setRole?.(resolvedRole);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("mediq_user_role", resolvedRole);
+      localStorage.setItem("mediq_logged_in", "true");
+    }
+    return resolvedRole;
+  } catch (err) {
+    console.error("fetchProfile error:", err);
+    // Fallback to metadata or Patient
+    const fallbackRole = mapRole(userMeta?.role) || "Patient";
+    setRole?.(fallbackRole);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("mediq_user_role", fallbackRole);
+      localStorage.setItem("mediq_logged_in", "true");
+    }
+    return fallbackRole;
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -207,105 +321,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string, userMeta?: any, userEmail?: string): Promise<UserRole> => {
-    try {
-      // 1. Try querying profiles table by user ID
-      let profileRow: any = null;
-
-      const { data: byIdData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (byIdData) {
-        profileRow = byIdData;
-      } else {
-        // 2. Try querying profiles table by email
-        const emailToQuery = userEmail || userMeta?.email;
-        if (emailToQuery) {
-          const { data: byEmailData } = await supabase
-            .from("profiles")
-            .select("*")
-            .ilike("email", emailToQuery.trim())
-            .maybeSingle();
-          if (byEmailData) {
-            profileRow = byEmailData;
-          }
-        }
-      }
-
-      // Determine raw role (priority: profiles table > user metadata)
-      const rawRole: string | undefined = profileRow?.role || userMeta?.role;
-
-      // Map to standardized UserRole
-      const resolvedRole = mapRole(rawRole) || "Patient";
-
-      if (profileRow) {
-        const userProfile: UserProfile = {
-          id: profileRow.id,
-          name: profileRow.name || userMeta?.name || "User",
-          email: profileRow.email || userEmail || "",
-          phone: profileRow.phone || "",
-          role: resolvedRole,
-          bloodGroup: profileRow.blood_group,
-          address: profileRow.address,
-          avatarUrl: profileRow.avatar_url,
-          badgeId: profileRow.badge_id,
-          specialty: profileRow.specialty,
-          licenseNo: profileRow.license_no,
-          workingHours: profileRow.working_hours,
-          patientCapacity: profileRow.patient_capacity,
-          onlineBookingEnabled: profileRow.online_booking_enabled,
-        };
-        setProfile(userProfile);
-      } else if (userId) {
-        const newProfile: UserProfile = {
-          id: userId,
-          name: userMeta?.name || userEmail?.split("@")[0] || "User",
-          email: userEmail || userMeta?.email || "",
-          phone: userMeta?.phone || "",
-          role: resolvedRole,
-        };
-        setProfile(newProfile);
-        try {
-          await supabase.from("profiles").upsert({
-            id: userId,
-            name: newProfile.name,
-            email: newProfile.email,
-            phone: newProfile.phone,
-            role: resolvedRole,
-          });
-        } catch (err) {
-          console.warn("Auto profile sync note:", err);
-        }
-      }
-
-      setRole(resolvedRole);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mediq_user_role", resolvedRole);
-        localStorage.setItem("mediq_logged_in", "true");
-      }
-
-      return resolvedRole;
-    } catch (e) {
-      console.warn("Using fallback auth profile:", e);
-      const fallbackRole = mapRole(userMeta?.role) || mapRole(localStorage.getItem("mediq_user_role")) || "Patient";
-      setRole(fallbackRole);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mediq_user_role", fallbackRole);
-      }
-      return fallbackRole;
-    }
-  };
-
   useEffect(() => {
     // 1. Check existing Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id, session.user.user_metadata, session.user.email);
+        fetchProfile(
+          session.user.id,
+          session.user.user_metadata,
+          session.user.email,
+          setProfile,
+          setRole
+        );
       }
       setLoading(false);
     }).catch(() => {
@@ -318,11 +346,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
 
-        if (session?.user) {
-          await fetchProfile(session.user.id, session.user.user_metadata, session.user.email);
+        if (event === "SIGNED_OUT") {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setRole(null);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("mediq_user_role");
+            localStorage.removeItem("mediq_logged_in");
+          }
+        } else if (session?.user) {
+          await fetchProfile(
+            session.user.id,
+            session.user.user_metadata,
+            session.user.email,
+            setProfile,
+            setRole
+          );
         } else {
-          const savedRole = mapRole(localStorage.getItem("mediq_user_role"));
+          const isLoggedIn = typeof window !== "undefined" && localStorage.getItem("mediq_logged_in") === "true";
+          const savedRole = isLoggedIn ? mapRole(localStorage.getItem("mediq_user_role")) : null;
           setRole(savedRole);
+          if (!savedRole) {
+            setProfile(null);
+          }
         }
         setLoading(false);
       }
@@ -365,7 +412,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data?.user) {
         setUser(data.user);
         setSession(data.session);
-        const resolvedRole = await fetchProfile(data.user.id, data.user.user_metadata, data.user.email);
+        const resolvedRole = await fetchProfile(
+          data.user.id,
+          data.user.user_metadata,
+          data.user.email,
+          setProfile,
+          setRole
+        );
         return { error: null, role: resolvedRole };
       }
 
@@ -421,24 +474,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.warn("Signout error:", e);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("mediq_user_role");
+      localStorage.removeItem("mediq_logged_in");
     }
     setUser(null);
     setSession(null);
     setProfile(null);
     setRole(null);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("mediq_user_role");
-      localStorage.removeItem("mediq_logged_in");
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("Signout error:", e);
     }
   };
 
   const refreshProfile = async (): Promise<UserRole> => {
     if (user) {
-      return await fetchProfile(user.id, user.user_metadata, user.email);
+      return await fetchProfile(
+        user.id,
+        user.user_metadata,
+        user.email,
+        setProfile,
+        setRole
+      );
     }
     return role;
   };
@@ -454,7 +513,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     refreshProfile,
     setLocalRole,
-    fetchProfile,
+    fetchProfile: (userId: string, userMeta?: any, userEmail?: string) =>
+      fetchProfile(userId, userMeta, userEmail, setProfile, setRole),
   };
 
   return (

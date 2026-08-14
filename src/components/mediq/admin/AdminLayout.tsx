@@ -53,6 +53,7 @@ import {
   fetchSupabaseSOS,
   fetchSupabaseAuditLogs,
   updateSupabaseProfile,
+  deleteSupabaseProfile,
 } from "@/services/supabase-service";
 
 import { AdminOverview } from "./AdminOverview";
@@ -130,21 +131,29 @@ export function AdminLayout() {
         
         // Fetch profiles (users)
         const profilesData = await fetchSupabaseProfiles();
-        if (profilesData && profilesData.length > 0) {
+        if (profilesData && Array.isArray(profilesData) && profilesData.length > 0) {
           // Transform to SystemUser format
-          const systemUsers = profilesData.map((p: any) => ({
-            id: p.id,
-            userId: p.id,
-            name: p.name,
-            email: p.email,
-            phone: p.phone,
-            role: p.role,
-            status: "Active",
-            registeredDate: new Date().toLocaleDateString(),
-            lastActive: new Date().toLocaleTimeString(),
-            avatar: p.avatarUrl,
-          }));
-          setUsers(systemUsers);
+          const fetchedUsers: SystemUser[] = profilesData.map((p: any, idx: number) => {
+            const safeId = String(p.id || `usr-${idx}-${Date.now()}`);
+            const safeRole = String(p.role || "Patient");
+            const roleCode = safeRole.replace(/[^a-zA-Z]/g, "").substring(0, 3).toUpperCase() || "USR";
+            const idCode = safeId.substring(0, 4).toUpperCase();
+
+            return {
+              id: safeId,
+              userId: p.badgeId || `USR-${roleCode}-${idCode}`,
+              name: p.name || (p.email ? p.email.split("@")[0] : "User Account"),
+              email: p.email || "",
+              phone: p.phone || "+1 (555) 000-0000",
+              role: (p.role as any) || "Patient",
+              status: "Active",
+              registeredDate: new Date().toISOString().split("T")[0],
+              lastActive: "Just now",
+              avatar: p.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+            };
+          });
+
+          setUsers(fetchedUsers);
         }
 
         // Fetch hospitals
@@ -199,6 +208,20 @@ export function AdminLayout() {
     }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    try {
+      const { error } = await deleteSupabaseProfile(userId);
+      if (error) {
+        toast.error(`Failed to delete profile from Supabase: ${error.message}`);
+      } else {
+        toast.success("User account deleted successfully from Supabase");
+      }
+    } catch (e: any) {
+      console.warn("Delete profile error:", e);
+    }
+  };
+
   const handleAddUser = (user: SystemUser) => {
     setUsers((prev) => [user, ...prev]);
   };
@@ -216,14 +239,14 @@ export function AdminLayout() {
       group: "OVERVIEW & CONTROL",
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { id: "users", label: "Users Management", icon: Users, badge: users.length },
-        { id: "hospitals", label: "Hospitals", icon: Building2, badge: hospitals.length },
+        { id: "users", label: "Users Management", icon: Users, badge: (users || []).length },
+        { id: "hospitals", label: "Hospitals", icon: Building2, badge: (hospitals || []).length },
       ],
     },
     {
       group: "STAFF & ROLES",
       items: [
-        { id: "doctors", label: "Doctors", icon: Stethoscope, badge: users.filter((u) => u.role === "Doctor").length },
+        { id: "doctors", label: "Doctors", icon: Stethoscope, badge: (users || []).filter((u) => u?.role === "Doctor").length },
         { id: "patients", label: "Patients", icon: User },
         { id: "receptionists", label: "Receptionists", icon: UserCheck },
         { id: "nurses", label: "Nurses", icon: Activity },
@@ -237,7 +260,7 @@ export function AdminLayout() {
       group: "CLINICAL OPERATIONS",
       items: [
         { id: "appointments", label: "Appointments", icon: Calendar },
-        { id: "emergency", label: "Emergency / SOS", icon: Siren, badge: sosItems.length },
+        { id: "emergency", label: "Emergency / SOS", icon: Siren, badge: (sosItems || []).length },
         { id: "ambulances", label: "Ambulances", icon: Siren },
         { id: "beds", label: "Beds & Wards", icon: Bed },
         { id: "ward-maps", label: "Ward Maps", icon: MapPin },
@@ -254,7 +277,7 @@ export function AdminLayout() {
       items: [
         { id: "notifications", label: "Notifications", icon: Bell },
         { id: "reports", label: "Reports", icon: BarChart },
-        { id: "audit-logs", label: "Audit Logs", icon: History, badge: logs.length },
+        { id: "audit-logs", label: "Audit Logs", icon: History, badge: (logs || []).length },
         { id: "settings", label: "Settings", icon: Settings },
       ],
     },
@@ -434,7 +457,12 @@ export function AdminLayout() {
             activeTab === "pharmacists" ||
             activeTab === "blood-bank-staff" ||
             activeTab === "drivers") && (
-            <UserManagementModule users={users} onUpdateUser={handleUpdateUser} onAddUser={handleAddUser} />
+            <UserManagementModule
+              users={users}
+              onUpdateUser={handleUpdateUser}
+              onAddUser={handleAddUser}
+              onDeleteUser={handleDeleteUser}
+            />
           )}
 
           {activeTab === "hospitals" && (

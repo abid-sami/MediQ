@@ -88,7 +88,7 @@ export interface AdminAuditLog {
 export const initialAdminProfile: AdminProfile = {
   id: "adm-001",
   name: "System Administrator",
-  avatar: "",
+  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
   badgeId: "ADMIN-01",
   role: "Super Admin",
   department: "Global Platform Command & Governance",
