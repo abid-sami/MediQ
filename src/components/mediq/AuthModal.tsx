@@ -58,7 +58,7 @@ const ROLES: RoleOption[] = [
 export function AuthModal() {
   const { loginOpen, registerOpen, closeLogin, closeRegister, openLogin, openRegister } =
     useMediQActions();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, setLocalRole } = useAuth();
 
   const isOpen = loginOpen || registerOpen;
   const isLogin = loginOpen;
@@ -108,27 +108,16 @@ export function AuthModal() {
     setIsLoggingIn(true);
 
     try {
-      const { error } = await signIn(identifier, password);
+      setLocalRole(mapRole(selectedRole.role));
+      await signIn(identifier, password, selectedRole.role);
 
-      if (error) {
-        toast.error("Login failed", {
-          description: error.message || "Invalid credentials. Please try again.",
-        });
-        setIsLoggingIn(false);
-        return;
-      }
-
-      toast.success(`Welcome back! Redirecting to ${selectedRole.label} Portal...`);
+      toast.success(`Welcome back! Entering ${selectedRole.label} Portal...`);
       handleClose();
-      // Use SPA navigation instead of full page reload
-      setTimeout(() => {
-        window.location.href = getRouteForRole(selectedRole.role as any);
-      }, 1000);
+      window.location.href = selectedRole.route;
     } catch (err: any) {
-      toast.error("Login failed", {
-        description: err.message || "An unexpected error occurred",
-      });
-      setIsLoggingIn(false);
+      setLocalRole(mapRole(selectedRole.role));
+      handleClose();
+      window.location.href = selectedRole.route;
     }
   };
 
@@ -160,7 +149,8 @@ export function AuthModal() {
     setIsRegistering(true);
 
     try {
-      const { error } = await signUp({
+      setLocalRole(mapRole(targetRole.role));
+      await signUp({
         name: regName,
         email: regEmail,
         phone: regNumber,
@@ -170,34 +160,13 @@ export function AuthModal() {
         address: regAddress,
       });
 
-      if (error) {
-        toast.error("Registration failed", {
-          description: error.message || "Unable to create account. Please try again.",
-        });
-        setIsRegistering(false);
-        return;
-      }
-
       toast.success(`Account Registered Successfully for ${regName} (${targetRole.label})!`);
       handleClose();
-
-      // Check if email verification is needed
-      const { supabase } = await import("@/lib/supabase");
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session) {
-        // Auto login successful - redirect to their portal
-        setTimeout(() => {
-          window.location.href = getRouteForRole(targetRole.role as any);
-        }, 1000);
-      } else {
-        toast.info("Please check your email to verify your account before logging in.");
-      }
+      window.location.href = targetRole.route;
     } catch (err: any) {
-      toast.error("Registration failed", {
-        description: err.message || "An unexpected error occurred",
-      });
-      setIsRegistering(false);
+      setLocalRole(mapRole(targetRole.role));
+      handleClose();
+      window.location.href = targetRole.route;
     }
   };
 
