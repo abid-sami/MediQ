@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
 
-type UserRole =
+export type UserRole =
   | "Super Admin"
   | "Doctor"
   | "Patient"
@@ -22,13 +22,14 @@ interface AuthContextType {
   profile: UserProfile | null;
   role: UserRole;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string, selectedRole?: string) => Promise<{ error: Error | null }>;
   signUp: (data: SignUpData) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  setLocalRole: (role: UserRole) => void;
 }
 
-interface UserProfile {
+export interface UserProfile {
   id: string;
   name: string;
   email: string;
@@ -45,7 +46,7 @@ interface UserProfile {
   onlineBookingEnabled?: boolean;
 }
 
-interface SignUpData {
+export interface SignUpData {
   name: string;
   email: string;
   phone: string;
@@ -57,24 +58,23 @@ interface SignUpData {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function mapRole(role: string | null): UserRole {
+export function mapRole(role: string | null | undefined): UserRole {
   if (!role) return null;
-  const roleMap: Record<string, UserRole> = {
-    "Super Admin": "Super Admin",
-    "Doctor": "Doctor",
-    "Patient": "Patient",
-    "Nurse": "Nurse",
-    "Pharmacist": "Pharmacist",
-    "Blood Bank Staff": "Blood Bank Staff",
-    "Ambulance Driver": "Ambulance Driver",
-    "Lab Staff": "Lab Staff",
-    "Receptionist": "Receptionist",
-  };
-  return roleMap[role] || null;
+  const normalized = role.trim().toLowerCase();
+  if (normalized === "admin" || normalized === "super admin") return "Super Admin";
+  if (normalized === "doctor" || normalized === "dr") return "Doctor";
+  if (normalized === "patient") return "Patient";
+  if (normalized === "nurse") return "Nurse";
+  if (normalized === "pharmacist" || normalized === "pharmacy staff" || normalized === "pharmacy") return "Pharmacist";
+  if (normalized === "blood bank staff" || normalized === "blood bank") return "Blood Bank Staff";
+  if (normalized === "ambulance driver" || normalized === "driver") return "Ambulance Driver";
+  if (normalized === "lab staff" || normalized === "laboratory staff" || normalized === "pathologist") return "Lab Staff";
+  if (normalized === "receptionist") return "Receptionist";
+  return (role as UserRole) || null;
 }
 
-function getRouteForRole(role: UserRole): string {
-  const routes: Record<UserRole, string> = {
+export function getRouteForRole(role: UserRole): string {
+  const routes: Record<string, string> = {
     "Super Admin": "/admin",
     "Doctor": "/doctor",
     "Patient": "/patient",
@@ -84,82 +84,93 @@ function getRouteForRole(role: UserRole): string {
     "Ambulance Driver": "/ambulance-driver",
     "Lab Staff": "/laboratory-staff",
     "Receptionist": "/receptionist",
-    null: "/",
   };
-  return routes[role] || "/";
+  return role ? (routes[role] || "/") : "/";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [role, setRole] = useState<UserRole>(null);
+  const [role, setRole] = useState<UserRole>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("mediq_user_role");
+      return mapRole(saved);
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, userMeta?: any) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
-        console.warn("Profile not found:", error);
-        setProfile(null);
-        setRole(null);
+      if (data) {
+        const userProfile: UserProfile = {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          role: data.role,
+          bloodGroup: data.blood_group,
+          address: data.address,
+          avatarUrl: data.avatar_url,
+          badgeId: data.badge_id,
+          specialty: data.specialty,
+          licenseNo: data.license_no,
+          workingHours: data.working_hours,
+          patientCapacity: data.patient_capacity,
+          onlineBookingEnabled: data.online_booking_enabled,
+        };
+
+        setProfile(userProfile);
+        const resolvedRole = mapRole(data.role);
+        setRole(resolvedRole);
+        if (resolvedRole && typeof window !== "undefined") {
+          localStorage.setItem("mediq_user_role", resolvedRole);
+        }
         return;
       }
 
-      const userProfile: UserProfile = {
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        role: data.role,
-        bloodGroup: data.blood_group,
-        address: data.address,
-        avatarUrl: data.avatar_url,
-        badgeId: data.badge_id,
-        specialty: data.specialty,
-        licenseNo: data.license_no,
-        workingHours: data.working_hours,
-        patientCapacity: data.patient_capacity,
-        onlineBookingEnabled: data.online_booking_enabled,
-      };
-
-      setProfile(userProfile);
-      setRole(mapRole(data.role));
+      // Fallback to metadata
+      const metaRole = mapRole(userMeta?.role) || mapRole(localStorage.getItem("mediq_user_role")) || "Patient";
+      setRole(metaRole);
     } catch (e) {
-      console.error("Error fetching profile:", e);
-      setProfile(null);
-      setRole(null);
+      console.warn("Using fallback auth profile:", e);
+      const fallbackRole = mapRole(userMeta?.role) || mapRole(localStorage.getItem("mediq_user_role")) || "Patient";
+      setRole(fallbackRole);
     }
   };
 
   useEffect(() => {
-    // Get initial session
+    // 1. Check existing Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
+        fetchProfile(session.user.id, session.user.user_metadata);
       }
+      setLoading(false);
+    }).catch(() => {
+      setLoading(false);
     });
 
-    // Listen for auth changes
+    // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          await fetchProfile(session.user.id, session.user.user_metadata);
         } else {
-          setProfile(null);
-          setRole(null);
+          // If no supabase session, check if there's a stored role
+          const savedRole = mapRole(localStorage.getItem("mediq_user_role"));
+          setRole(savedRole);
         }
         setLoading(false);
       }
@@ -168,63 +179,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+  const setLocalRole = (newRole: UserRole) => {
+    setRole(newRole);
+    if (typeof window !== "undefined" && newRole) {
+      localStorage.setItem("mediq_user_role", newRole);
+    }
+  };
+
+  const signIn = async (email: string, password: string, selectedRole?: string) => {
+    try {
+      if (selectedRole) {
+        setLocalRole(mapRole(selectedRole));
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      return { error };
+    } catch (err: any) {
+      return { error: err };
+    }
   };
 
   const signUp = async (data: SignUpData) => {
-    const email = data.email && data.email.includes("@")
-      ? data.email
-      : `${data.phone.replace(/\D/g, "") || Date.now()}@mediq.health`;
+    try {
+      const email = data.email && data.email.includes("@")
+        ? data.email
+        : `${data.phone.replace(/\D/g, "") || Date.now()}@mediq.health`;
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password: data.password,
-      options: {
-        data: {
-          name: data.name,
-          phone: data.phone,
-          role: data.role,
-          bloodGroup: data.bloodGroup || "O+",
-          address: data.address || "",
-        },
-      },
-    });
+      const mapped = mapRole(data.role) || "Patient";
+      setLocalRole(mapped);
 
-    if (authError) {
-      return { error: authError };
-    }
-
-    if (authData?.user?.id) {
-      await supabase.from("profiles").upsert({
-        id: authData.user.id,
-        name: data.name,
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
-        phone: data.phone,
-        role: data.role,
-        blood_group: data.bloodGroup || "O+",
-        address: data.address || "",
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            phone: data.phone,
+            role: mapped,
+            bloodGroup: data.bloodGroup || "O+",
+            address: data.address || "",
+          },
+        },
       });
-    }
 
-    return { error: authError };
+      if (authData?.user?.id) {
+        await supabase.from("profiles").upsert({
+          id: authData.user.id,
+          name: data.name,
+          email,
+          phone: data.phone,
+          role: mapped,
+          blood_group: data.bloodGroup || "O+",
+          address: data.address || "",
+        });
+      }
+
+      return { error: authError };
+    } catch (err: any) {
+      return { error: err };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("Signout error:", e);
+    }
     setUser(null);
     setSession(null);
     setProfile(null);
     setRole(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("mediq_user_role");
+      localStorage.removeItem("mediq_logged_in");
+    }
   };
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id);
+      await fetchProfile(user.id, user.user_metadata);
     }
   };
 
@@ -238,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     refreshProfile,
+    setLocalRole,
   };
 
   return (
@@ -254,27 +293,3 @@ export function useAuth() {
   }
   return ctx;
 }
-
-// Helper hook for role-based route access
-export function useRequireAuth(allowedRoles?: UserRole[], redirectTo = "/") {
-  const { user, role, loading } = useAuth();
-  const [shouldRender, setShouldRender] = useState(false);
-
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        // Not authenticated
-        setShouldRender(false);
-      } else if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-        // Authenticated but wrong role
-        setShouldRender(false);
-      } else {
-        setShouldRender(true);
-      }
-    }
-  }, [user, role, loading, allowedRoles]);
-
-  return { loading: loading || !shouldRender, user, role, authorized: shouldRender };
-}
-
-export { getRouteForRole };
