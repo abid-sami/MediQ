@@ -87,7 +87,7 @@ export function AuthModal() {
     toast.info(`Selected ${roleOpt.label} Credentials`);
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!identifier.trim()) {
@@ -100,13 +100,17 @@ export function AuthModal() {
       return;
     }
 
+    // Try Supabase Auth Login
+    const { loginWithSupabase } = await import("@/services/supabase-service");
+    await loginWithSupabase(identifier, password);
+
     // Determine route based on selectedRole
     toast.success(`Welcome back! Logging in as ${selectedRole.label}...`);
     handleClose();
     window.location.href = selectedRole.route;
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!regName.trim()) {
@@ -130,6 +134,18 @@ export function AuthModal() {
     }
 
     const targetRole = ROLES.find((r) => r.label === regRole || r.role === regRole) || ROLES[1];
+
+    // Try Supabase Auth Registration
+    const { registerWithSupabase } = await import("@/services/supabase-service");
+    await registerWithSupabase({
+      name: regName,
+      email: regEmail,
+      phone: regNumber,
+      role: targetRole.role,
+      passwordText: regPassword,
+      bloodGroup: regBloodGroup,
+      address: regAddress,
+    });
 
     toast.success(`Account Registered Successfully for ${regName} (${targetRole.label})!`);
     handleClose();
