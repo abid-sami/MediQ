@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { DoctorLayout } from "@/components/mediq/doctor/DoctorLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { DoctorOnlyRoute } from "@/components/mediq/ProtectedRoute";
 
 const title = "MediQ Doctor Dashboard — Clinical Overview & Patient Care";
 const description =
@@ -21,9 +20,8 @@ export const Route = createFileRoute("/doctor")({
 
 function DoctorDashboardPage() {
   return (
-    <ThemeProvider>
+    <DoctorOnlyRoute>
       <DoctorLayout />
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    </DoctorOnlyRoute>
   );
 }

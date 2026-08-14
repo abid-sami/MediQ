@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { PharmacyLayout } from "@/components/mediq/pharmacy/PharmacyLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { PharmacistOnlyRoute } from "@/components/mediq/ProtectedRoute";
 
 const title = "MediQ Pharmacy Dashboard — Clinical E-Prescription & Inventory";
 const description =
@@ -21,9 +20,8 @@ export const Route = createFileRoute("/pharmacy")({
 
 function PharmacyDashboardPage() {
   return (
-    <ThemeProvider>
+    <PharmacistOnlyRoute>
       <PharmacyLayout />
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    </PharmacistOnlyRoute>
   );
 }

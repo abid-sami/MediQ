@@ -8,6 +8,8 @@ import { navLinks } from "@/data/mediq";
 import { cn } from "@/lib/utils";
 
 import { useMediQActions } from "./actions-context";
+import { useAuth } from "@/hooks/use-auth";
+import { LogOut } from "lucide-react";
 
 function Logo() {
   return (
@@ -33,6 +35,7 @@ function Logo() {
 export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { openSos, openLogin, openRegister } = useMediQActions();
+  const { user, signOut } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string>("#home");
@@ -143,6 +146,18 @@ export function Header() {
           <Button onClick={openRegister} variant="outline" className="hidden rounded-full font-semibold md:inline-flex">
             Register
           </Button>
+          {user && (
+            <Button
+              onClick={async () => {
+                await signOut();
+                window.location.href = "/";
+              }}
+              variant="ghost"
+              className="hidden items-center gap-1.5 rounded-full font-semibold text-destructive hover:text-destructive md:inline-flex"
+            >
+              <LogOut className="h-4 w-4" /> Logout
+            </Button>
+          )}
           <Button
             onClick={openSos}
             className="relative rounded-full gradient-emergency font-semibold text-emergency-foreground hover:opacity-90"

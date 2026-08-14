@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { AmbulanceDriverLayout } from "@/components/mediq/ambulancedriver/AmbulanceDriverLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { AmbulanceDriverOnlyRoute } from "@/components/mediq/ProtectedRoute";
 
 const title = "MediQ Ambulance Driver Dashboard — Emergency Response & GPS Dispatch";
 const description =
@@ -21,9 +20,8 @@ export const Route = createFileRoute("/ambulance-driver")({
 
 function AmbulanceDriverDashboardPage() {
   return (
-    <ThemeProvider>
+    <AmbulanceDriverOnlyRoute>
       <AmbulanceDriverLayout />
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    </AmbulanceDriverOnlyRoute>
   );
 }

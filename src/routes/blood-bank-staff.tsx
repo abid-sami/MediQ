@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { BloodBankLayout } from "@/components/mediq/bloodbank/BloodBankLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { BloodBankStaffOnlyRoute } from "@/components/mediq/ProtectedRoute";
 
 const title = "MediQ Blood Bank Staff Dashboard — Central Transfusion Repository";
 const description =
@@ -21,9 +20,8 @@ export const Route = createFileRoute("/blood-bank-staff")({
 
 function BloodBankStaffDashboardPage() {
   return (
-    <ThemeProvider>
+    <BloodBankStaffOnlyRoute>
       <BloodBankLayout />
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    </BloodBankStaffOnlyRoute>
   );
 }
