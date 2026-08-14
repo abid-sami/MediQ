@@ -87,9 +87,9 @@ export function AuthModal() {
     setIsLoggingIn(true);
 
     try {
-      // 1. Sign in with Supabase & resolve role directly from profile
+      // 1. Sign in with Supabase & resolve role automatically from profile/metadata
       const { error, role: resolvedRole } = await signIn(identifier, password);
-      
+
       if (error) {
         toast.error(error.message || "Invalid credentials. Please check your email/phone and password.");
         setIsLoggingIn(false);
@@ -103,7 +103,7 @@ export function AuthModal() {
 
       toast.success(`Login Successful! Entering ${activeRole} Dashboard...`);
       handleClose();
-      
+
       // Immediate redirection to the detected role dashboard
       window.location.href = targetRoute;
     } catch (err: any) {
@@ -214,19 +214,19 @@ export function AuthModal() {
             <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
               <div className="space-y-3">
                 <div>
-                  <Label className="text-xs font-bold text-muted-foreground">Email or Phone Number *</Label>
+                  <Label className="text-xs font-bold text-muted-foreground">Email or Phone Number</Label>
                   <Input
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
-                    placeholder="e.g. sami@mediq.health or +1 (555)..."
+                    placeholder="patient@gmail.com or 017xxxxxxxxx"
                     className="mt-1.5 rounded-xl text-xs font-semibold"
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-muted-foreground">Password * (Minimum 6 digits)</Label>
+                    <Label className="text-xs font-bold text-muted-foreground">Password </Label>
                     <button
                       type="button"
                       onClick={() =>
@@ -297,7 +297,7 @@ export function AuthModal() {
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
                       required
-                      placeholder="e.g. Dr. Mahmudul Hasan"
+                      placeholder="Your Name"
                       className="mt-1 rounded-xl text-xs font-semibold"
                     />
                   </div>
@@ -329,7 +329,7 @@ export function AuthModal() {
                       value={regNumber}
                       onChange={(e) => setRegNumber(e.target.value)}
                       required
-                      placeholder="+1 (555)..."
+                      placeholder="017xxxxxxxxx"
                       className="mt-1 rounded-xl text-xs font-semibold"
                     />
                   </div>
@@ -348,7 +348,7 @@ export function AuthModal() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-bold text-muted-foreground">Password * (6 digits)</Label>
+                    <Label className="text-xs font-bold text-muted-foreground">Password *</Label>
                     <div className="relative mt-1">
                       <Input
                         type={showRegPassword ? "text" : "password"}
@@ -373,7 +373,7 @@ export function AuthModal() {
                   </div>
 
                   <div>
-                    <Label className="text-xs font-bold text-muted-foreground">RePassword * (Confirm)</Label>
+                    <Label className="text-xs font-bold text-muted-foreground">RePassword * </Label>
                     <div className="relative mt-1">
                       <Input
                         type={showRegRePassword ? "text" : "password"}

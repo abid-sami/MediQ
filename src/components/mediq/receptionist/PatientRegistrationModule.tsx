@@ -21,9 +21,11 @@ import {
   CheckCircle2,
   QrCode,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RegisteredPatient } from "@/data/receptionist-data";
+import { registerWithSupabase } from "@/services/supabase-service";
 
 interface PatientRegistrationModuleProps {
   patients: RegisteredPatient[];
@@ -45,40 +47,61 @@ export function PatientRegistrationModule({
   const [address, setAddress] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
   const [medicalNotes, setMedicalNotes] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone) return;
 
-    // Generate unique Patient ID
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    const newPatientId = `PAT-2026-${randomNum}`;
+    setIsRegistering(true);
 
-    const newPatient: RegisteredPatient = {
-      id: `pat-${Date.now()}`,
-      patientId: newPatientId,
-      name,
-      phone,
-      dob,
-      age: new Date().getFullYear() - new Date(dob).getFullYear(),
-      gender,
-      bloodGroup,
-      address,
-      emergencyContact,
-      medicalNotes,
-      registeredDate: new Date().toISOString().split("T")[0],
-    };
+    try {
+      const email = `${phone.replace(/\D/g, "") || Date.now()}@mediq.health`;
 
-    onRegisterPatient(newPatient);
-    setName("");
-    setPhone("");
-    setAddress("");
-    setEmergencyContact("");
-    setMedicalNotes("");
+      const { data: authData } = await registerWithSupabase({
+        name,
+        email,
+        phone,
+        role: "Patient",
+        passwordText: "123456",
+        bloodGroup,
+        address,
+      });
 
-    toast.success(`Registered Patient ${newPatient.name}`, {
-      description: `Generated Unique Patient ID: ${newPatient.patientId}`,
-    });
+      // Generate unique Patient ID
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      const newPatientId = `PAT-2026-${randomNum}`;
+
+      const newPatient: RegisteredPatient = {
+        id: authData?.user?.id || `pat-${Date.now()}`,
+        patientId: newPatientId,
+        name,
+        phone,
+        dob,
+        age: new Date().getFullYear() - new Date(dob).getFullYear(),
+        gender,
+        bloodGroup,
+        address,
+        emergencyContact,
+        medicalNotes: medicalNotes || "",
+        registeredDate: new Date().toISOString().split("T")[0] || "",
+      };
+
+      onRegisterPatient(newPatient);
+      setName("");
+      setPhone("");
+      setAddress("");
+      setEmergencyContact("");
+      setMedicalNotes("");
+
+      toast.success(`Registered Patient ${newPatient.name}`, {
+        description: `Generated Unique Patient ID: ${newPatient.patientId}`,
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to register patient in Supabase");
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   const filtered = patients.filter((p) => {
@@ -179,8 +202,13 @@ export function PatientRegistrationModule({
               </div>
             </div>
 
-            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md">
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Register & Generate Patient ID
+            <Button type="submit" disabled={isRegistering} className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md disabled:opacity-50">
+              {isRegistering ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+              )}
+              {isRegistering ? "REGISTERING IN SUPABASE..." : "Register & Generate Patient ID"}
             </Button>
           </form>
         </div>

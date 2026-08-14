@@ -1,5 +1,20 @@
 import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL || "https://iknstvfrjqsvqpkriqvl.supabase.co";
+const SUPABASE_ANON_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrbnN0dmZyanFzdnFwa3JpcXZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MDY3ODcsImV4cCI6MjEwMjI4Mjc4N30.FxUnkgnJQKoWNmRe6_hAWnGfI3hNmp27X_-1F0ztGoM";
+
+// Secondary non-persisting client so Admin / Staff account creation does NOT replace active admin session!
+const nonPersistSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+});
 
 // ============================================================================
 // 1. AUTH & USER PROFILES SERVICE
@@ -32,7 +47,8 @@ export async function registerWithSupabase(params: {
       ? params.email
       : `${params.phone.replace(/\D/g, "") || Date.now()}@mediq.health`;
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Use nonPersistSupabase so current admin session is NOT overwritten!
+    const { data: authData, error: authError } = await nonPersistSupabase.auth.signUp({
       email,
       password: params.passwordText,
       options: {
@@ -50,17 +66,37 @@ export async function registerWithSupabase(params: {
       console.warn("Supabase Auth signUp note:", authError.message);
     }
 
-    // Upsert into public.profiles
-    if (authData?.user?.id) {
-      await supabase.from("profiles").upsert({
-        id: authData.user.id,
-        name: params.name,
-        email,
-        phone: params.phone,
-        role: params.role,
-        blood_group: params.bloodGroup || "O+",
-        address: params.address || "",
-      });
+    const userId = authData?.user?.id || `usr-${Date.now()}`;
+    const newProfile = {
+      id: userId,
+      name: params.name,
+      email,
+      phone: params.phone,
+      role: params.role,
+      blood_group: params.bloodGroup || "O+",
+      address: params.address || "",
+      avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+      created_at: new Date().toISOString(),
+    };
+
+    // 1. Sync to localStorage for instant local persistence
+    try {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("mediq_registered_users");
+        const list = stored ? JSON.parse(stored) : [];
+        const filtered = list.filter((u: any) => u.id !== userId && u.email !== email);
+        filtered.unshift(newProfile);
+        localStorage.setItem("mediq_registered_users", JSON.stringify(filtered));
+      }
+    } catch (e) {
+      console.warn("Local storage cache write error:", e);
+    }
+
+    // 2. Upsert into public.profiles table in Supabase
+    try {
+      await supabase.from("profiles").upsert(newProfile);
+    } catch (e) {
+      console.warn("Supabase profiles table upsert:", e);
     }
 
     return { data: authData, error: authError };
@@ -564,66 +600,161 @@ export async function createSupabaseLabTest(payload: {
 // ============================================================================
 
 export async function fetchSupabaseProfiles(role?: string) {
+  let dbProfiles: any[] = [];
   try {
     let query = supabase.from("profiles").select("*");
     if (role) {
       query = query.eq("role", role);
     }
     const { data, error } = await query.order("created_at", { ascending: false });
-    if (error || !data) {
-      return [];
+    if (!error && data) {
+      dbProfiles = data.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        phone: p.phone,
+        role: p.role,
+        bloodGroup: p.blood_group,
+        address: p.address,
+        avatarUrl: p.avatar_url,
+        badgeId: p.badge_id,
+        specialty: p.specialty,
+        licenseNo: p.license_no,
+        workingHours: p.working_hours,
+        patientCapacity: p.patient_capacity,
+        onlineBookingEnabled: p.online_booking_enabled,
+      }));
     }
-    return data.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      email: p.email,
-      phone: p.phone,
-      role: p.role,
-      bloodGroup: p.blood_group,
-      address: p.address,
-      avatarUrl: p.avatar_url,
-      badgeId: p.badge_id,
-      specialty: p.specialty,
-      licenseNo: p.license_no,
-      workingHours: p.working_hours,
-      patientCapacity: p.patient_capacity,
-      onlineBookingEnabled: p.online_booking_enabled,
-    }));
   } catch (e) {
-    return [];
+    console.warn("fetchSupabaseProfiles DB fetch:", e);
   }
+
+  // Also read from localStorage cache to ensure zero data loss across refreshes
+  let localProfiles: any[] = [];
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_registered_users");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          localProfiles = parsed.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            phone: p.phone,
+            role: p.role,
+            bloodGroup: p.blood_group || p.bloodGroup,
+            address: p.address,
+            avatarUrl: p.avatar_url || p.avatarUrl,
+            badgeId: p.badge_id || p.badgeId,
+            specialty: p.specialty,
+            licenseNo: p.license_no,
+            workingHours: p.working_hours,
+            patientCapacity: p.patient_capacity,
+            onlineBookingEnabled: p.online_booking_enabled,
+          }));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("fetchSupabaseProfiles local storage read:", e);
+  }
+
+  // Merge DB profiles and local profiles (DB profiles take priority, local fills in new ones)
+  const merged: any[] = [...dbProfiles];
+  for (const lp of localProfiles) {
+    if (!merged.some((mp) => mp.id === lp.id || (mp.email && lp.email && mp.email.toLowerCase() === lp.email.toLowerCase()))) {
+      merged.push(lp);
+    }
+  }
+
+  if (role) {
+    return merged.filter((p) => p.role?.toLowerCase() === role.toLowerCase());
+  }
+
+  return merged;
 }
 
 export async function fetchSupabaseUserProfile(userId: string) {
   try {
     const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (error || !data) {
-      return null;
+    if (!error && data) {
+      return {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        role: data.role,
+        bloodGroup: data.blood_group,
+        address: data.address,
+        avatarUrl: data.avatar_url,
+        badgeId: data.badge_id,
+        specialty: data.specialty,
+        licenseNo: data.license_no,
+        workingHours: data.working_hours,
+        patientCapacity: data.patient_capacity,
+        onlineBookingEnabled: data.online_booking_enabled,
+      };
     }
-    return {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      role: data.role,
-      bloodGroup: data.blood_group,
-      address: data.address,
-      avatarUrl: data.avatar_url,
-      badgeId: data.badge_id,
-      specialty: data.specialty,
-      licenseNo: data.license_no,
-      workingHours: data.working_hours,
-      patientCapacity: data.patient_capacity,
-      onlineBookingEnabled: data.online_booking_enabled,
-    };
   } catch (e) {
-    return null;
+    console.warn("fetchSupabaseUserProfile DB query:", e);
   }
+
+  // Check local cache
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_registered_users");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const match = parsed.find((u: any) => u.id === userId);
+        if (match) return match;
+      }
+    }
+  } catch (e) {}
+
+  return null;
 }
 
 export async function updateSupabaseProfile(userId: string, payload: any) {
+  // Update local cache
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_registered_users");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const updatedList = parsed.map((u: any) => (u.id === userId ? { ...u, ...payload } : u));
+        localStorage.setItem("mediq_registered_users", JSON.stringify(updatedList));
+      }
+    }
+  } catch (e) {
+    console.warn("updateSupabaseProfile local storage update:", e);
+  }
+
   try {
     const { data, error } = await supabase.from("profiles").update(payload).eq("id", userId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteSupabaseProfile(userId: string) {
+  // Delete from local cache
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_registered_users");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const filtered = parsed.filter((u: any) => u.id !== userId);
+        localStorage.setItem("mediq_registered_users", JSON.stringify(filtered));
+      }
+    }
+  } catch (e) {
+    console.warn("deleteSupabaseProfile local storage update:", e);
+  }
+
+  try {
+    const { data, error } = await supabase.from("profiles").delete().eq("id", userId);
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };

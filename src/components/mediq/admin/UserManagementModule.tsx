@@ -26,20 +26,26 @@ import {
   Mail,
   Phone,
   CheckCircle2,
+  Loader2,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SystemUser, UserRole, UserStatus } from "@/data/admin-data";
+import { registerWithSupabase } from "@/services/supabase-service";
 
 interface UserManagementModuleProps {
   users: SystemUser[];
   onUpdateUser: (updated: SystemUser) => void;
   onAddUser?: (user: SystemUser) => void;
+  onDeleteUser?: (userId: string) => void;
 }
 
 export function UserManagementModule({
   users,
   onUpdateUser,
   onAddUser,
+  onDeleteUser,
 }: UserManagementModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
@@ -61,6 +67,10 @@ export function UserManagementModule({
   const [createRole, setCreateRole] = useState<UserRole>("Doctor");
   const [createPassword, setCreatePassword] = useState("");
   const [createRePassword, setCreateRePassword] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Delete User Modal State
+  const [deletingUser, setDeletingUser] = useState<SystemUser | null>(null);
 
   const handleOpenEdit = (u: SystemUser) => {
     setEditingUser(u);
@@ -89,7 +99,7 @@ export function UserManagementModule({
     toast.success(`Updated User Credentials for ${updated.name}`);
   };
 
-  const handleCreateUserSubmit = (e: React.FormEvent) => {
+  const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!createName.trim()) {
@@ -112,38 +122,75 @@ export function UserManagementModule({
       return;
     }
 
-    const newUser: SystemUser = {
-      id: `usr-${Date.now()}`,
-      userId: `USR-${createRole.substring(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
-      name: createName,
-      email: createEmail || `${createName.toLowerCase().replace(/\s+/g, ".")}@mediq.health`,
-      phone: createNumber,
-      role: createRole,
-      status: "Active",
-      registeredDate: new Date().toISOString().split("T")[0],
-      lastActive: "Just now",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
-    };
+    setIsCreating(true);
 
-    if (onAddUser) {
-      onAddUser(newUser);
+    try {
+      const emailToUse =
+        createEmail.trim() ||
+        `${createName.toLowerCase().replace(/[\s_-]+/g, ".")}@mediq.health`;
+
+      const { data: authData, error } = await registerWithSupabase({
+        name: createName,
+        email: emailToUse,
+        phone: createNumber,
+        role: createRole,
+        passwordText: createPassword,
+      });
+
+      if (error) {
+        toast.error(error.message || "Failed to register account in Supabase");
+        setIsCreating(false);
+        return;
+      }
+
+      const generatedId = authData?.user?.id || `usr-${Date.now()}`;
+
+      const newUser: SystemUser = {
+        id: generatedId,
+        userId: generatedId.substring(0, 8).toUpperCase(),
+        name: createName,
+        email: emailToUse,
+        phone: createNumber,
+        role: createRole,
+        status: "Active",
+        registeredDate: new Date().toISOString().split("T")[0],
+        lastActive: "Just now",
+        avatar:
+          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+      };
+
+      if (onAddUser) {
+        onAddUser(newUser);
+      }
+
+      setCreateName("");
+      setCreateEmail("");
+      setCreateNumber("");
+      setCreatePassword("");
+      setCreateRePassword("");
+      setCreateModalOpen(false);
+
+      toast.success(
+        `Account Created & Registered in Supabase for ${newUser.name} (${newUser.role})!`
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "An error occurred while creating account.");
+    } finally {
+      setIsCreating(false);
     }
-
-    setCreateName("");
-    setCreateEmail("");
-    setCreateNumber("");
-    setCreatePassword("");
-    setCreateRePassword("");
-    setCreateModalOpen(false);
-
-    toast.success(`Account Created Successfully for ${newUser.name} (${newUser.role})!`);
   };
 
-  const filtered = users.filter((u) => {
+  const filtered = (users || []).filter((u) => {
+    if (!u) return false;
+    const nameStr = String(u.name || "");
+    const emailStr = String(u.email || "");
+    const userIdStr = String(u.userId || u.id || "");
+    const search = searchTerm.toLowerCase();
+
     const matchesSearch =
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.userId.toLowerCase().includes(searchTerm.toLowerCase());
+      nameStr.toLowerCase().includes(search) ||
+      emailStr.toLowerCase().includes(search) ||
+      userIdStr.toLowerCase().includes(search);
     const matchesRole = roleFilter === "All" || u.role === roleFilter;
     const matchesStatus = statusFilter === "All" || u.status === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
@@ -189,6 +236,7 @@ export function UserManagementModule({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="All">All Roles</SelectItem>
+              <SelectItem value="Super Admin">Super Admin</SelectItem>
               <SelectItem value="Doctor">Doctor</SelectItem>
               <SelectItem value="Patient">Patient</SelectItem>
               <SelectItem value="Nurse">Nurse</SelectItem>
@@ -230,55 +278,79 @@ export function UserManagementModule({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((u) => (
-                <tr key={u.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <img src={u.avatar} alt={u.name} className="h-9 w-9 rounded-xl object-cover border border-primary/30" />
-                      <div>
-                        <p className="font-bold text-foreground">{u.name}</p>
-                        <p className="font-mono text-[10px] text-muted-foreground">{u.userId}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <Badge variant="outline" className="font-bold text-primary text-[10px]">
-                      {u.role}
-                    </Badge>
-                  </td>
-                  <td className="p-4 space-y-0.5">
-                    <p className="text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3 text-teal" /> {u.email}</p>
-                    <p className="text-muted-foreground flex items-center gap-1 font-mono"><Phone className="h-3 w-3 text-primary" /> {u.phone}</p>
-                  </td>
-                  <td className="p-4">
-                    <Badge
-                      className={
-                        u.status === "Active"
-                          ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold"
-                          : u.status === "Suspended"
-                          ? "bg-red-500 text-white font-bold"
-                          : "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold"
-                      }
-                    >
-                      {u.status}
-                    </Badge>
-                  </td>
-                  <td className="p-4">
-                    <p className="text-muted-foreground">{u.registeredDate}</p>
-                    <p className="text-[10px] text-emerald-600 font-bold">{u.lastActive}</p>
-                  </td>
-                  <td className="p-4 text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleOpenEdit(u)}
-                      className="h-8 text-xs font-semibold rounded-lg text-primary"
-                    >
-                      <Edit className="mr-1 h-3.5 w-3.5" /> Edit User
-                    </Button>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    <p className="font-semibold text-sm">No Accounts Found in Database</p>
+                    <p className="text-xs mt-1">No user accounts match the current filter or search criteria.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((u) => (
+                  <tr key={u.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={u.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"}
+                          alt={u.name || "User"}
+                          className="h-9 w-9 rounded-xl object-cover border border-primary/30"
+                        />
+                        <div>
+                          <p className="font-bold text-foreground">{u.name || "User"}</p>
+                          <p className="font-mono text-[10px] text-muted-foreground">{u.userId || u.id}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <Badge variant="outline" className="font-bold text-primary text-[10px]">
+                        {u.role || "Patient"}
+                      </Badge>
+                    </td>
+                    <td className="p-4 space-y-0.5">
+                      <p className="text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3 text-teal" /> {u.email || "No Email"}</p>
+                      <p className="text-muted-foreground flex items-center gap-1 font-mono"><Phone className="h-3 w-3 text-primary" /> {u.phone || "No Phone"}</p>
+                    </td>
+                    <td className="p-4">
+                      <Badge
+                        className={
+                          u.status === "Active"
+                            ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold"
+                            : u.status === "Suspended"
+                            ? "bg-red-500 text-white font-bold"
+                            : "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold"
+                        }
+                      >
+                        {u.status || "Active"}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <p className="text-muted-foreground">{u.registeredDate || "N/A"}</p>
+                      <p className="text-[10px] text-emerald-600 font-bold">{u.lastActive || "Just now"}</p>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenEdit(u)}
+                          className="h-8 text-xs font-semibold rounded-lg text-primary"
+                        >
+                          <Edit className="mr-1 h-3.5 w-3.5" /> Edit
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeletingUser(u)}
+                          className="h-8 text-xs font-semibold rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -312,6 +384,7 @@ export function UserManagementModule({
                   <SelectValue placeholder="Select Staff Role" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="Super Admin">Super Admin</SelectItem>
                   <SelectItem value="Doctor">Doctor</SelectItem>
                   <SelectItem value="Patient">Patient</SelectItem>
                   <SelectItem value="Nurse">Nurse</SelectItem>
@@ -374,8 +447,17 @@ export function UserManagementModule({
               </div>
             </div>
 
-            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Create Staff Account
+            <Button
+              type="submit"
+              disabled={isCreating}
+              className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2 disabled:opacity-50"
+            >
+              {isCreating ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+              )}
+              {isCreating ? "REGISTERING IN SUPABASE..." : "Create Staff Account"}
             </Button>
           </form>
         </DialogContent>
@@ -404,6 +486,7 @@ export function UserManagementModule({
                     <SelectValue placeholder="Role" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Super Admin">Super Admin</SelectItem>
                     <SelectItem value="Doctor">Doctor</SelectItem>
                     <SelectItem value="Patient">Patient</SelectItem>
                     <SelectItem value="Nurse">Nurse</SelectItem>
@@ -445,6 +528,48 @@ export function UserManagementModule({
                 Save User Governance Changes
               </Button>
             </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete User Modal */}
+      {deletingUser && (
+        <Dialog open={!!deletingUser} onOpenChange={() => setDeletingUser(null)}>
+          <DialogContent className="max-w-xs p-6 rounded-2xl bg-card border-border">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <DialogHeader>
+              <DialogTitle className="text-center text-lg font-bold">
+                Delete Account
+              </DialogTitle>
+            </DialogHeader>
+
+            <p className="text-xs text-center text-muted-foreground mt-1">
+              Are you sure you want to delete <strong className="text-foreground">{deletingUser.name}</strong> ({deletingUser.role})? This will permanently remove the account profile from Supabase.
+            </p>
+
+            <div className="mt-4 flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl text-xs"
+                onClick={() => setDeletingUser(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1 rounded-xl text-xs font-bold"
+                onClick={() => {
+                  if (onDeleteUser) {
+                    onDeleteUser(deletingUser.id);
+                  }
+                  setDeletingUser(null);
+                }}
+              >
+                Delete Account
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       )}
