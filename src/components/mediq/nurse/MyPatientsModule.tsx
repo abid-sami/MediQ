@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -9,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Users,
   Search,
@@ -20,14 +27,18 @@ import {
   Plus,
   ShieldAlert,
   FileText,
+  UserPlus,
+  CheckCircle2,
 } from "lucide-react";
-import { NursePatient, NursingNoteItem } from "@/data/nurse-data";
+import { toast } from "sonner";
+import { NursePatient } from "@/data/nurse-data";
 
 interface MyPatientsModuleProps {
   patients: NursePatient[];
   onOpenProfile: (patient: NursePatient) => void;
   onRecordVitalsClick: (patient: NursePatient) => void;
   onAddNoteClick: (patient: NursePatient) => void;
+  onAddPatient?: (newPatient: NursePatient) => void;
 }
 
 export function MyPatientsModule({
@@ -35,9 +46,62 @@ export function MyPatientsModule({
   onOpenProfile,
   onRecordVitalsClick,
   onAddNoteClick,
+  onAddPatient,
 }: MyPatientsModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [conditionFilter, setConditionFilter] = useState("All");
+
+  // Admit Patient Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("50");
+  const [gender, setGender] = useState<"Male" | "Female" | "Other">("Male");
+  const [bloodGroup, setBloodGroup] = useState("O+");
+  const [bedNo, setBedNo] = useState("Bed-409");
+  const [diagnosis, setDiagnosis] = useState("Acute Coronary Syndrome");
+  const [attendingDoctor, setAttendingDoctor] = useState("Dr. Sarah Rahman");
+
+  const handleAdmitPatient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Please enter Patient Name");
+      return;
+    }
+
+    const newPatient: NursePatient = {
+      id: `np-${Date.now()}`,
+      name,
+      age: Number(age) || 45,
+      gender,
+      bloodGroup,
+      bedNo,
+      ward: "CCU Ward 4A",
+      admissionDate: new Date().toISOString().split("T")[0],
+      diagnosis,
+      attendingDoctor,
+      conditionStatus: "Stable",
+      allergies: ["None reported"],
+      latestVitals: {
+        bp: "120/80 mmHg",
+        pulse: "75 bpm",
+        temp: "98.6 °F",
+        spo2: "99%",
+        rr: "16 bpm",
+        weight: "70 kg",
+        recordedAt: "Just now",
+      },
+      carePlan: "Standard Bedside Care & Vitals Monitoring Protocol",
+      alerts: [],
+    };
+
+    if (onAddPatient) {
+      onAddPatient(newPatient);
+    }
+
+    setName("");
+    setModalOpen(false);
+    toast.success(`Patient ${newPatient.name} Admitted to ${newPatient.bedNo}`);
+  };
 
   const filtered = patients.filter((p) => {
     const matchesSearch =
@@ -54,12 +118,19 @@ export function MyPatientsModule({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" /> Assigned Ward Patients
+            <Users className="h-6 w-6 text-primary" /> Assigned Ward Patients ({patients.length})
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Monitor real-time bedside condition, latest vital signs, active alerts, and doctor treatment plans.
           </p>
         </div>
+
+        <Button
+          onClick={() => setModalOpen(true)}
+          className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-md shrink-0 h-10"
+        >
+          <UserPlus className="mr-1.5 h-4 w-4" /> Admit Ward Patient
+        </Button>
       </div>
 
       {/* Search & Filter */}
@@ -196,6 +267,111 @@ export function MyPatientsModule({
           </div>
         ))}
       </div>
+
+      {/* Admit Patient Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" /> Admit New Ward Patient
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleAdmitPatient} className="space-y-3 text-xs mt-2">
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Patient Name *</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="e.g. Mahbubur Rahman"
+                className="mt-1 rounded-xl text-xs font-semibold"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Age</Label>
+                <Input
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Gender</Label>
+                <Select value={gender} onValueChange={(v) => setGender(v as any)}>
+                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                    <SelectValue placeholder="Gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Blood Group</Label>
+                <Select value={bloodGroup} onValueChange={setBloodGroup}>
+                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                    <SelectValue placeholder="Blood" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A+">A+</SelectItem>
+                    <SelectItem value="A-">A-</SelectItem>
+                    <SelectItem value="B+">B+</SelectItem>
+                    <SelectItem value="B-">B-</SelectItem>
+                    <SelectItem value="AB+">AB+</SelectItem>
+                    <SelectItem value="AB-">AB-</SelectItem>
+                    <SelectItem value="O+">O+</SelectItem>
+                    <SelectItem value="O-">O-</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Assigned Bed #</Label>
+                <Input
+                  value={bedNo}
+                  onChange={(e) => setBedNo(e.target.value)}
+                  placeholder="e.g. Bed-409"
+                  className="mt-1 rounded-xl text-xs font-mono font-bold text-primary"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Attending Doctor</Label>
+                <Input
+                  value={attendingDoctor}
+                  onChange={(e) => setAttendingDoctor(e.target.value)}
+                  placeholder="e.g. Dr. Sarah Rahman"
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Primary Clinical Diagnosis</Label>
+              <Input
+                value={diagnosis}
+                onChange={(e) => setDiagnosis(e.target.value)}
+                placeholder="e.g. Congestive Heart Failure Exacerbation"
+                className="mt-1 rounded-xl text-xs"
+              />
+            </div>
+
+            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Confirm Patient Admission
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

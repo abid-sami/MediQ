@@ -138,6 +138,35 @@ export function DoctorLayout() {
     setDiagnosticRequests((prev) => [req, ...prev]);
   };
 
+  const handleAddAppointment = (apt: Appointment) => {
+    setAppointments((prev) => [apt, ...prev]);
+    // Also create patient record if new
+    const exists = patients.some((p) => p.name.toLowerCase() === apt.patientName.toLowerCase());
+    if (!exists) {
+      const newP: Patient = {
+        id: apt.patientId,
+        name: apt.patientName,
+        age: apt.patientAge,
+        gender: apt.patientGender,
+        bloodGroup: apt.patientBloodGroup,
+        contact: "+1 (555) 309 border",
+        email: `${apt.patientName.toLowerCase().replace(/\s+/g, ".")}@email.com`,
+        address: "MediQ Walk-in Clinic Registered Patient",
+        emergencyContact: {
+          name: "Family Member",
+          relationship: "Relative",
+          phone: "+1 (555) 900-0000",
+        },
+        allergies: ["None reported"],
+        chronicConditions: ["None reported"],
+        medicalHistory: "Walk-in consultation patient.",
+        previousVisitsCount: 1,
+        lastVisitDate: new Date().toISOString().split("T")[0],
+      };
+      setPatients((prev) => [newP, ...prev]);
+    }
+  };
+
   const handleOpenReportByName = (testName: string, patientName: string) => {
     const r = reports.find(
       (rep) => rep.testName.toLowerCase() === testName.toLowerCase() || rep.patientName === patientName
@@ -355,6 +384,7 @@ export function DoctorLayout() {
                   prev.map((a) => (a.id === id ? { ...a, status } : a))
                 )
               }
+              onAddAppointment={handleAddAppointment}
             />
           )}
 
@@ -369,6 +399,7 @@ export function DoctorLayout() {
                   prev.map((a) => (a.id === id ? { ...a, status } : a))
                 )
               }
+              onAddAppointment={handleAddAppointment}
             />
           )}
 

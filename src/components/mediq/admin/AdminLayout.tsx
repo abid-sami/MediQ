@@ -98,6 +98,18 @@ export function AdminLayout() {
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
   };
 
+  const handleAddUser = (user: SystemUser) => {
+    setUsers((prev) => [user, ...prev]);
+  };
+
+  const handleAddHospital = (hosp: NetworkHospital) => {
+    setHospitals((prev) => [hosp, ...prev]);
+  };
+
+  const handleAddSOS = (sos: AdminSOSItem) => {
+    setSosItems((prev) => [sos, ...prev]);
+  };
+
   const navSections = [
     {
       group: "OVERVIEW & CONTROL",
@@ -311,15 +323,21 @@ export function AdminLayout() {
             activeTab === "pharmacists" ||
             activeTab === "blood-bank-staff" ||
             activeTab === "drivers") && (
-            <UserManagementModule users={users} onUpdateUser={handleUpdateUser} />
+            <UserManagementModule users={users} onUpdateUser={handleUpdateUser} onAddUser={handleAddUser} />
           )}
 
           {activeTab === "hospitals" && (
-            <HospitalManagementModule hospitals={hospitals} />
+            <HospitalManagementModule
+              hospitals={hospitals}
+              onAddHospital={handleAddHospital}
+            />
           )}
 
           {(activeTab === "emergency" || activeTab === "ambulances") && (
-            <EmergencyCommandCenterModule sosItems={sosItems} />
+            <EmergencyCommandCenterModule
+              sosItems={sosItems}
+              onAddSOS={handleAddSOS}
+            />
           )}
 
           {activeTab === "appointments" && (

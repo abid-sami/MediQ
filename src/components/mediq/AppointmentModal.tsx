@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from "motion/react";
-import { CalendarCheck, CheckCircle2, Loader2 } from "lucide-react";
+import { CalendarCheck, CheckCircle2, Loader2, Clock, Hash, AlertTriangle, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -24,15 +25,24 @@ import {
 } from "@/components/ui/select";
 import { doctorCategories, doctors, timeSlots } from "@/data/mediq";
 import { cn } from "@/lib/utils";
+import {
+  getDoctorSchedules,
+  incrementDoctorBookings,
+  DoctorScheduleConfig,
+} from "@/data/doctor-schedule-store";
 
 import { useMediQActions } from "./actions-context";
 
 type Booking = {
   id: string;
+  serialNo: string;
   doctor: string;
   department: string;
+  consultationHours: string;
   date: string;
   time: string;
+  patientName: string;
+  patientPhone: string;
 };
 
 export function AppointmentModal() {
@@ -46,10 +56,27 @@ export function AppointmentModal() {
   const [submitting, setSubmitting] = useState(false);
   const [booking, setBooking] = useState<Booking | null>(null);
 
+  const [schedules, setSchedules] = useState<Record<string, DoctorScheduleConfig>>(() =>
+    getDoctorSchedules()
+  );
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setSchedules(getDoctorSchedules());
+    };
+    window.addEventListener("mediq_schedule_updated", handleUpdate);
+    return () => window.removeEventListener("mediq_schedule_updated", handleUpdate);
+  }, []);
+
   const availableDoctors = useMemo(
     () => doctors.filter((d) => d.category === category),
     [category],
   );
+
+  const activeDoctorSchedule = useMemo(() => {
+    if (!doctorId) return null;
+    return schedules[doctorId] || schedules["doc-101"] || null;
+  }, [doctorId, schedules]);
 
   const reset = () => {
     setBooking(null);
@@ -64,22 +91,50 @@ export function AppointmentModal() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const doctor = doctors.find((d) => d.id === doctorId);
-    if (!name || !phone || !category || !doctor || !date || !time) {
+    if (!name.trim() || !phone.trim() || !category || !doctor || !date || !time) {
       toast.error("Please complete every step to confirm your appointment.");
       return;
     }
+
+    if (activeDoctorSchedule && !activeDoctorSchedule.isAcceptingBookings) {
+      toast.error(`${doctor.name} is currently not accepting new online bookings.`);
+      return;
+    }
+
+    if (
+      activeDoctorSchedule &&
+      activeDoctorSchedule.currentBookedCount >= activeDoctorSchedule.dailyPatientLimit
+    ) {
+      toast.error(
+        `Daily limit reached for ${doctor.name} (${activeDoctorSchedule.currentBookedCount}/${activeDoctorSchedule.dailyPatientLimit} slots full). Please select another date.`
+      );
+      return;
+    }
+
     setSubmitting(true);
+
     window.setTimeout(() => {
+      // Increment booking count and get serial
+      const newSerialNum = incrementDoctorBookings(doctorId);
+      const formattedSerial = `Serial #${String(newSerialNum).padStart(2, "0")}`;
+      const hoursText = activeDoctorSchedule
+        ? `${activeDoctorSchedule.startTime} - ${activeDoctorSchedule.endTime}`
+        : "09:00 AM - 05:00 PM";
+
       setBooking({
         id: `APT-${Math.floor(10000 + Math.random() * 89999)}`,
+        serialNo: formattedSerial,
         doctor: doctor.name,
         department: category,
+        consultationHours: hoursText,
         date: format(date, "EEEE, d MMMM yyyy"),
         time,
+        patientName: name,
+        patientPhone: phone,
       });
       setSubmitting(false);
-      toast.success("Appointment confirmed");
-    }, 1200);
+      toast.success(`Appointment Confirmed! Assigned ${formattedSerial}`);
+    }, 1000);
   };
 
   return (
@@ -108,9 +163,9 @@ export function AppointmentModal() {
                     <CalendarCheck className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
-                    <DialogTitle className="text-xl">Book Appointment</DialogTitle>
+                    <DialogTitle className="text-xl">Book Doctor Appointment</DialogTitle>
                     <DialogDescription>
-                      Choose a specialist, date and time that fits you.
+                      No account login required. Select a specialist to receive your serial number token.
                     </DialogDescription>
                   </div>
                 </div>
@@ -119,28 +174,30 @@ export function AppointmentModal() {
               <form onSubmit={submit} className="mt-2 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="apt-name">Name</Label>
+                    <Label htmlFor="apt-name">Patient Full Name *</Label>
                     <Input
                       id="apt-name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Your full name"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="apt-phone">Phone Number</Label>
+                    <Label htmlFor="apt-phone">Phone Number *</Label>
                     <Input
                       id="apt-phone"
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+880 1XXX XXXXXX"
+                      placeholder="+1 (555)..."
+                      required
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="apt-category">Category</Label>
+                  <Label htmlFor="apt-category">Medical Category / Department *</Label>
                   <Select
                     value={category}
                     onValueChange={(value) => {
@@ -162,7 +219,7 @@ export function AppointmentModal() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="apt-doctor">Doctor</Label>
+                  <Label htmlFor="apt-doctor">Select Specialist Doctor *</Label>
                   <Select value={doctorId} onValueChange={setDoctorId} disabled={!category}>
                     <SelectTrigger id="apt-doctor">
                       <SelectValue
@@ -179,8 +236,25 @@ export function AppointmentModal() {
                   </Select>
                 </div>
 
+                {/* Doctor Schedule Live Availability Badge */}
+                {activeDoctorSchedule && (
+                  <div className="p-3.5 rounded-2xl bg-teal/10 border border-teal/30 space-y-1 text-xs">
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1.5 text-teal-foreground dark:text-teal">
+                        <Clock className="h-4 w-4" /> Hours: {activeDoctorSchedule.startTime} - {activeDoctorSchedule.endTime}
+                      </span>
+                      <Badge className="bg-teal text-teal-foreground font-extrabold text-[10px]">
+                        Capacity: {activeDoctorSchedule.currentBookedCount} / {activeDoctorSchedule.dailyPatientLimit} Booked
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Next Serial Token Number: <strong className="text-foreground font-mono">Serial #{String(activeDoctorSchedule.currentBookedCount + 1).padStart(2, "0")}</strong>
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label>Select Date</Label>
+                  <Label>Select Date *</Label>
                   <div className="rounded-2xl border border-border bg-surface p-2">
                     <Calendar
                       mode="single"
@@ -193,7 +267,7 @@ export function AppointmentModal() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Select Time</Label>
+                  <Label>Select Preferred Time Slot *</Label>
                   <div className="flex flex-wrap gap-2">
                     {timeSlots.map((slot) => (
                       <button
@@ -216,59 +290,69 @@ export function AppointmentModal() {
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="w-full rounded-xl gradient-primary py-6 text-base font-bold tracking-wide text-primary-foreground hover:opacity-95"
+                  className="w-full rounded-xl gradient-primary py-6 text-base font-bold tracking-wide text-primary-foreground hover:opacity-95 shadow-md"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> CONFIRMING
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> GENERATING SERIAL TOKEN...
                     </>
                   ) : (
-                    "CONFIRM APPOINTMENT"
+                    "CONFIRM APPOINTMENT & GET SERIAL NO"
                   )}
                 </Button>
               </form>
             </motion.div>
           ) : (
+            /* Confirmation Success Screen with Serial Token Number */
             <motion.div
               key="success"
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="space-y-4"
             >
-              <DialogHeader className="items-center">
+              <DialogHeader className="items-center text-center">
                 <motion.span
                   initial={{ scale: 0.5 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                  className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-teal/15 text-teal-foreground dark:text-teal"
+                  className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                 >
                   <CheckCircle2 className="h-8 w-8" />
                 </motion.span>
-                <DialogTitle className="mt-3 text-center text-xl">Appointment Confirmed</DialogTitle>
-                <DialogDescription className="text-center">
-                  We&apos;ve sent the details to your phone number.
+                <DialogTitle className="mt-3 text-center text-xl font-bold">Appointment & Serial Token Confirmed!</DialogTitle>
+                <DialogDescription className="text-center text-xs">
+                  Your appointment and serial number token have been generated successfully. Details sent to {booking.patientPhone}.
                 </DialogDescription>
               </DialogHeader>
 
-              <dl className="mt-5 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+              {/* Highlighted Serial Token Number Banner */}
+              <div className="gradient-primary p-4 rounded-2xl text-primary-foreground text-center space-y-1 shadow-soft">
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">Assigned Serial Token Number</span>
+                <h2 className="text-3xl font-black font-mono tracking-tight">{booking.serialNo}</h2>
+                <p className="text-xs opacity-90">Please present this serial number at the clinic reception.</p>
+              </div>
+
+              <dl className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card text-xs">
                 {[
+                  ["Patient Name", booking.patientName],
                   ["Doctor", booking.doctor],
                   ["Department", booking.department],
-                  ["Date", booking.date],
-                  ["Time", booking.time],
+                  ["Consultation Hours", booking.consultationHours],
+                  ["Appointment Date", booking.date],
+                  ["Requested Slot", booking.time],
                   ["Appointment ID", booking.id],
                 ].map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <dt className="text-sm text-muted-foreground">{label}</dt>
-                    <dd className="min-w-0 truncate text-sm font-semibold">{value}</dd>
+                  <div key={label} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                    <dt className="text-muted-foreground font-semibold">{label}</dt>
+                    <dd className="min-w-0 truncate font-bold text-foreground">{value}</dd>
                   </div>
                 ))}
               </dl>
 
               <Button
-                className="mt-5 w-full rounded-xl font-semibold"
-                variant="outline"
+                className="w-full rounded-xl font-bold gradient-primary text-primary-foreground py-5"
                 onClick={() => {
                   closeAppointment();
                   window.setTimeout(reset, 250);

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -9,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   ShoppingBag,
   Search,
@@ -19,6 +26,7 @@ import {
   Filter,
   ShieldCheck,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PharmacyOrder, OrderStatus } from "@/data/pharmacy-data";
@@ -26,6 +34,7 @@ import { PharmacyOrder, OrderStatus } from "@/data/pharmacy-data";
 interface PharmacyOrdersModuleProps {
   orders: PharmacyOrder[];
   onUpdateStatus: (id: string, newStatus: OrderStatus) => void;
+  onAddOrder?: (newOrder: PharmacyOrder) => void;
 }
 
 const statusBadgeStyles: Record<
@@ -43,9 +52,52 @@ const statusBadgeStyles: Record<
 export function PharmacyOrdersModule({
   orders,
   onUpdateStatus,
+  onAddOrder,
 }: PharmacyOrdersModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+
+  // Create Order Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [patientName, setPatientName] = useState("");
+  const [patientContact, setPatientContact] = useState("+1 (555) 392-1029");
+  const [medicineName, setMedicineName] = useState("Tab. Concor 5mg");
+  const [quantity, setQuantity] = useState("2");
+  const [totalAmount, setTotalAmount] = useState("24.50");
+
+  const handleCreateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patientName.trim()) {
+      toast.error("Please enter Patient Name");
+      return;
+    }
+
+    const newOrder: PharmacyOrder = {
+      id: `po-${Date.now()}`,
+      orderId: `ORD-2026-${Math.floor(1000 + Math.random() * 8999)}`,
+      patientName,
+      patientContact,
+      medicines: [
+        {
+          medicineName,
+          quantity: Number(quantity) || 1,
+          price: Number(totalAmount) || 20,
+        },
+      ],
+      totalAmount: Number(totalAmount) || 24.5,
+      prescriptionStatus: "Verified",
+      orderStatus: "Processing",
+      orderTime: "Just now",
+    };
+
+    if (onAddOrder) {
+      onAddOrder(newOrder);
+    }
+
+    setPatientName("");
+    setModalOpen(false);
+    toast.success(`Pharmacy Order ${newOrder.orderId} Issued Successfully!`);
+  };
 
   const filtered = orders.filter((o) => {
     const matchesSearch =
@@ -61,12 +113,19 @@ export function PharmacyOrdersModule({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <ShoppingBag className="h-6 w-6 text-primary" /> Pharmacy Fulfillment Orders
+            <ShoppingBag className="h-6 w-6 text-primary" /> Pharmacy Fulfillment Orders ({orders.length})
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Process patient orders step-by-step from prescription verification to packaging and completion.
           </p>
         </div>
+
+        <Button
+          onClick={() => setModalOpen(true)}
+          className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-md shrink-0 h-10"
+        >
+          <Plus className="mr-1.5 h-4 w-4" /> Create Pharmacy Order
+        </Button>
       </div>
 
       {/* Controls */}
@@ -184,6 +243,79 @@ export function PharmacyOrdersModule({
           </table>
         </div>
       </div>
+
+      {/* Create Order Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5 text-primary" /> Create New Pharmacy Order
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateOrder} className="space-y-3 text-xs mt-2">
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Patient Full Name *</Label>
+              <Input
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                required
+                placeholder="e.g. Rafiqul Islam"
+                className="mt-1 rounded-xl text-xs font-semibold"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Contact Phone</Label>
+              <Input
+                value={patientContact}
+                onChange={(e) => setPatientContact(e.target.value)}
+                placeholder="+1 (555)..."
+                className="mt-1 rounded-xl text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Medicine Name</Label>
+                <Input
+                  value={medicineName}
+                  onChange={(e) => setMedicineName(e.target.value)}
+                  placeholder="e.g. Tab. Telmisartan 40mg"
+                  className="mt-1 rounded-xl text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Quantity</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="mt-1 rounded-xl text-xs font-bold"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Total Price ($USD) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                value={totalAmount}
+                onChange={(e) => setTotalAmount(e.target.value)}
+                className="mt-1 rounded-xl text-xs font-bold text-primary"
+              />
+            </div>
+
+            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Issue Pharmacy Order
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
