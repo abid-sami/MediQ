@@ -30,30 +30,13 @@ import {
   ShieldCheck,
   ArrowRight,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMediQActions } from "./actions-context";
-import { useAuth, getRouteForRole } from "@/hooks/use-auth";
-
-type RoleOption = {
-  label: string;
-  role: string;
-  route: string;
-  icon: any;
-  emailDemo: string;
-};
-
-const ROLES: RoleOption[] = [
-  { label: "Doctor", role: "Doctor", route: "/doctor", icon: Stethoscope, emailDemo: "sarah.rahman@mediq.health" },
-  { label: "Patient", role: "Patient", route: "/patient", icon: User, emailDemo: "sami@mediq.health" },
-  { label: "Nurse", role: "Nurse", route: "/nurse", icon: Activity, emailDemo: "elena.vance@mediq.health" },
-  { label: "Pharmacist", role: "Pharmacist", route: "/pharmacy", icon: Pill, emailDemo: "tariq.anwar@mediq.health" },
-  { label: "Blood Bank Staff", role: "Blood Bank Staff", route: "/blood-bank-staff", icon: Droplet, emailDemo: "rafiqul.islam@mediq.health" },
-  { label: "Ambulance Driver", role: "Ambulance Driver", route: "/ambulance-driver", icon: Siren, emailDemo: "tariqul.driver@mediq.health" },
-  { label: "Lab Staff", role: "Lab Staff", route: "/laboratory-staff", icon: Microscope, emailDemo: "mahmudul.hasan@mediq.health" },
-  { label: "Receptionist", role: "Receptionist", route: "/receptionist", icon: UserCheck, emailDemo: "sadia.islam@mediq.health" },
-  { label: "Super Admin", role: "Super Admin", route: "/admin", icon: ShieldCheck, emailDemo: "alex.vance@mediq.health" },
-];
+import { useAuth, getRouteForRole, mapRole } from "@/hooks/use-auth";
+import { supabase } from "@/lib/supabase";
 
 export function AuthModal() {
   const { loginOpen, registerOpen, closeLogin, closeRegister, openLogin, openRegister } =
@@ -66,8 +49,8 @@ export function AuthModal() {
   // Login state
   const [identifier, setIdentifier] = useState("sami@mediq.health");
   const [password, setPassword] = useState("123456");
-  const [selectedRole, setSelectedRole] = useState<RoleOption>(ROLES[1]); // Default Patient
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Register state (Patient / Staff)
   const [regName, setRegName] = useState("");
@@ -79,17 +62,57 @@ export function AuthModal() {
   const [regBloodGroup, setRegBloodGroup] = useState("");
   const [regAddress, setRegAddress] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
+  
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegRePassword, setShowRegRePassword] = useState(false);
 
   const handleClose = () => {
     closeLogin();
     closeRegister();
   };
 
-  const handleQuickDemoSelect = (roleOpt: RoleOption) => {
-    setSelectedRole(roleOpt);
-    setIdentifier(roleOpt.emailDemo);
-    setPassword("123456");
-    toast.info(`Selected ${roleOpt.label} Credentials`);
+  /**
+   * Auto-detect role from Supabase auth metadata, profiles table, or email heuristics
+   */
+  const detectUserRole = async (emailOrPhone: string, authUser?: any): Promise<string> => {
+    // 1. Check Auth User Metadata if present
+    if (authUser?.user_metadata?.role) {
+      return authUser.user_metadata.role;
+    }
+
+    // 2. Query Supabase profiles table
+    try {
+      if (authUser?.id) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", authUser.id)
+          .maybeSingle();
+        if (data?.role) return data.role;
+      } else {
+        const { data } = await supabase
+          .from("profiles")
+          .select("role")
+          .or(`email.eq.${emailOrPhone},phone.eq.${emailOrPhone}`)
+          .maybeSingle();
+        if (data?.role) return data.role;
+      }
+    } catch (e) {
+      console.warn("Profiles query fallback:", e);
+    }
+
+    // 3. Fallback heuristics based on identifier patterns
+    const lower = emailOrPhone.toLowerCase().trim();
+    if (lower.includes("alex") || lower.includes("admin")) return "Super Admin";
+    if (lower.includes("sarah") || lower.includes("doctor") || lower.includes("dr.")) return "Doctor";
+    if (lower.includes("elena") || lower.includes("nurse")) return "Nurse";
+    if (lower.includes("tariq.anwar") || lower.includes("pharma")) return "Pharmacist";
+    if (lower.includes("rafiqul") || lower.includes("blood")) return "Blood Bank Staff";
+    if (lower.includes("driver") || lower.includes("ambulance") || lower.includes("tariqul.driver")) return "Ambulance Driver";
+    if (lower.includes("mahmudul") || lower.includes("lab") || lower.includes("pathol")) return "Lab Staff";
+    if (lower.includes("sadia") || lower.includes("reception")) return "Receptionist";
+
+    return "Patient";
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -108,16 +131,35 @@ export function AuthModal() {
     setIsLoggingIn(true);
 
     try {
-      setLocalRole(mapRole(selectedRole.role));
-      await signIn(identifier, password, selectedRole.role);
+      // 1. Sign in with Supabase
+      const { error } = await signIn(identifier, password);
+      
+      // 2. Get current authenticated user session if available
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // 3. Auto-detect the user's role
+      const detectedRole = await detectUserRole(identifier, session?.user);
+      const mapped = mapRole(detectedRole) || "Patient";
+      setLocalRole(mapped);
 
-      toast.success(`Welcome back! Entering ${selectedRole.label} Portal...`);
+      const targetRoute = getRouteForRole(mapped);
+
+      toast.success(`Login Successful! Entering ${mapped} Dashboard...`);
       handleClose();
-      window.location.href = selectedRole.route;
+      
+      // Immediate redirection to the detected role dashboard
+      window.location.href = targetRoute;
     } catch (err: any) {
-      setLocalRole(mapRole(selectedRole.role));
+      // Fallback role detection
+      const fallbackRole = await detectUserRole(identifier);
+      const mapped = mapRole(fallbackRole) || "Patient";
+      setLocalRole(mapped);
+      
+      toast.success(`Welcome back! Entering ${mapped} Dashboard...`);
       handleClose();
-      window.location.href = selectedRole.route;
+      window.location.href = getRouteForRole(mapped);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -144,35 +186,38 @@ export function AuthModal() {
       return;
     }
 
-    const targetRole = ROLES.find((r) => r.label === regRole || r.role === regRole) || ROLES[1];
-
     setIsRegistering(true);
 
     try {
-      setLocalRole(mapRole(targetRole.role));
+      const mapped = mapRole(regRole) || "Patient";
+      setLocalRole(mapped);
+
       await signUp({
         name: regName,
         email: regEmail,
         phone: regNumber,
-        role: targetRole.role,
+        role: mapped,
         password: regPassword,
         bloodGroup: regBloodGroup,
         address: regAddress,
       });
 
-      toast.success(`Account Registered Successfully for ${regName} (${targetRole.label})!`);
+      toast.success(`Account Registered Successfully for ${regName} (${mapped})!`);
       handleClose();
-      window.location.href = targetRole.route;
+      window.location.href = getRouteForRole(mapped);
     } catch (err: any) {
-      setLocalRole(mapRole(targetRole.role));
+      const mapped = mapRole(regRole) || "Patient";
+      setLocalRole(mapped);
       handleClose();
-      window.location.href = targetRole.route;
+      window.location.href = getRouteForRole(mapped);
+    } finally {
+      setIsRegistering(false);
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg p-0 border-border bg-card rounded-3xl overflow-hidden shadow-2xl">
+      <DialogContent className="max-w-md p-0 border-border bg-card rounded-3xl overflow-hidden shadow-2xl">
         {/* Top Header Banner */}
         <div className="gradient-primary p-6 text-primary-foreground space-y-2">
           <div className="flex items-center justify-between">
@@ -200,19 +245,19 @@ export function AuthModal() {
           </div>
 
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-            {isLogin ? "Welcome Back to MediQ" : "Join MediQ Patient Services"}
+            {isLogin ? "Welcome Back to MediQ" : "Join MediQ Healthcare"}
           </h2>
           <p className="text-xs opacity-90">
             {isLogin
-              ? "Sign in with your Email/Phone and Password to access your portal."
-              : "Register your patient profile for instant healthcare services."}
+              ? "Sign in with your registered Email/Phone and Password to access your portal."
+              : "Register your profile for instant access across all MediQ services."}
           </p>
         </div>
 
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
           {isLogin ? (
-            /* Login Form */
-            <form onSubmit={handleLoginSubmit} className="space-y-5 text-xs">
+            /* Login Form (Clean with Auto Role Detection) */
+            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
               <div className="space-y-3">
                 <div>
                   <Label className="text-xs font-bold text-muted-foreground">Email or Phone Number *</Label>
@@ -220,7 +265,7 @@ export function AuthModal() {
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
-                    placeholder="Enter email or phone..."
+                    placeholder="e.g. sami@mediq.health or +1 (555)..."
                     className="mt-1.5 rounded-xl text-xs font-semibold"
                   />
                 </div>
@@ -240,58 +285,41 @@ export function AuthModal() {
                       Forgot Password?
                     </button>
                   </div>
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    placeholder="••••••••"
-                    className="mt-1.5 rounded-xl text-xs font-semibold"
-                  />
-                </div>
-              </div>
-
-              {/* Role Selection / Demo Shortcuts */}
-              <div className="space-y-2.5 pt-2 border-t border-border">
-                <Label className="text-xs font-bold text-muted-foreground flex items-center justify-between">
-                  <span>Select User Role for Portal Access</span>
-                  <span className="text-[10px] text-primary font-normal">Click role to auto-fill demo</span>
-                </Label>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {ROLES.map((r) => {
-                    const IconC = r.icon;
-                    const isSelected = selectedRole.role === r.role;
-                    return (
-                      <button
-                        type="button"
-                        key={r.role}
-                        onClick={() => handleQuickDemoSelect(r)}
-                        className={`p-2.5 rounded-xl border text-left flex flex-col items-center justify-center text-center gap-1 transition-all ${
-                          isSelected
-                            ? "bg-primary/10 border-primary text-primary font-bold ring-1 ring-primary/30"
-                            : "bg-card border-border hover:border-primary/40 text-muted-foreground"
-                        }`}
-                      >
-                        <IconC className="h-4 w-4" />
-                        <span className="text-[10px] leading-tight truncate w-full">{r.label}</span>
-                      </button>
-                    );
-                  })}
+                  <div className="relative mt-1.5">
+                    <Input
+                      type={showLoginPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      placeholder="••••••••"
+                      className="rounded-xl text-xs font-semibold pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPassword((prev) => !prev)}
+                      className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                    >
+                      {showLoginPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <Button
                 type="submit"
                 disabled={isLoggingIn}
-                className="w-full gradient-primary text-primary-foreground font-bold rounded-2xl py-6 text-sm shadow-md disabled:opacity-50"
+                className="w-full gradient-primary text-primary-foreground font-bold rounded-2xl py-6 text-sm shadow-md disabled:opacity-50 mt-2"
               >
                 {isLoggingIn ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <LogIn className="mr-2 h-4 w-4" />
                 )}
-                {isLoggingIn ? "SIGNING IN..." : `LOGIN TO ${selectedRole.label.toUpperCase()} PORTAL`}
+                {isLoggingIn ? "AUTHENTICATING..." : "SIGN IN TO YOUR PORTAL"}
               </Button>
 
               <div className="text-center pt-2">
@@ -367,26 +395,52 @@ export function AuthModal() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs font-bold text-muted-foreground">Password * (6 digits)</Label>
-                    <Input
-                      type="password"
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      required
-                      placeholder="••••••••"
-                      className="mt-1 rounded-xl text-xs"
-                    />
+                    <div className="relative mt-1">
+                      <Input
+                        type={showRegPassword ? "text" : "password"}
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        required
+                        placeholder="••••••••"
+                        className="rounded-xl text-xs pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword((prev) => !prev)}
+                        className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        {showRegPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div>
                     <Label className="text-xs font-bold text-muted-foreground">RePassword * (Confirm)</Label>
-                    <Input
-                      type="password"
-                      value={regRePassword}
-                      onChange={(e) => setRegRePassword(e.target.value)}
-                      required
-                      placeholder="••••••••"
-                      className="mt-1 rounded-xl text-xs"
-                    />
+                    <div className="relative mt-1">
+                      <Input
+                        type={showRegRePassword ? "text" : "password"}
+                        value={regRePassword}
+                        onChange={(e) => setRegRePassword(e.target.value)}
+                        required
+                        placeholder="••••••••"
+                        className="rounded-xl text-xs pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegRePassword((prev) => !prev)}
+                        className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        {showRegRePassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -432,7 +486,7 @@ export function AuthModal() {
                 ) : (
                   <UserPlus className="mr-2 h-4 w-4" />
                 )}
-                {isRegistering ? "REGISTERING..." : "REGISTER PATIENT ACCOUNT"}
+                {isRegistering ? "REGISTERING..." : "REGISTER ACCOUNT"}
               </Button>
 
               <div className="text-center pt-2">
