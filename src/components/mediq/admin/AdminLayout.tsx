@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
@@ -29,6 +29,7 @@ import {
   X,
   ChevronRight,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import {
   initialAdminProfile,
@@ -42,6 +43,12 @@ import {
   AdminSOSItem,
   AdminAuditLog,
 } from "@/data/admin-data";
+import {
+  fetchSupabaseProfiles,
+  fetchSupabaseHospitals,
+  fetchSupabaseSOS,
+  fetchSupabaseAuditLogs,
+} from "@/services/supabase-service";
 
 import { AdminOverview } from "./AdminOverview";
 import { UserManagementModule } from "./UserManagementModule";
@@ -86,6 +93,7 @@ export function AdminLayout() {
 
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Global State
   const [profile, setProfile] = useState<AdminProfile>(initialAdminProfile);
@@ -93,6 +101,58 @@ export function AdminLayout() {
   const [hospitals, setHospitals] = useState<NetworkHospital[]>(initialNetworkHospitals);
   const [sosItems, setSosItems] = useState<AdminSOSItem[]>(initialAdminSOS);
   const [logs, setLogs] = useState<AdminAuditLog[]>(initialAdminAuditLogs);
+
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch profiles (users)
+        const profilesData = await fetchSupabaseProfiles();
+        if (profilesData && profilesData.length > 0) {
+          // Transform to SystemUser format
+          const systemUsers = profilesData.map((p: any) => ({
+            id: p.id,
+            userId: p.id,
+            name: p.name,
+            email: p.email,
+            phone: p.phone,
+            role: p.role,
+            status: "Active",
+            registeredDate: new Date().toLocaleDateString(),
+            lastActive: new Date().toLocaleTimeString(),
+            avatar: p.avatarUrl,
+          }));
+          setUsers(systemUsers);
+        }
+
+        // Fetch hospitals
+        const hospitalsData = await fetchSupabaseHospitals();
+        if (hospitalsData && hospitalsData.length > 0) {
+          setHospitals(hospitalsData);
+        }
+
+        // Fetch SOS requests
+        const sosData = await fetchSupabaseSOS();
+        if (sosData && sosData.length > 0) {
+          setSosItems(sosData);
+        }
+
+        // Fetch audit logs
+        const logsData = await fetchSupabaseAuditLogs();
+        if (logsData && logsData.length > 0) {
+          setLogs(logsData);
+        }
+      } catch (error) {
+        console.error("Error loading admin data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const handleUpdateUser = (updated: SystemUser) => {
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Radio,
   Navigation,
+  Loader2,
 } from "lucide-react";
 import {
   initialAmbulanceDriverProfile,
@@ -22,6 +23,9 @@ import {
   CompletedTripHistory,
   EmergencyStepStatus,
 } from "@/data/ambulance-driver-data";
+import {
+  fetchSupabaseSOS,
+} from "@/services/supabase-service";
 
 import { AmbulanceDriverDashboard } from "./AmbulanceDriverDashboard";
 import { AmbulanceLiveMapModule } from "./AmbulanceLiveMapModule";
@@ -34,9 +38,41 @@ export function AmbulanceDriverLayout() {
   const { theme, toggleTheme } = useTheme();
 
   const [activeTab, setActiveTab] = useState<AmbulanceTab>("dispatch");
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<AmbulanceDriverProfile>(initialAmbulanceDriverProfile);
   const [activeTrip, setActiveTrip] = useState<ActiveEmergencyTrip | null>(initialActiveTrip);
   const [history, setHistory] = useState<CompletedTripHistory[]>(initialTripHistory);
+
+  // Fetch SOS requests on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch SOS requests
+        const sosData = await fetchSupabaseSOS();
+        if (sosData && sosData.length > 0) {
+          // Set the first SOS request as the active trip
+          const firstSOS = sosData[0];
+          setActiveTrip({
+            requestId: firstSOS.requestId,
+            pickupLocation: firstSOS.location,
+            destinationHospital: firstSOS.destinationHospital,
+            patientName: firstSOS.patientName,
+            patientPhone: firstSOS.patientPhone,
+            emergencyType: firstSOS.emergencyType,
+            currentStep: "Going to Pickup",
+          });
+        }
+      } catch (error) {
+        console.error("Error loading ambulance data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const handleUpdateStep = (newStep: EmergencyStepStatus) => {
     if (!activeTrip) return;

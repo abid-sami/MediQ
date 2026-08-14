@@ -443,3 +443,367 @@ export async function createSupabaseSOS(payload: {
     return { data: null, error: err };
   }
 }
+
+// ============================================================================
+// 8. PHARMACY MEDICINES & INVENTORY SERVICE
+// ============================================================================
+
+export async function fetchSupabasePharmacyMedicines() {
+  try {
+    const { data, error } = await supabase.from("pharmacy_inventory").select("*").order("medicine_name", { ascending: true });
+    if (error || !data || data.length === 0) {
+      return initialMedicines;
+    }
+    return data.map((m: any) => ({
+      id: m.id,
+      medicineCode: m.medicine_code,
+      medicineName: m.medicine_name,
+      genericName: m.generic_name,
+      category: m.category,
+      dosageStrength: m.dosage_strength,
+      pricePerUnit: Number(m.price_per_unit),
+      stock: m.stock,
+      reorderLevel: m.reorder_level,
+      manufacturer: m.manufacturer,
+      stockStatus: m.stock_status,
+    }));
+  } catch (e) {
+    return initialMedicines;
+  }
+}
+
+export async function createSupabasePharmacyMedicine(payload: {
+  medicineCode: string;
+  medicineName: string;
+  genericName: string;
+  category: string;
+  dosageStrength: string;
+  pricePerUnit: number;
+  stock: number;
+  reorderLevel: number;
+  manufacturer: string;
+}) {
+  try {
+    const { data, error } = await supabase.from("pharmacy_inventory").insert({
+      medicine_code: payload.medicineCode,
+      medicine_name: payload.medicineName,
+      generic_name: payload.genericName,
+      category: payload.category,
+      dosage_strength: payload.dosageStrength,
+      price_per_unit: payload.pricePerUnit,
+      stock: payload.stock,
+      reorder_level: payload.reorderLevel,
+      manufacturer: payload.manufacturer,
+      stock_status: payload.stock >= payload.reorderLevel ? "In Stock" : "Low Stock",
+    });
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabasePharmacyMedicineStock(medicineId: string, newStock: number) {
+  try {
+    const { data, error } = await supabase
+      .from("pharmacy_inventory")
+      .update({ stock: newStock })
+      .eq("id", medicineId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// ============================================================================
+// 9. LABORATORY CATALOG SERVICE
+// ============================================================================
+
+export async function fetchSupabaseLabCatalog() {
+  try {
+    const { data, error } = await supabase.from("lab_catalog").select("*").order("test_name", { ascending: true });
+    if (error || !data || data.length === 0) {
+      return initialLabCatalog;
+    }
+    return data.map((t: any) => ({
+      id: t.id,
+      testCode: t.test_code,
+      testName: t.test_name,
+      department: t.department,
+      specimenType: t.specimen_type,
+      price: Number(t.price),
+      tatHours: t.tat_hours,
+      referenceRange: t.reference_range,
+    }));
+  } catch (e) {
+    return initialLabCatalog;
+  }
+}
+
+export async function createSupabaseLabTest(payload: {
+  testCode: string;
+  testName: string;
+  department: string;
+  specimenType: string;
+  price: number;
+  tatHours: number;
+  referenceRange: string;
+}) {
+  try {
+    const { data, error } = await supabase.from("lab_catalog").insert({
+      test_code: payload.testCode,
+      test_name: payload.testName,
+      department: payload.department,
+      specimen_type: payload.specimenType,
+      price: payload.price,
+      tat_hours: payload.tatHours,
+      reference_range: payload.referenceRange,
+    });
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// ============================================================================
+// 10. USER PROFILES & SYSTEM USERS SERVICE
+// ============================================================================
+
+export async function fetchSupabaseProfiles(role?: string) {
+  try {
+    let query = supabase.from("profiles").select("*");
+    if (role) {
+      query = query.eq("role", role);
+    }
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error || !data) {
+      return [];
+    }
+    return data.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      phone: p.phone,
+      role: p.role,
+      bloodGroup: p.blood_group,
+      address: p.address,
+      avatarUrl: p.avatar_url,
+      badgeId: p.badge_id,
+      specialty: p.specialty,
+      licenseNo: p.license_no,
+      workingHours: p.working_hours,
+      patientCapacity: p.patient_capacity,
+      onlineBookingEnabled: p.online_booking_enabled,
+    }));
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function fetchSupabaseUserProfile(userId: string) {
+  try {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    if (error || !data) {
+      return null;
+    }
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      role: data.role,
+      bloodGroup: data.blood_group,
+      address: data.address,
+      avatarUrl: data.avatar_url,
+      badgeId: data.badge_id,
+      specialty: data.specialty,
+      licenseNo: data.license_no,
+      workingHours: data.working_hours,
+      patientCapacity: data.patient_capacity,
+      onlineBookingEnabled: data.online_booking_enabled,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function updateSupabaseProfile(userId: string, payload: any) {
+  try {
+    const { data, error } = await supabase.from("profiles").update(payload).eq("id", userId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// ============================================================================
+// 11. AUDIT LOGS SERVICE
+// ============================================================================
+
+export async function fetchSupabaseAuditLogs() {
+  try {
+    const { data, error } = await supabase.from("audit_logs").select("*").order("timestamp", { ascending: false });
+    if (error || !data || data.length === 0) {
+      return initialAdminAuditLogs;
+    }
+    return data.map((log: any) => ({
+      id: log.id,
+      user: log.user_name,
+      role: log.role,
+      action: log.action,
+      module: log.action,
+      timestamp: log.timestamp,
+      ipAddress: log.ip_address,
+      details: log.details,
+    }));
+  } catch (e) {
+    return initialAdminAuditLogs;
+  }
+}
+
+export async function createSupabaseAuditLog(payload: {
+  userName: string;
+  role: string;
+  action: string;
+  ipAddress?: string;
+  details?: string;
+}) {
+  try {
+    const { data, error } = await supabase.from("audit_logs").insert({
+      user_name: payload.userName,
+      role: payload.role,
+      action: payload.action,
+      ip_address: payload.ipAddress || "127.0.0.1",
+      details: payload.details || "",
+    });
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// ============================================================================
+// 12. BLOOD DONORS SERVICE
+// ============================================================================
+
+export async function fetchSupabaseBloodDonors() {
+  try {
+    const { data, error } = await supabase.from("blood_donors").select("*").order("created_at", { ascending: false });
+    if (error || !data || data.length === 0) {
+      return [];
+    }
+    return data.map((d: any) => ({
+      id: d.id,
+      donorId: d.donor_id,
+      name: d.name,
+      bloodGroup: d.blood_group,
+      phone: d.phone,
+      email: d.email,
+      lastDonationDate: d.last_donation_date,
+      totalDonations: d.total_donations,
+      eligibilityStatus: d.eligibility_status,
+    }));
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function createSupabaseBloodDonor(payload: {
+  donorId: string;
+  name: string;
+  bloodGroup: string;
+  phone: string;
+  email?: string;
+}) {
+  try {
+    const { data, error } = await supabase.from("blood_donors").insert({
+      donor_id: payload.donorId,
+      name: payload.name,
+      blood_group: payload.bloodGroup,
+      phone: payload.phone,
+      email: payload.email || "",
+      total_donations: 1,
+      eligibility_status: "Eligible",
+    });
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// ============================================================================
+// 13. UPDATE & DELETE OPERATIONS
+// ============================================================================
+
+export async function updateSupabaseAppointmentStatus(appointmentId: string, status: string) {
+  try {
+    const { data, error } = await supabase
+      .from("appointments")
+      .update({ status })
+      .eq("id", appointmentId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseBedStatus(bedId: string, status: string, admittedPatientName?: string) {
+  try {
+    const updateData: any = { status };
+    if (admittedPatientName) {
+      updateData.admitted_patient_name = admittedPatientName;
+      updateData.admission_date = new Date().toISOString().split("T")[0];
+    }
+    const { data, error } = await supabase.from("beds").update(updateData).eq("id", bedId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseLabOrderStatus(testId: string, status: string) {
+  try {
+    const { data, error } = await supabase.from("lab_test_orders").update({ status }).eq("test_id", testId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabasePharmacyOrderStatus(orderId: string, status: string) {
+  try {
+    const { data, error } = await supabase.from("pharmacy_orders").update({ order_status: status }).eq("order_id", orderId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseBloodRequestStatus(requestId: string, status: string) {
+  try {
+    const { data, error } = await supabase.from("blood_requests").update({ status }).eq("request_id", requestId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseSOSStatus(requestId: string, status: string) {
+  try {
+    const { data, error } = await supabase.from("sos_requests").update({ ambulance_status: status }).eq("request_id", requestId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseBloodInventory(bloodGroup: string, availableUnits: number, reservedUnits: number) {
+  try {
+    const { data, error } = await supabase
+      .from("blood_inventory")
+      .update({ available_units: availableUnits, reserved_units: reservedUnits })
+      .eq("blood_group", bloodGroup);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
