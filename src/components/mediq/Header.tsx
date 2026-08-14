@@ -1,15 +1,15 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Menu, Moon, Siren, Sun, X, Stethoscope, User, Activity, Pill, Droplet, Microscope, UserCheck, ShieldCheck } from "lucide-react";
+import { Menu, Moon, Siren, Sun, X, Stethoscope, User, Activity, Pill, Droplet, Microscope, UserCheck, ShieldCheck, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
 import { navLinks } from "@/data/mediq";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 import { useMediQActions } from "./actions-context";
 import { useAuth } from "@/hooks/use-auth";
-import { LogOut } from "lucide-react";
 
 function Logo() {
   return (
@@ -39,6 +39,7 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string>("#home");
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -53,6 +54,12 @@ export function Header() {
       document.body.style.overflow = "";
     };
   }, [open]);
+
+  const handleConfirmLogout = async () => {
+    setLogoutConfirmOpen(false);
+    await signOut();
+    window.location.href = "/";
+  };
 
   return (
     <header
@@ -89,48 +96,82 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
-          <a
-            href="/laboratory-staff"
-            className="hidden items-center gap-1.5 rounded-full border border-teal/40 bg-teal/10 px-3.5 py-1.5 text-xs font-bold text-teal transition-all hover:bg-teal hover:text-teal-foreground md:inline-flex"
-          >
-            <Microscope className="h-3.5 w-3.5" /> Lab Portal
-          </a>
-          <a
-            href="/ambulance-driver"
-            className="hidden items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-3.5 py-1.5 text-xs font-bold text-destructive transition-all hover:bg-destructive hover:text-white md:inline-flex"
-          >
-            <Siren className="h-3.5 w-3.5" /> Ambulance Portal
-          </a>
-          <a
-            href="/blood-bank-staff"
-            className="hidden items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3.5 py-1.5 text-xs font-bold text-red-600 dark:text-red-400 transition-all hover:bg-red-500 hover:text-white md:inline-flex"
-          >
-            <Droplet className="h-3.5 w-3.5" /> Blood Bank Portal
-          </a>
-          <a
-            href="/pharmacy"
-            className="hidden items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 transition-all hover:bg-amber-500 hover:text-white md:inline-flex"
-          >
-            <Pill className="h-3.5 w-3.5" /> Pharmacy Portal
-          </a>
-          <a
-            href="/nurse"
-            className="hidden items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/10 px-3.5 py-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 transition-all hover:bg-purple-500 hover:text-white md:inline-flex"
-          >
-            <Activity className="h-3.5 w-3.5" /> Nurse Portal
-          </a>
-          <a
-            href="/patient"
-            className="hidden items-center gap-1.5 rounded-full border border-teal/40 bg-teal/10 px-3.5 py-1.5 text-xs font-bold text-teal transition-all hover:bg-teal hover:text-teal-foreground md:inline-flex"
-          >
-            <User className="h-3.5 w-3.5" /> Patient Portal
-          </a>
-          <a
-            href="/doctor"
-            className="hidden items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition-all hover:bg-primary hover:text-primary-foreground md:inline-flex"
-          >
-            <Stethoscope className="h-3.5 w-3.5" /> Doctor Portal
-          </a>
+          {user && role && (
+            <>
+              {role === "Lab Staff" && (
+                <a
+                  href="/laboratory-staff"
+                  className="hidden items-center gap-1.5 rounded-full border border-teal/40 bg-teal/10 px-3.5 py-1.5 text-xs font-bold text-teal transition-all hover:bg-teal hover:text-teal-foreground md:inline-flex"
+                >
+                  <Microscope className="h-3.5 w-3.5" /> Lab Portal
+                </a>
+              )}
+              {role === "Ambulance Driver" && (
+                <a
+                  href="/ambulance-driver"
+                  className="hidden items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-3.5 py-1.5 text-xs font-bold text-destructive transition-all hover:bg-destructive hover:text-white md:inline-flex"
+                >
+                  <Siren className="h-3.5 w-3.5" /> Ambulance Portal
+                </a>
+              )}
+              {role === "Blood Bank Staff" && (
+                <a
+                  href="/blood-bank-staff"
+                  className="hidden items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3.5 py-1.5 text-xs font-bold text-red-600 dark:text-red-400 transition-all hover:bg-red-500 hover:text-white md:inline-flex"
+                >
+                  <Droplet className="h-3.5 w-3.5" /> Blood Bank Portal
+                </a>
+              )}
+              {role === "Pharmacist" && (
+                <a
+                  href="/pharmacy"
+                  className="hidden items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 transition-all hover:bg-amber-500 hover:text-white md:inline-flex"
+                >
+                  <Pill className="h-3.5 w-3.5" /> Pharmacy Portal
+                </a>
+              )}
+              {role === "Nurse" && (
+                <a
+                  href="/nurse"
+                  className="hidden items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/10 px-3.5 py-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 transition-all hover:bg-purple-500 hover:text-white md:inline-flex"
+                >
+                  <Activity className="h-3.5 w-3.5" /> Nurse Portal
+                </a>
+              )}
+              {role === "Patient" && (
+                <a
+                  href="/patient"
+                  className="hidden items-center gap-1.5 rounded-full border border-teal/40 bg-teal/10 px-3.5 py-1.5 text-xs font-bold text-teal transition-all hover:bg-teal hover:text-teal-foreground md:inline-flex"
+                >
+                  <User className="h-3.5 w-3.5" /> Patient Portal
+                </a>
+              )}
+              {role === "Doctor" && (
+                <a
+                  href="/doctor"
+                  className="hidden items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition-all hover:bg-primary hover:text-primary-foreground md:inline-flex"
+                >
+                  <Stethoscope className="h-3.5 w-3.5" /> Doctor Portal
+                </a>
+              )}
+              {role === "Super Admin" && (
+                <a
+                  href="/admin"
+                  className="hidden items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition-all hover:bg-primary hover:text-primary-foreground md:inline-flex"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" /> Admin Portal
+                </a>
+              )}
+              {role === "Receptionist" && (
+                <a
+                  href="/receptionist"
+                  className="hidden items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition-all hover:bg-primary hover:text-primary-foreground md:inline-flex"
+                >
+                  <UserCheck className="h-3.5 w-3.5" /> Receptionist Portal
+                </a>
+              )}
+            </>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -140,24 +181,26 @@ export function Header() {
           >
             {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
-          <Button onClick={openLogin} variant="ghost" className="hidden rounded-full font-semibold md:inline-flex">
-            Login
-          </Button>
-          <Button onClick={openRegister} variant="outline" className="hidden rounded-full font-semibold md:inline-flex">
-            Register
-          </Button>
-          {user && (
+
+          {!user ? (
+            <>
+              <Button onClick={openLogin} variant="ghost" className="hidden rounded-full font-semibold md:inline-flex">
+                Login
+              </Button>
+              <Button onClick={openRegister} variant="outline" className="hidden rounded-full font-semibold md:inline-flex">
+                Register
+              </Button>
+            </>
+          ) : (
             <Button
-              onClick={async () => {
-                await signOut();
-                window.location.href = "/";
-              }}
+              onClick={() => setLogoutConfirmOpen(true)}
               variant="ghost"
               className="hidden items-center gap-1.5 rounded-full font-semibold text-destructive hover:text-destructive md:inline-flex"
             >
               <LogOut className="h-4 w-4" /> Logout
             </Button>
           )}
+
           <Button
             onClick={openSos}
             className="relative rounded-full gradient-emergency font-semibold text-emergency-foreground hover:opacity-90"
@@ -227,12 +270,42 @@ export function Header() {
                   {link.label}
                 </motion.a>
               ))}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Button variant="outline" className="rounded-full font-semibold">
-                  Login
+              
+              {!user ? (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={() => {
+                      setOpen(false);
+                      openLogin();
+                    }}
+                    variant="outline"
+                    className="rounded-full font-semibold"
+                  >
+                    Login
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setOpen(false);
+                      openRegister();
+                    }}
+                    className="rounded-full font-semibold"
+                  >
+                    Register
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => {
+                    setOpen(false);
+                    setLogoutConfirmOpen(true);
+                  }}
+                  variant="outline"
+                  className="mt-3 rounded-full font-semibold text-destructive border-destructive/20 hover:bg-destructive/10"
+                >
+                  <LogOut className="mr-1.5 h-4 w-4" /> Logout
                 </Button>
-                <Button className="rounded-full font-semibold">Register</Button>
-              </div>
+              )}
+
               <Button
                 onClick={() => {
                   setOpen(false);
@@ -247,7 +320,36 @@ export function Header() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="max-w-xs p-6 rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <LogOut className="h-5 w-5 text-destructive" /> Confirm Sign Out
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Are you sure you want to log out of the MediQ platform? You will need to sign in again to access patient or clinical portals.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-2 justify-end mt-4">
+            <Button
+              onClick={() => setLogoutConfirmOpen(false)}
+              variant="ghost"
+              className="text-xs font-semibold rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmLogout}
+              className="bg-destructive hover:bg-destructive/90 text-white text-xs font-bold rounded-xl"
+            >
+              Sign Out
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
-
