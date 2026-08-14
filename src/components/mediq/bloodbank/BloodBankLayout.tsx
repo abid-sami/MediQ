@@ -180,6 +180,10 @@ export function BloodBankLayout() {
     setDonations((prev) => [donation, ...prev]);
   };
 
+  const handleAddRequest = (req: BloodRequestItem) => {
+    setRequests((prev) => [req, ...prev]);
+  };
+
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "inventory", label: "Blood Inventory", icon: Droplet },
@@ -364,6 +368,7 @@ export function BloodBankLayout() {
               onReject={handleRejectRequest}
               onReserve={handleReserveRequest}
               onFulfill={handleFulfillRequest}
+              onAddRequest={handleAddRequest}
             />
           )}
 
@@ -393,6 +398,7 @@ export function BloodBankLayout() {
               onReject={handleRejectRequest}
               onReserve={handleReserveRequest}
               onFulfill={handleFulfillRequest}
+              onAddRequest={handleAddRequest}
             />
           )}
 

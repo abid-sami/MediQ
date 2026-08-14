@@ -116,6 +116,14 @@ export function PharmacyLayout() {
     );
   };
 
+  const handleAddOrder = (order: PharmacyOrder) => {
+    setOrders((prev) => [order, ...prev]);
+  };
+
+  const handleAddSupplier = (supplier: PharmacySupplier) => {
+    setSuppliers((prev) => [supplier, ...prev]);
+  };
+
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "orders", label: "Orders", icon: ShoppingBag, badge: orders.filter((o) => o.orderStatus === "Pending").length },
@@ -288,6 +296,7 @@ export function PharmacyLayout() {
             <PharmacyOrdersModule
               orders={orders}
               onUpdateStatus={handleUpdateOrderStatus}
+              onAddOrder={handleAddOrder}
             />
           )}
 
@@ -315,7 +324,10 @@ export function PharmacyLayout() {
           )}
 
           {(activeTab === "categories" || activeTab === "suppliers") && (
-            <CategoriesAndSuppliersModule suppliers={suppliers} />
+            <CategoriesAndSuppliersModule
+              suppliers={suppliers}
+              onAddSupplier={handleAddSupplier}
+            />
           )}
 
           {activeTab === "reports" && (

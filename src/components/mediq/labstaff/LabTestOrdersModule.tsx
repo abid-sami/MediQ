@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -9,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   FileText,
   Search,
@@ -18,13 +25,15 @@ import {
   Filter,
   Stethoscope,
   Microscope,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { LabTestOrder, LabTestOrderStatus } from "@/data/lab-staff-data";
+import { LabTestOrder, LabTestOrderStatus, LabTestPriority } from "@/data/lab-staff-data";
 
 interface LabTestOrdersModuleProps {
   orders: LabTestOrder[];
   onUpdateStatus: (id: string, newStatus: LabTestOrderStatus) => void;
+  onAddOrder?: (newOrder: LabTestOrder) => void;
 }
 
 const statusBadgeStyles: Record<
@@ -42,9 +51,48 @@ const statusBadgeStyles: Record<
 export function LabTestOrdersModule({
   orders,
   onUpdateStatus,
+  onAddOrder,
 }: LabTestOrdersModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+
+  // Create Test Order Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [patientName, setPatientName] = useState("");
+  const [patientAge, setPatientAge] = useState("52");
+  const [doctorName, setDoctorName] = useState("Dr. Sarah Rahman");
+  const [testName, setTestName] = useState("Lipid Profile & HbA1c");
+  const [category, setCategory] = useState("Blood Tests");
+  const [priority, setPriority] = useState<LabTestPriority>("Urgent");
+
+  const handleCreateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patientName.trim()) {
+      toast.error("Please enter Patient Name");
+      return;
+    }
+
+    const newOrder: LabTestOrder = {
+      id: `lto-${Date.now()}`,
+      testId: `LAB-2026-${Math.floor(1000 + Math.random() * 8999)}`,
+      patientName,
+      patientAge: Number(patientAge) || 45,
+      doctorName,
+      testName,
+      category,
+      priority,
+      date: new Date().toISOString().split("T")[0],
+      status: "Sample Pending",
+    };
+
+    if (onAddOrder) {
+      onAddOrder(newOrder);
+    }
+
+    setPatientName("");
+    setModalOpen(false);
+    toast.success(`Created Lab Test Requisition ${newOrder.testId} for ${newOrder.patientName}`);
+  };
 
   const filtered = orders.filter((o) => {
     const matchesSearch =
@@ -61,12 +109,19 @@ export function LabTestOrdersModule({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Microscope className="h-6 w-6 text-primary" /> Diagnostic Test Requisitions Roster
+            <Microscope className="h-6 w-6 text-primary" /> Diagnostic Test Requisitions Roster ({orders.length})
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Track test requisitions from doctor order to sample collection, processing, and completion.
           </p>
         </div>
+
+        <Button
+          onClick={() => setModalOpen(true)}
+          className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-md shrink-0 h-10"
+        >
+          <Plus className="mr-1.5 h-4 w-4" /> Create Test Order
+        </Button>
       </div>
 
       {/* Filter Bar */}
@@ -174,6 +229,99 @@ export function LabTestOrdersModule({
           </table>
         </div>
       </div>
+
+      {/* Create Order Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Microscope className="h-5 w-5 text-primary" /> Create Diagnostic Test Order
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateOrder} className="space-y-3 text-xs mt-2">
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Patient Name *</Label>
+              <Input
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                required
+                placeholder="e.g. Rafiqul Islam"
+                className="mt-1 rounded-xl text-xs font-semibold"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Patient Age</Label>
+                <Input
+                  type="number"
+                  value={patientAge}
+                  onChange={(e) => setPatientAge(e.target.value)}
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Ordering Doctor</Label>
+                <Input
+                  value={doctorName}
+                  onChange={(e) => setDoctorName(e.target.value)}
+                  placeholder="e.g. Dr. Sarah Rahman"
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Pathology / Diagnostic Test *</Label>
+              <Input
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+                required
+                placeholder="e.g. 12-Lead ECG & Cardiac Troponin-I"
+                className="mt-1 rounded-xl text-xs font-semibold"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Category</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Blood Tests">Blood Tests</SelectItem>
+                    <SelectItem value="Biochemistry">Biochemistry</SelectItem>
+                    <SelectItem value="Pathology">Pathology</SelectItem>
+                    <SelectItem value="ECG & Cardiac">ECG & Cardiac</SelectItem>
+                    <SelectItem value="Microbiology">Microbiology</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Priority</Label>
+                <Select value={priority} onValueChange={(v) => setPriority(v as LabTestPriority)}>
+                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="STAT Emergency">🚨 STAT Emergency</SelectItem>
+                    <SelectItem value="Urgent">⚡ Urgent</SelectItem>
+                    <SelectItem value="Routine">Routine</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Issue Requisition Order
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

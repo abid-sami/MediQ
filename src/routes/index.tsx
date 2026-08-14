@@ -16,6 +16,7 @@ import { EmergencyCTA } from "@/components/mediq/EmergencyCTA";
 import { Footer } from "@/components/mediq/Footer";
 import { SOSModal } from "@/components/mediq/SOSModal";
 import { AppointmentModal } from "@/components/mediq/AppointmentModal";
+import { AuthModal } from "@/components/mediq/AuthModal";
 
 const title = "MediQ — Healthcare, Connected in One Place";
 const description =
@@ -53,6 +54,7 @@ function Index() {
           <Footer />
           <SOSModal />
           <AppointmentModal />
+          <AuthModal />
           <Toaster position="top-center" />
         </div>
       </MediQActionsProvider>

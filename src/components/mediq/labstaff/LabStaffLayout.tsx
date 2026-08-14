@@ -99,6 +99,10 @@ export function LabStaffLayout() {
     setCatalog((prev) => [test, ...prev]);
   };
 
+  const handleAddOrder = (order: LabTestOrder) => {
+    setOrders((prev) => [order, ...prev]);
+  };
+
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "test-orders", label: "Test Orders", icon: FileText, badge: orders.length },
@@ -269,6 +273,7 @@ export function LabStaffLayout() {
             <LabTestOrdersModule
               orders={orders}
               onUpdateStatus={handleUpdateOrderStatus}
+              onAddOrder={handleAddOrder}
             />
           )}
 
@@ -309,6 +314,7 @@ export function LabStaffLayout() {
             <LabTestOrdersModule
               orders={orders}
               onUpdateStatus={handleUpdateOrderStatus}
+              onAddOrder={handleAddOrder}
             />
           )}
 

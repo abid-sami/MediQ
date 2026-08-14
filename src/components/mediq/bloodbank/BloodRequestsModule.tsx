@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -9,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Droplet,
   Search,
@@ -20,9 +27,10 @@ import {
   Building2,
   BookmarkCheck,
   CheckCheck,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { BloodRequestItem, RequestStatus, RequestUrgency } from "@/data/blood-bank-data";
+import { BloodRequestItem, BloodGroupType, RequestUrgency } from "@/data/blood-bank-data";
 
 interface BloodRequestsModuleProps {
   requests: BloodRequestItem[];
@@ -30,6 +38,7 @@ interface BloodRequestsModuleProps {
   onReject: (id: string) => void;
   onReserve: (id: string) => void;
   onFulfill: (id: string) => void;
+  onAddRequest?: (newRequest: BloodRequestItem) => void;
 }
 
 export function BloodRequestsModule({
@@ -38,9 +47,50 @@ export function BloodRequestsModule({
   onReject,
   onReserve,
   onFulfill,
+  onAddRequest,
 }: BloodRequestsModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [urgencyFilter, setUrgencyFilter] = useState("All");
+
+  // Create Request Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [patientName, setPatientName] = useState("");
+  const [patientAge, setPatientAge] = useState("48");
+  const [bloodGroup, setBloodGroup] = useState<BloodGroupType>("O+");
+  const [unitsNeeded, setUnitsNeeded] = useState("2");
+  const [hospitalName, setHospitalName] = useState("MediQ Central Hospital Ward 3B");
+  const [doctorName, setDoctorName] = useState("Dr. Sarah Rahman");
+  const [urgency, setUrgency] = useState<RequestUrgency>("Urgent");
+
+  const handleCreateRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patientName.trim()) {
+      toast.error("Please enter Patient Name");
+      return;
+    }
+
+    const newReq: BloodRequestItem = {
+      id: `br-${Date.now()}`,
+      requestId: `REQ-B-${Math.floor(1000 + Math.random() * 8999)}`,
+      patientName,
+      patientAge: Number(patientAge) || 40,
+      bloodGroup,
+      unitsNeeded: Number(unitsNeeded) || 1,
+      hospitalName,
+      doctorName,
+      requiredDate: new Date().toISOString().split("T")[0],
+      urgency,
+      status: "Pending",
+    };
+
+    if (onAddRequest) {
+      onAddRequest(newReq);
+    }
+
+    setPatientName("");
+    setModalOpen(false);
+    toast.success(`Blood Request ${newReq.requestId} for ${newReq.patientName} Submitted (${newReq.urgency})`);
+  };
 
   const filtered = requests.filter((r) => {
     const matchesSearch =
@@ -57,12 +107,19 @@ export function BloodRequestsModule({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Droplet className="h-6 w-6 text-red-500" /> Patient Blood Requisition & Fulfillment
+            <Droplet className="h-6 w-6 text-red-500" /> Patient Blood Requisition & Fulfillment ({requests.length})
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Process hospital blood requests with urgency levels: Normal, Urgent, and 🚨 Emergency.
           </p>
         </div>
+
+        <Button
+          onClick={() => setModalOpen(true)}
+          className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md shrink-0 h-10"
+        >
+          <Plus className="mr-1.5 h-4 w-4" /> Submit Blood Requisition
+        </Button>
       </div>
 
       {/* Filter Bar */}
@@ -222,6 +279,113 @@ export function BloodRequestsModule({
           </table>
         </div>
       </div>
+
+      {/* Create Requisition Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Droplet className="h-5 w-5 text-red-500" /> Submit New Blood Requisition
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateRequest} className="space-y-3 text-xs mt-2">
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Patient Full Name *</Label>
+              <Input
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                required
+                placeholder="e.g. Kamrul Hasan"
+                className="mt-1 rounded-xl text-xs font-semibold"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Age</Label>
+                <Input
+                  type="number"
+                  value={patientAge}
+                  onChange={(e) => setPatientAge(e.target.value)}
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Blood Group</Label>
+                <Select value={bloodGroup} onValueChange={(v) => setBloodGroup(v as BloodGroupType)}>
+                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold text-red-500">
+                    <SelectValue placeholder="Group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A+">A+</SelectItem>
+                    <SelectItem value="A-">A-</SelectItem>
+                    <SelectItem value="B+">B+</SelectItem>
+                    <SelectItem value="B-">B-</SelectItem>
+                    <SelectItem value="AB+">AB+</SelectItem>
+                    <SelectItem value="AB-">AB-</SelectItem>
+                    <SelectItem value="O+">O+</SelectItem>
+                    <SelectItem value="O-">O-</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Units Needed</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={unitsNeeded}
+                  onChange={(e) => setUnitsNeeded(e.target.value)}
+                  className="mt-1 rounded-xl text-xs font-bold"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Hospital / Ward Unit</Label>
+              <Input
+                value={hospitalName}
+                onChange={(e) => setHospitalName(e.target.value)}
+                placeholder="e.g. Central Hospital ICU"
+                className="mt-1 rounded-xl text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Prescribing Physician</Label>
+                <Input
+                  value={doctorName}
+                  onChange={(e) => setDoctorName(e.target.value)}
+                  placeholder="e.g. Dr. Sarah Rahman"
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Urgency Level</Label>
+                <Select value={urgency} onValueChange={(v) => setUrgency(v as RequestUrgency)}>
+                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                    <SelectValue placeholder="Urgency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Emergency">🚨 Emergency</SelectItem>
+                    <SelectItem value="Urgent">⚡ Urgent</SelectItem>
+                    <SelectItem value="Normal">Normal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl py-5 shadow-md mt-2">
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Submit Requisition
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

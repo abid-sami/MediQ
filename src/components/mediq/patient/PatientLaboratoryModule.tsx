@@ -1,9 +1,20 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Microscope,
@@ -16,16 +27,51 @@ import {
   Printer,
   Calendar,
   AlertCircle,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PatientLabTest } from "@/data/patient-data";
 
 interface PatientLaboratoryModuleProps {
   labTests: PatientLabTest[];
+  onAddLabTest?: (newTest: PatientLabTest) => void;
 }
 
-export function PatientLaboratoryModule({ labTests }: PatientLaboratoryModuleProps) {
+export function PatientLaboratoryModule({ labTests, onAddLabTest }: PatientLaboratoryModuleProps) {
   const [selectedReport, setSelectedReport] = useState<PatientLabTest | null>(null);
+
+  // Request Lab Test Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [testName, setTestName] = useState("");
+  const [category, setCategory] = useState("Blood Tests");
+  const [facility, setFacility] = useState("MediQ Central Pathology Lab");
+
+  const handleCreateLabRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testName.trim()) {
+      toast.error("Please enter a Test Name");
+      return;
+    }
+
+    const newLab: PatientLabTest = {
+      id: `lab-${Date.now()}`,
+      testName,
+      category,
+      bookedDate: new Date().toISOString().split("T")[0],
+      facility: facility || "MediQ Pathology Center",
+      status: "Processing",
+      requisitionNo: `REQ-2026-${Math.floor(1000 + Math.random() * 8999)}`,
+      resultSummary: "Sample collected & undergoing diagnostic analysis in Pathology Lab.",
+    };
+
+    if (onAddLabTest) {
+      onAddLabTest(newLab);
+    }
+
+    setTestName("");
+    setModalOpen(false);
+    toast.success(`Requested Laboratory Test "${newLab.testName}" (${newLab.requisitionNo})`);
+  };
 
   return (
     <div className="space-y-6">
@@ -33,12 +79,19 @@ export function PatientLaboratoryModule({ labTests }: PatientLaboratoryModulePro
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Microscope className="h-6 w-6 text-teal" /> Laboratory Reports & Diagnostics
+            <Microscope className="h-6 w-6 text-teal" /> Laboratory Reports & Diagnostics ({labTests.length})
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Track test requisitions, view processing status, and open verified lab reports.
           </p>
         </div>
+
+        <Button
+          onClick={() => setModalOpen(true)}
+          className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-md shrink-0"
+        >
+          <Plus className="mr-1.5 h-4 w-4" /> Request Lab Test
+        </Button>
       </div>
 
       {/* Grid */}
@@ -56,8 +109,8 @@ export function PatientLaboratoryModule({ labTests }: PatientLaboratoryModulePro
                 <Badge
                   className={
                     lab.status === "Completed"
-                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                      : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold"
+                      : "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold"
                   }
                 >
                   {lab.status}
@@ -93,7 +146,61 @@ export function PatientLaboratoryModule({ labTests }: PatientLaboratoryModulePro
         ))}
       </div>
 
-      {/* Report Modal */}
+      {/* Request Lab Test Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Microscope className="h-5 w-5 text-teal" /> Request New Laboratory Test
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateLabRequest} className="space-y-3 text-xs mt-2">
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Test Name *</Label>
+              <Input
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+                required
+                placeholder="e.g. Complete Blood Count (CBC)"
+                className="mt-1 rounded-xl text-xs font-semibold"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Test Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Blood Tests">Blood Tests</SelectItem>
+                  <SelectItem value="Biochemistry">Biochemistry</SelectItem>
+                  <SelectItem value="Pathology">Pathology</SelectItem>
+                  <SelectItem value="ECG & Cardiac">ECG & Cardiac</SelectItem>
+                  <SelectItem value="Urinalysis">Urinalysis</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Preferred Lab Facility</Label>
+              <Input
+                value={facility}
+                onChange={(e) => setFacility(e.target.value)}
+                placeholder="e.g. MediQ Pathology Center"
+                className="mt-1 rounded-xl text-xs"
+              />
+            </div>
+
+            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Submit Test Request
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report View Modal */}
       {selectedReport && (
         <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
           <DialogContent className="max-w-2xl p-6 bg-card border-border rounded-2xl">
@@ -128,7 +235,7 @@ export function PatientLaboratoryModule({ labTests }: PatientLaboratoryModulePro
                   Technician Sign-off & Interpretation
                 </h4>
                 <p className="text-muted-foreground leading-relaxed">
-                  All biochemical and cardiovascular markers show optimal physiological range. Result verified by MediQ Central Laboratory Pathology Board.
+                  All biochemical markers verified by MediQ Central Laboratory Pathology Board.
                 </p>
               </div>
             </div>

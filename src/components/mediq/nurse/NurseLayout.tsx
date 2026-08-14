@@ -135,6 +135,14 @@ export function NurseLayout() {
     );
   };
 
+  const handleAddPatient = (pat: NursePatient) => {
+    setPatients((prev) => [pat, ...prev]);
+  };
+
+  const handleAddBed = (bed: WardBed) => {
+    setWardBeds((prev) => [bed, ...prev]);
+  };
+
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "my-patients", label: "My Patients", icon: Users, badge: patients.length },
@@ -318,6 +326,7 @@ export function NurseLayout() {
                 setSelectedPatient(p);
                 setActiveTab("nursing-notes");
               }}
+              onAddPatient={handleAddPatient}
             />
           )}
 
@@ -325,6 +334,7 @@ export function NurseLayout() {
             <BedManagementModule
               beds={wardBeds}
               onUpdateBedStatus={handleUpdateBedStatus}
+              onAddBed={handleAddBed}
             />
           )}
 

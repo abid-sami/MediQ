@@ -21,12 +21,12 @@ type Node = {
 };
 
 const nodes: Node[] = [
-  { id: "hospital", label: "Hospital", icon: Building2, x: 50, y: 12, accent: "primary" },
-  { id: "ambulance", label: "Ambulance", icon: Ambulance, x: 15, y: 26, accent: "emergency" },
-  { id: "doctor", label: "Doctor", icon: Stethoscope, x: 85, y: 27, accent: "teal" },
+  { id: "hospital", label: "Hospital", icon: Building2, x: 50, y: 15, accent: "primary" },
+  { id: "ambulance", label: "Ambulance", icon: Ambulance, x: 24, y: 26, accent: "emergency" },
+  { id: "doctor", label: "Doctor", icon: Stethoscope, x: 77, y: 27, accent: "teal" },
   { id: "heart", label: "Vitals", icon: HeartPulse, x: 50, y: 50, accent: "teal" },
-  { id: "location", label: "Nearby", icon: MapPin, x: 15, y: 62, accent: "primary" },
-  { id: "blood", label: "Blood Bank", icon: Droplet, x: 85, y: 62, accent: "emergency" },
+  { id: "location", label: "Nearby", icon: MapPin, x: 15, y: 57, accent: "primary" },
+  { id: "blood", label: "Blood Bank", icon: Droplet, x: 85, y: 57, accent: "emergency" },
   { id: "pharmacy", label: "Pharmacy", icon: Pill, x: 28, y: 82, accent: "teal" },
   { id: "report", label: "Diagnostics", icon: FileHeart, x: 72, y: 82, accent: "primary" },
 ];

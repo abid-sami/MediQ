@@ -32,7 +32,7 @@ function Logo() {
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
-  const { openSos } = useMediQActions();
+  const { openSos, openLogin, openRegister } = useMediQActions();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string>("#home");
@@ -137,10 +137,10 @@ export function Header() {
           >
             {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
-          <Button variant="ghost" className="hidden rounded-full font-semibold md:inline-flex">
+          <Button onClick={openLogin} variant="ghost" className="hidden rounded-full font-semibold md:inline-flex">
             Login
           </Button>
-          <Button variant="outline" className="hidden rounded-full font-semibold md:inline-flex">
+          <Button onClick={openRegister} variant="outline" className="hidden rounded-full font-semibold md:inline-flex">
             Register
           </Button>
           <Button

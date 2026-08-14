@@ -130,6 +130,18 @@ export function PatientLayout() {
     );
   };
 
+  const handleAddRecord = (rec: MedicalRecordItem) => {
+    setRecords((prev) => [rec, ...prev]);
+  };
+
+  const handleAddLabTest = (test: PatientLabTest) => {
+    setLabTests((prev) => [test, ...prev]);
+  };
+
+  const handleAddBill = (bill: PatientBill) => {
+    setBills((prev) => [bill, ...prev]);
+  };
+
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "find-doctor", label: "Find Doctor", icon: Search },
@@ -330,7 +342,10 @@ export function PatientLayout() {
           )}
 
           {(activeTab === "hospitals" || activeTab === "medical-records") && (
-            <PatientMedicalRecordsModule records={records} />
+            <PatientMedicalRecordsModule
+              records={records}
+              onAddRecord={handleAddRecord}
+            />
           )}
 
           {activeTab === "prescriptions" && (
@@ -341,7 +356,10 @@ export function PatientLayout() {
           )}
 
           {(activeTab === "diagnostics" || activeTab === "laboratory") && (
-            <PatientLaboratoryModule labTests={labTests} />
+            <PatientLaboratoryModule
+              labTests={labTests}
+              onAddLabTest={handleAddLabTest}
+            />
           )}
 
           {activeTab === "pharmacy" && (
@@ -373,6 +391,7 @@ export function PatientLayout() {
             <PatientBillingModule
               bills={bills}
               onPayBill={handlePayBill}
+              onAddBill={handleAddBill}
             />
           )}
 

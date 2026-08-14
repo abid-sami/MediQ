@@ -19,15 +19,13 @@ import {
 import {
   Users,
   Search,
-  Filter,
+  UserPlus,
+  Plus,
   ShieldCheck,
-  UserCheck,
-  UserX,
-  AlertTriangle,
   Edit,
   Mail,
   Phone,
-  Calendar,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SystemUser, UserRole, UserStatus } from "@/data/admin-data";
@@ -35,11 +33,13 @@ import { SystemUser, UserRole, UserStatus } from "@/data/admin-data";
 interface UserManagementModuleProps {
   users: SystemUser[];
   onUpdateUser: (updated: SystemUser) => void;
+  onAddUser?: (user: SystemUser) => void;
 }
 
 export function UserManagementModule({
   users,
   onUpdateUser,
+  onAddUser,
 }: UserManagementModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
@@ -52,6 +52,15 @@ export function UserManagementModule({
   const [editStatus, setEditStatus] = useState<UserStatus>("Active");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
+
+  // Create User Modal State
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createEmail, setCreateEmail] = useState("");
+  const [createNumber, setCreateNumber] = useState("");
+  const [createRole, setCreateRole] = useState<UserRole>("Doctor");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createRePassword, setCreateRePassword] = useState("");
 
   const handleOpenEdit = (u: SystemUser) => {
     setEditingUser(u);
@@ -80,6 +89,56 @@ export function UserManagementModule({
     toast.success(`Updated User Credentials for ${updated.name}`);
   };
 
+  const handleCreateUserSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!createName.trim()) {
+      toast.error("Please enter Name");
+      return;
+    }
+
+    if (!createNumber.trim()) {
+      toast.error("Please enter Phone Number");
+      return;
+    }
+
+    if (createPassword.length < 6) {
+      toast.error("Password must be at least 6 digits");
+      return;
+    }
+
+    if (createPassword !== createRePassword) {
+      toast.error("Passwords do not match. Please check RePassword");
+      return;
+    }
+
+    const newUser: SystemUser = {
+      id: `usr-${Date.now()}`,
+      userId: `USR-${createRole.substring(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
+      name: createName,
+      email: createEmail || `${createName.toLowerCase().replace(/\s+/g, ".")}@mediq.health`,
+      phone: createNumber,
+      role: createRole,
+      status: "Active",
+      registeredDate: new Date().toISOString().split("T")[0],
+      lastActive: "Just now",
+      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+    };
+
+    if (onAddUser) {
+      onAddUser(newUser);
+    }
+
+    setCreateName("");
+    setCreateEmail("");
+    setCreateNumber("");
+    setCreatePassword("");
+    setCreateRePassword("");
+    setCreateModalOpen(false);
+
+    toast.success(`Account Created Successfully for ${newUser.name} (${newUser.role})!`);
+  };
+
   const filtered = users.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -99,9 +158,16 @@ export function UserManagementModule({
             <Users className="h-6 w-6 text-primary" /> Enterprise User Role & Governance Directory
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Manage access privileges, credentials, and verification statuses for Doctors, Nurses, Pharmacists, Drivers, and Patients.
+            Admin management panel: Create and edit staff & patient accounts across all 8 healthcare roles.
           </p>
         </div>
+
+        <Button
+          onClick={() => setCreateModalOpen(true)}
+          className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-md"
+        >
+          <UserPlus className="mr-1.5 h-4 w-4" /> Create Staff / User Account
+        </Button>
       </div>
 
       {/* Filter Bar */}
@@ -217,6 +283,103 @@ export function UserManagementModule({
           </table>
         </div>
       </div>
+
+      {/* Admin Create Account Modal */}
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" /> Create Staff / User Account
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateUserSubmit} className="space-y-3 text-xs mt-2">
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Full Name *</Label>
+              <Input
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                required
+                placeholder="e.g. Dr. Mahmudul Hasan"
+                className="mt-1 rounded-xl text-xs font-semibold"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Account Role *</Label>
+              <Select value={createRole} onValueChange={(v) => setCreateRole(v as UserRole)}>
+                <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                  <SelectValue placeholder="Select Staff Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Doctor">Doctor</SelectItem>
+                  <SelectItem value="Patient">Patient</SelectItem>
+                  <SelectItem value="Nurse">Nurse</SelectItem>
+                  <SelectItem value="Pharmacist">Pharmacist</SelectItem>
+                  <SelectItem value="Blood Bank Staff">Blood Bank Staff</SelectItem>
+                  <SelectItem value="Ambulance Driver">Ambulance Driver</SelectItem>
+                  <SelectItem value="Receptionist">Receptionist</SelectItem>
+                  <SelectItem value="Lab Tech">Lab Tech</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Phone Number *</Label>
+                <Input
+                  value={createNumber}
+                  onChange={(e) => setCreateNumber(e.target.value)}
+                  required
+                  placeholder="+1 (555)..."
+                  className="mt-1 rounded-xl text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Email Address</Label>
+                <Input
+                  type="email"
+                  value={createEmail}
+                  onChange={(e) => setCreateEmail(e.target.value)}
+                  placeholder="name@mediq.health"
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Password * (6 digits)</Label>
+                <Input
+                  type="password"
+                  value={createPassword}
+                  onChange={(e) => setCreatePassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">RePassword * (Confirm)</Label>
+                <Input
+                  type="password"
+                  value={createRePassword}
+                  onChange={(e) => setCreateRePassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Create Staff Account
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Modal */}
       {editingUser && (

@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Calendar,
   Users,
@@ -17,7 +19,12 @@ import {
   ArrowUpRight,
   Play,
   User,
+  Settings,
+  Save,
+  Check,
+  Hash,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Appointment,
   Patient,
@@ -25,6 +32,11 @@ import {
   FollowUpItem,
   LabRequest,
 } from "@/data/doctor-data";
+import {
+  getDoctorSchedules,
+  updateDoctorSchedule,
+  DoctorScheduleConfig,
+} from "@/data/doctor-schedule-store";
 
 interface DoctorOverviewProps {
   appointments: Appointment[];
@@ -47,6 +59,33 @@ export function DoctorOverview({
   onStartConsultation,
   onOpenPatientProfile,
 }: DoctorOverviewProps) {
+  // Doctor Consultation Schedule & Daily Patient Capacity State
+  const [schedule, setSchedule] = useState<DoctorScheduleConfig>(() => {
+    const all = getDoctorSchedules();
+    return all["doc-101"] || all["doc-1"];
+  });
+
+  const [startTime, setStartTime] = useState(schedule.startTime);
+  const [endTime, setEndTime] = useState(schedule.endTime);
+  const [patientLimit, setPatientLimit] = useState(schedule.dailyPatientLimit);
+  const [accepting, setAccepting] = useState(schedule.isAcceptingBookings);
+
+  const handleSaveSchedule = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated: DoctorScheduleConfig = {
+      ...schedule,
+      startTime,
+      endTime,
+      dailyPatientLimit: Number(patientLimit),
+      isAcceptingBookings: accepting,
+    };
+    updateDoctorSchedule(updated);
+    setSchedule(updated);
+    toast.success("Consultation Schedule & Patient Capacity Saved", {
+      description: `Hours: ${startTime} - ${endTime} | Daily Limit: ${patientLimit} Patients`,
+    });
+  };
+
   // Counts
   const todayCount = appointments.length;
   const waitingCount = appointments.filter((a) => a.status === "Waiting" || a.status === "Checked In").length;
@@ -144,8 +183,103 @@ export function DoctorOverview({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Live Patient Queue */}
+        {/* Left 2 Columns: Live Patient Queue & Schedule Config */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Schedule & Daily Patient Limit Card */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  <Clock className="h-4.5 w-4.5 text-primary" /> Consultation Schedule & Daily Patient Capacity
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Configure your working hours and maximum patient limit. Visitors book appointments & receive serial numbers based on this.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge
+                  className={
+                    accepting
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold"
+                      : "bg-red-500/20 text-red-600 dark:text-red-400 font-bold"
+                  }
+                >
+                  {accepting ? "Booking Open" : "Booking Closed"}
+                </Badge>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveSchedule} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Start Time</Label>
+                  <Input
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    placeholder="e.g. 09:00 AM"
+                    className="mt-1 rounded-xl text-xs font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">End Time</Label>
+                  <Input
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    placeholder="e.g. 05:00 PM"
+                    className="mt-1 rounded-xl text-xs font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Total Patient Limit / Day</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={patientLimit}
+                    onChange={(e) => setPatientLimit(Number(e.target.value))}
+                    className="mt-1 rounded-xl text-xs font-bold text-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 bg-muted/20 p-3.5 rounded-xl border border-border">
+                <div className="flex items-center gap-4 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Booked Today</span>
+                    <span className="font-extrabold text-sm text-foreground">{schedule.currentBookedCount} / {patientLimit}</span>
+                  </div>
+                  <div className="h-6 w-px bg-border" />
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Next Serial Token</span>
+                    <span className="font-extrabold text-sm text-teal font-mono">Serial #{String(schedule.currentBookedCount + 1).padStart(2, "0")}</span>
+                  </div>
+                  <div className="h-6 w-px bg-border hidden sm:block" />
+                  <div className="hidden sm:block">
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Slots Remaining</span>
+                    <span className="font-extrabold text-sm text-emerald-600">{Math.max(0, patientLimit - schedule.currentBookedCount)} Available</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAccepting((prev) => !prev)}
+                    className="h-9 text-xs rounded-xl font-semibold"
+                  >
+                    {accepting ? "Close Bookings" : "Open Bookings"}
+                  </Button>
+
+                  <Button type="submit" className="h-9 gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-xs">
+                    <Save className="mr-1.5 h-3.5 w-3.5" /> Save Schedule
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </div>
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div>

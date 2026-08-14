@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -9,12 +11,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Bed,
   CheckCircle2,
   Sparkles,
   Wrench,
   User,
   Building2,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { WardBed } from "@/data/nurse-data";
@@ -22,6 +31,7 @@ import { WardBed } from "@/data/nurse-data";
 interface BedManagementModuleProps {
   beds: WardBed[];
   onUpdateBedStatus: (id: string, newStatus: WardBed["status"]) => void;
+  onAddBed?: (newBed: WardBed) => void;
 }
 
 const statusBadgeStyles: Record<
@@ -37,11 +47,43 @@ const statusBadgeStyles: Record<
 export function BedManagementModule({
   beds,
   onUpdateBedStatus,
+  onAddBed,
 }: BedManagementModuleProps) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [bedNo, setBedNo] = useState("Bed-409");
+  const [roomNo, setRoomNo] = useState("Room 409");
+  const [wardName, setWardName] = useState("CCU Ward 4A");
+  const [bedType, setBedType] = useState<WardBed["bedType"]>("ICU Bed");
+
   const occupiedCount = beds.filter((b) => b.status === "Occupied").length;
   const availableCount = beds.filter((b) => b.status === "Available").length;
   const cleaningCount = beds.filter((b) => b.status === "Cleaning").length;
   const maintenanceCount = beds.filter((b) => b.status === "Maintenance").length;
+
+  const handleCreateBed = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bedNo.trim()) {
+      toast.error("Please enter Bed Number");
+      return;
+    }
+
+    const newB: WardBed = {
+      id: `bed-${Date.now()}`,
+      bedNo,
+      roomNo,
+      wardName,
+      status: "Available",
+      bedType,
+    };
+
+    if (onAddBed) {
+      onAddBed(newB);
+    }
+
+    setBedNo("");
+    setModalOpen(false);
+    toast.success(`Registered New Bed: ${newB.bedNo} (${newB.wardName})`);
+  };
 
   return (
     <div className="space-y-6">
@@ -49,27 +91,30 @@ export function BedManagementModule({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Bed className="h-6 w-6 text-primary" /> Ward Bed Management & Status Control
+            <Bed className="h-6 w-6 text-primary" /> Ward Bed Management & Status Control ({beds.length})
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Monitor real-time bed capacity and update status to Occupied, Available, Cleaning, or Maintenance.
           </p>
         </div>
 
-        {/* Counts Bar */}
-        <div className="flex items-center gap-2 flex-wrap text-xs">
-          <div className="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
-            🟢 Available: {availableCount}
+        <div className="flex items-center gap-3">
+          {/* Counts Bar */}
+          <div className="flex items-center gap-2 flex-wrap text-xs hidden md:flex">
+            <div className="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+              🟢 Available: {availableCount}
+            </div>
+            <div className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
+              🔵 Occupied: {occupiedCount}
+            </div>
           </div>
-          <div className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
-            🔵 Occupied: {occupiedCount}
-          </div>
-          <div className="px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">
-            🟡 Cleaning: {cleaningCount}
-          </div>
-          <div className="px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold">
-            🟣 Maintenance: {maintenanceCount}
-          </div>
+
+          <Button
+            onClick={() => setModalOpen(true)}
+            className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-md shrink-0 h-10"
+          >
+            <Plus className="mr-1.5 h-4 w-4" /> Add Ward Bed
+          </Button>
         </div>
       </div>
 
@@ -132,6 +177,72 @@ export function BedManagementModule({
           );
         })}
       </div>
+
+      {/* Add Bed Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Bed className="h-5 w-5 text-primary" /> Add New Bed to Ward
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateBed} className="space-y-3 text-xs mt-2">
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Bed Number / Code *</Label>
+              <Input
+                value={bedNo}
+                onChange={(e) => setBedNo(e.target.value)}
+                required
+                placeholder="e.g. Bed-409"
+                className="mt-1 rounded-xl text-xs font-mono font-bold"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Room Designation</Label>
+                <Input
+                  value={roomNo}
+                  onChange={(e) => setRoomNo(e.target.value)}
+                  placeholder="e.g. Room 409"
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Ward</Label>
+                <Input
+                  value={wardName}
+                  onChange={(e) => setWardName(e.target.value)}
+                  placeholder="e.g. CCU Ward 4A"
+                  className="mt-1 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground">Bed Category / Spec</Label>
+              <Select value={bedType} onValueChange={(v) => setBedType(v as any)}>
+                <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                  <SelectValue placeholder="Bed Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ICU Bed">ICU Bed</SelectItem>
+                  <SelectItem value="CCU Bed">CCU Bed</SelectItem>
+                  <SelectItem value="General Ward Bed">General Ward Bed</SelectItem>
+                  <SelectItem value="Isolation Bed">Isolation Bed</SelectItem>
+                  <SelectItem value="Cabin Bed">Cabin Bed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Add Bed to Inventory
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
