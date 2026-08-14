@@ -1,66 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar, Search, Stethoscope, Clock, CheckCircle2 } from "lucide-react";
+import { Calendar, Search } from "lucide-react";
+import { fetchSupabaseAppointments } from "@/services/supabase-service";
 
 export function AppointmentsMonitoringModule() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [appointments, setAppointments] = useState<any[]>([]);
 
-  const appointments = [
-    {
-      id: "apt-1",
-      appointmentId: "APT-2026-701",
-      patientName: "Kamrul Hasan",
-      doctorName: "Dr. Sarah Rahman",
-      hospital: "MediQ Central Hospital",
-      department: "Cardiology",
-      time: "09:00 AM",
-      status: "Checked In",
-    },
-    {
-      id: "apt-2",
-      appointmentId: "APT-2026-702",
-      patientName: "Tariqul Islam",
-      doctorName: "Dr. Sarah Rahman",
-      hospital: "MediQ Central Hospital",
-      department: "Cardiology",
-      time: "09:30 AM",
-      status: "Confirmed",
-    },
-    {
-      id: "apt-3",
-      appointmentId: "APT-2026-703",
-      patientName: "Nusrat Jahan",
-      doctorName: "Dr. Sarah Rahman",
-      hospital: "MediQ Central Hospital",
-      department: "Cardiology",
-      time: "10:00 AM",
-      status: "Requested",
-    },
-    {
-      id: "apt-4",
-      appointmentId: "APT-2026-704",
-      patientName: "Sami",
-      doctorName: "Dr. Sarah Rahman",
-      hospital: "MediQ Central Hospital",
-      department: "Cardiology",
-      time: "10:30 AM",
-      status: "Confirmed",
-    },
-  ];
+  useEffect(() => {
+    fetchSupabaseAppointments().then((data) => setAppointments(data));
+  }, []);
 
   const filtered = appointments.filter(
     (a) =>
-      a.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.appointmentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
+      (a.patientName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.appointmentId || a.id || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.doctorName || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -103,18 +59,25 @@ export function AppointmentsMonitoringModule() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                  No appointments found.
+                </td>
+              </tr>
+            )}
             {filtered.map((a) => (
               <tr key={a.id} className="hover:bg-muted/30 transition-colors">
                 <td className="p-3.5">
-                  <p className="font-mono font-bold text-primary">{a.appointmentId}</p>
-                  <p className="text-[11px] text-muted-foreground">{a.time}</p>
+                  <p className="font-mono font-bold text-primary">{a.appointmentId || a.id}</p>
+                  <p className="text-[11px] text-muted-foreground">{a.appointmentTime || a.time}</p>
                 </td>
                 <td className="p-3.5 font-bold text-foreground">{a.patientName}</td>
                 <td className="p-3.5">
                   <p className="font-semibold text-foreground">{a.doctorName}</p>
                   <p className="text-[11px] text-muted-foreground">{a.department}</p>
                 </td>
-                <td className="p-3.5 text-muted-foreground">{a.hospital}</td>
+                <td className="p-3.5 text-muted-foreground">{a.hospital || "MediQ Central"}</td>
                 <td className="p-3.5 text-right">
                   <Badge className="bg-primary/20 text-primary font-bold text-[10px]">
                     {a.status}

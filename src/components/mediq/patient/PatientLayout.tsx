@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   Search,
@@ -24,6 +26,7 @@ import {
   ChevronRight,
   Heart,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import {
   initialPatientUser,
@@ -85,10 +88,12 @@ export type PatientTab =
 
 export function PatientLayout() {
   const { theme, toggleTheme } = useTheme();
+  const { profile: authProfile, signOut } = useAuth();
 
   const [activeTab, setActiveTab] = useState<PatientTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   // Global State
   const [patientUser, setPatientUser] = useState<PatientUserProfile>(initialPatientUser);
@@ -101,6 +106,21 @@ export function PatientLayout() {
   const [bloodRequests, setBloodRequests] = useState<PatientBloodRequest[]>(initialPatientBloodRequests);
   const [ambulance, setAmbulance] = useState<ActiveAmbulance | null>(initialActiveAmbulance);
   const [bills, setBills] = useState<PatientBill[]>(initialPatientBills);
+
+  useEffect(() => {
+    if (authProfile) {
+      setPatientUser((prev) => ({
+        ...prev,
+        id: authProfile.id || prev.id,
+        name: authProfile.name || prev.name,
+        avatar: authProfile.avatarUrl || prev.avatar,
+        email: authProfile.email || prev.email,
+        contact: authProfile.phone || prev.contact,
+        bloodGroup: authProfile.bloodGroup || prev.bloodGroup,
+        address: authProfile.address || prev.address,
+      }));
+    }
+  }, [authProfile]);
 
   // Fetch data from Supabase on mount
   useEffect(() => {
@@ -166,6 +186,12 @@ export function PatientLayout() {
   }, []);
 
   const unreadNotifs = 2;
+
+  const handleConfirmLogout = async () => {
+    setLogoutConfirmOpen(false);
+    await signOut();
+    window.location.href = "/";
+  };
 
   // Handlers
   const handleBookAppointment = (newApt: PatientAppointment) => {
@@ -366,6 +392,16 @@ export function PatientLayout() {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => setLogoutConfirmOpen(true)}
+                className="rounded-full text-destructive hover:text-destructive"
+                aria-label="Sign out"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setActiveTab("notifications")}
                 className="relative rounded-full"
                 aria-label="Notifications"
@@ -473,6 +509,28 @@ export function PatientLayout() {
           )}
         </main>
       </div>
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="max-w-xs rounded-2xl border-border bg-card p-6">
+          <DialogHeader>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <LogOut className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-center text-xl">Confirm Sign Out</DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground">
+              Are you sure you want to sign out of your MediQ account?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setLogoutConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={handleConfirmLogout}>
+              Sign Out
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Touch-Friendly Bottom Quick Shortcut Bar for Mobile */}
       <div className="fixed bottom-0 inset-x-0 z-50 bg-card/90 backdrop-blur-lg border-t border-border flex items-center justify-around py-2 px-2 lg:hidden shadow-lg">

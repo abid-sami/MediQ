@@ -16,19 +16,6 @@ export type UserRole =
   | "Receptionist"
   | null;
 
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  profile: UserProfile | null;
-  role: UserRole;
-  loading: boolean;
-  signIn: (email: string, password: string, selectedRole?: string) => Promise<{ error: Error | null }>;
-  signUp: (data: SignUpData) => Promise<{ error: Error | null }>;
-  signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
-  setLocalRole: (role: UserRole) => void;
-}
-
 export interface UserProfile {
   id: string;
   name: string;
@@ -56,21 +43,140 @@ export interface SignUpData {
   address?: string;
 }
 
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  profile: UserProfile | null;
+  role: UserRole;
+  loading: boolean;
+  signIn: (emailOrPhone: string, passwordText: string, selectedRole?: string) => Promise<{ error: Error | null; role?: UserRole }>;
+  signUp: (data: SignUpData) => Promise<{ error: Error | null; role?: UserRole }>;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<UserRole>;
+  setLocalRole: (role: UserRole) => void;
+  fetchProfile: (userId: string, userMeta?: any, userEmail?: string) => Promise<UserRole>;
+}
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function mapRole(role: string | null | undefined): UserRole {
   if (!role) return null;
-  const normalized = role.trim().toLowerCase();
-  if (normalized === "admin" || normalized === "super admin") return "Super Admin";
-  if (normalized === "doctor" || normalized === "dr") return "Doctor";
-  if (normalized === "patient") return "Patient";
-  if (normalized === "nurse") return "Nurse";
-  if (normalized === "pharmacist" || normalized === "pharmacy staff" || normalized === "pharmacy") return "Pharmacist";
-  if (normalized === "blood bank staff" || normalized === "blood bank") return "Blood Bank Staff";
-  if (normalized === "ambulance driver" || normalized === "driver") return "Ambulance Driver";
-  if (normalized === "lab staff" || normalized === "laboratory staff" || normalized === "pathologist") return "Lab Staff";
-  if (normalized === "receptionist") return "Receptionist";
-  return (role as UserRole) || null;
+  const raw = role.trim();
+  const normalized = raw.toLowerCase().replace(/[\s_-]+/g, " ");
+
+  // Super Admin / Admin
+  if (
+    normalized === "admin" ||
+    normalized === "super admin" ||
+    normalized === "superadmin" ||
+    normalized === "administrator" ||
+    normalized === "sysadmin" ||
+    normalized === "system admin" ||
+    normalized === "admin staff"
+  ) {
+    return "Super Admin";
+  }
+
+  // Doctor
+  if (
+    normalized === "doctor" ||
+    normalized === "dr" ||
+    normalized === "dr." ||
+    normalized === "physician" ||
+    normalized === "surgeon" ||
+    normalized === "cardiologist" ||
+    normalized === "specialist" ||
+    normalized === "doc"
+  ) {
+    return "Doctor";
+  }
+
+  // Patient
+  if (
+    normalized === "patient" ||
+    normalized === "user" ||
+    normalized === "client" ||
+    normalized === "member" ||
+    normalized === "customer"
+  ) {
+    return "Patient";
+  }
+
+  // Nurse
+  if (
+    normalized === "nurse" ||
+    normalized === "rn" ||
+    normalized === "staff nurse" ||
+    normalized === "head nurse" ||
+    normalized === "charge nurse" ||
+    normalized === "nursing"
+  ) {
+    return "Nurse";
+  }
+
+  // Pharmacist
+  if (
+    normalized === "pharmacist" ||
+    normalized === "pharmacy" ||
+    normalized === "pharmacy staff" ||
+    normalized === "chemist" ||
+    normalized === "rph" ||
+    normalized === "apothecary"
+  ) {
+    return "Pharmacist";
+  }
+
+  // Blood Bank Staff
+  if (
+    normalized === "blood bank" ||
+    normalized === "blood bank staff" ||
+    normalized === "bloodbank" ||
+    normalized === "blood bank officer" ||
+    normalized === "transfusion" ||
+    normalized === "transfusion officer"
+  ) {
+    return "Blood Bank Staff";
+  }
+
+  // Ambulance Driver
+  if (
+    normalized === "ambulance driver" ||
+    normalized === "driver" ||
+    normalized === "paramedic driver" ||
+    normalized === "emt" ||
+    normalized === "ambulance" ||
+    normalized === "driver staff"
+  ) {
+    return "Ambulance Driver";
+  }
+
+  // Lab Staff
+  if (
+    normalized === "lab staff" ||
+    normalized === "laboratory staff" ||
+    normalized === "lab" ||
+    normalized === "laboratory" ||
+    normalized === "pathologist" ||
+    normalized === "lab tech" ||
+    normalized === "lab technician" ||
+    normalized === "clinical pathologist"
+  ) {
+    return "Lab Staff";
+  }
+
+  // Receptionist
+  if (
+    normalized === "receptionist" ||
+    normalized === "reception" ||
+    normalized === "front desk" ||
+    normalized === "frontdesk" ||
+    normalized === "desk officer" ||
+    normalized === "patient access"
+  ) {
+    return "Receptionist";
+  }
+
+  return (raw as UserRole) || null;
 }
 
 export function getRouteForRole(role: UserRole): string {
@@ -101,48 +207,95 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string, userMeta?: any) => {
+  const fetchProfile = async (userId: string, userMeta?: any, userEmail?: string): Promise<UserRole> => {
     try {
-      const { data, error } = await supabase
+      // 1. Try querying profiles table by user ID
+      let profileRow: any = null;
+
+      const { data: byIdData } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
 
-      if (data) {
-        const userProfile: UserProfile = {
-          id: data.id,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          role: data.role,
-          bloodGroup: data.blood_group,
-          address: data.address,
-          avatarUrl: data.avatar_url,
-          badgeId: data.badge_id,
-          specialty: data.specialty,
-          licenseNo: data.license_no,
-          workingHours: data.working_hours,
-          patientCapacity: data.patient_capacity,
-          onlineBookingEnabled: data.online_booking_enabled,
-        };
-
-        setProfile(userProfile);
-        const resolvedRole = mapRole(data.role);
-        setRole(resolvedRole);
-        if (resolvedRole && typeof window !== "undefined") {
-          localStorage.setItem("mediq_user_role", resolvedRole);
+      if (byIdData) {
+        profileRow = byIdData;
+      } else {
+        // 2. Try querying profiles table by email
+        const emailToQuery = userEmail || userMeta?.email;
+        if (emailToQuery) {
+          const { data: byEmailData } = await supabase
+            .from("profiles")
+            .select("*")
+            .ilike("email", emailToQuery.trim())
+            .maybeSingle();
+          if (byEmailData) {
+            profileRow = byEmailData;
+          }
         }
-        return;
       }
 
-      // Fallback to metadata
-      const metaRole = mapRole(userMeta?.role) || mapRole(localStorage.getItem("mediq_user_role")) || "Patient";
-      setRole(metaRole);
+      // Determine raw role (priority: profiles table > user metadata)
+      const rawRole: string | undefined = profileRow?.role || userMeta?.role;
+
+      // Map to standardized UserRole
+      const resolvedRole = mapRole(rawRole) || "Patient";
+
+      if (profileRow) {
+        const userProfile: UserProfile = {
+          id: profileRow.id,
+          name: profileRow.name || userMeta?.name || "User",
+          email: profileRow.email || userEmail || "",
+          phone: profileRow.phone || "",
+          role: resolvedRole,
+          bloodGroup: profileRow.blood_group,
+          address: profileRow.address,
+          avatarUrl: profileRow.avatar_url,
+          badgeId: profileRow.badge_id,
+          specialty: profileRow.specialty,
+          licenseNo: profileRow.license_no,
+          workingHours: profileRow.working_hours,
+          patientCapacity: profileRow.patient_capacity,
+          onlineBookingEnabled: profileRow.online_booking_enabled,
+        };
+        setProfile(userProfile);
+      } else if (userId) {
+        const newProfile: UserProfile = {
+          id: userId,
+          name: userMeta?.name || userEmail?.split("@")[0] || "User",
+          email: userEmail || userMeta?.email || "",
+          phone: userMeta?.phone || "",
+          role: resolvedRole,
+        };
+        setProfile(newProfile);
+        try {
+          await supabase.from("profiles").upsert({
+            id: userId,
+            name: newProfile.name,
+            email: newProfile.email,
+            phone: newProfile.phone,
+            role: resolvedRole,
+          });
+        } catch (err) {
+          console.warn("Auto profile sync note:", err);
+        }
+      }
+
+      setRole(resolvedRole);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mediq_user_role", resolvedRole);
+        localStorage.setItem("mediq_logged_in", "true");
+      }
+
+      return resolvedRole;
     } catch (e) {
       console.warn("Using fallback auth profile:", e);
       const fallbackRole = mapRole(userMeta?.role) || mapRole(localStorage.getItem("mediq_user_role")) || "Patient";
       setRole(fallbackRole);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mediq_user_role", fallbackRole);
+      }
+      return fallbackRole;
     }
   };
 
@@ -152,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id, session.user.user_metadata);
+        fetchProfile(session.user.id, session.user.user_metadata, session.user.email);
       }
       setLoading(false);
     }).catch(() => {
@@ -166,9 +319,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          await fetchProfile(session.user.id, session.user.user_metadata);
+          await fetchProfile(session.user.id, session.user.user_metadata, session.user.email);
         } else {
-          // If no supabase session, check if there's a stored role
           const savedRole = mapRole(localStorage.getItem("mediq_user_role"));
           setRole(savedRole);
         }
@@ -186,27 +338,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signIn = async (email: string, password: string, selectedRole?: string) => {
+  const signIn = async (
+    emailOrPhone: string,
+    passwordText: string,
+    selectedRole?: string
+  ): Promise<{ error: Error | null; role?: UserRole }> => {
     try {
       if (selectedRole) {
         setLocalRole(mapRole(selectedRole));
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const cleanInput = emailOrPhone.trim();
+      const emailToUse = cleanInput.includes("@")
+        ? cleanInput
+        : `${cleanInput.replace(/\D/g, "")}@mediq.health`;
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailToUse,
+        password: passwordText,
       });
 
-      return { error };
+      if (error) {
+        return { error };
+      }
+
+      if (data?.user) {
+        setUser(data.user);
+        setSession(data.session);
+        const resolvedRole = await fetchProfile(data.user.id, data.user.user_metadata, data.user.email);
+        return { error: null, role: resolvedRole };
+      }
+
+      return { error: new Error("No user session returned from sign in") };
     } catch (err: any) {
       return { error: err };
     }
   };
 
-  const signUp = async (data: SignUpData) => {
+  const signUp = async (data: SignUpData): Promise<{ error: Error | null; role?: UserRole }> => {
     try {
       const email = data.email && data.email.includes("@")
-        ? data.email
+        ? data.email.trim()
         : `${data.phone.replace(/\D/g, "") || Date.now()}@mediq.health`;
 
       const mapped = mapRole(data.role) || "Patient";
@@ -226,6 +398,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
+      if (authError) {
+        return { error: authError };
+      }
+
       if (authData?.user?.id) {
         await supabase.from("profiles").upsert({
           id: authData.user.id,
@@ -238,7 +414,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      return { error: authError };
+      return { error: null, role: mapped };
     } catch (err: any) {
       return { error: err };
     }
@@ -260,10 +436,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = async (): Promise<UserRole> => {
     if (user) {
-      await fetchProfile(user.id, user.user_metadata);
+      return await fetchProfile(user.id, user.user_metadata, user.email);
     }
+    return role;
   };
 
   const value = {
@@ -277,6 +454,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     refreshProfile,
     setLocalRole,
+    fetchProfile,
   };
 
   return (

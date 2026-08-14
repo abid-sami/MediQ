@@ -1,28 +1,26 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Siren, ShieldAlert, PhoneCall, MapPin, Clock } from "lucide-react";
+import { Siren, Clock } from "lucide-react";
+import { fetchSupabaseSOS } from "@/services/supabase-service";
 
 export function EmergencyArrivalsModule() {
-  const emergencies = [
-    {
-      id: "emg-1",
-      requestId: "SOS-2026-9110",
-      patientName: "Kamrul Hasan",
-      type: "🚨 Severe Chest Pain & Cardiac Arrest",
-      eta: "Arrived at ER Bay 1",
-      ambulanceUnit: "Unit #ALS-911",
-      status: "Admitted to Trauma Bay",
-    },
-    {
-      id: "emg-2",
-      requestId: "SOS-2026-9122",
-      patientName: "Polash Roy",
-      type: "🚨 Motor Vehicle Accident / Trauma",
-      eta: "In Transit — ETA 4 Mins",
-      ambulanceUnit: "Unit #BLS-402",
-      status: "Triage Alert Sent",
-    },
-  ];
+  const [emergencies, setEmergencies] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchSupabaseSOS().then((data) => {
+      setEmergencies(
+        data.map((s: any) => ({
+          id: s.id,
+          requestId: s.requestId || s.request_id || s.id,
+          patientName: s.patientName || s.patient_name || "Unknown",
+          type: s.emergencyType || s.emergency_type || "Emergency",
+          eta: s.eta || "N/A",
+          ambulanceUnit: s.assignedDriver || s.assigned_driver || "Unassigned",
+          status: s.ambulanceStatus || s.ambulance_status || "Pending",
+        }))
+      );
+    });
+  }, []);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -38,38 +36,44 @@ export function EmergencyArrivalsModule() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        {emergencies.map((emg) => (
-          <div
-            key={emg.id}
-            className="bg-card border-2 border-red-500/40 rounded-2xl p-5 shadow-lift space-y-3"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-red-500 animate-ping" />
-                <Badge className="bg-red-500 text-white font-bold text-xs uppercase">
-                  {emg.requestId}
+      {emergencies.length === 0 ? (
+        <div className="bg-card border border-border rounded-2xl p-8 text-center text-muted-foreground text-sm">
+          No active emergency arrivals.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {emergencies.map((emg) => (
+            <div
+              key={emg.id}
+              className="bg-card border-2 border-red-500/40 rounded-2xl p-5 shadow-lift space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-red-500 animate-ping" />
+                  <Badge className="bg-red-500 text-white font-bold text-xs uppercase">
+                    {emg.requestId}
+                  </Badge>
+                </div>
+                <Badge variant="outline" className="font-mono text-xs font-bold text-destructive">
+                  {emg.ambulanceUnit}
                 </Badge>
               </div>
-              <Badge variant="outline" className="font-mono text-xs font-bold text-destructive">
-                {emg.ambulanceUnit}
-              </Badge>
-            </div>
 
-            <h3 className="text-lg font-black text-foreground">{emg.type}</h3>
-            <p className="text-sm font-bold text-muted-foreground">
-              Patient: <strong className="text-foreground">{emg.patientName}</strong>
-            </p>
+              <h3 className="text-lg font-black text-foreground">{emg.type}</h3>
+              <p className="text-sm font-bold text-muted-foreground">
+                Patient: <strong className="text-foreground">{emg.patientName}</strong>
+              </p>
 
-            <div className="pt-2 border-t border-border flex items-center justify-between text-xs font-bold text-destructive">
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" /> {emg.eta}
-              </span>
-              <span>{emg.status}</span>
+              <div className="pt-2 border-t border-border flex items-center justify-between text-xs font-bold text-destructive">
+                <span className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" /> {emg.eta}
+                </span>
+                <span>{emg.status}</span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

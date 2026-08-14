@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   Users,
@@ -20,6 +22,7 @@ import {
   ChevronRight,
   Stethoscope,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import {
   initialNurseProfile,
@@ -67,10 +70,12 @@ export type NurseTab =
 
 export function NurseLayout() {
   const { theme, toggleTheme } = useTheme();
+  const { profile: authProfile, signOut } = useAuth();
 
   const [activeTab, setActiveTab] = useState<NurseTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   // Global Nurse State
   const [nurseProfile, setNurseProfile] = useState<NurseProfile>(initialNurseProfile);
@@ -84,6 +89,20 @@ export function NurseLayout() {
   // Active Patient for Chart Modal / Form
   const [selectedPatient, setSelectedPatient] = useState<NursePatient | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (authProfile) {
+      setNurseProfile((prev) => ({
+        ...prev,
+        id: authProfile.id || prev.id,
+        name: authProfile.name || prev.name,
+        avatar: authProfile.avatarUrl || prev.avatar,
+        email: authProfile.email || prev.email,
+        phone: authProfile.phone || prev.phone,
+        role: authProfile.role || prev.role,
+      }));
+    }
+  }, [authProfile]);
 
   // Fetch data from Supabase on mount
   useEffect(() => {
@@ -144,6 +163,12 @@ export function NurseLayout() {
   }, []);
 
   const unreadAlertsCount = alerts.filter((a) => !a.resolved).length;
+
+  const handleConfirmLogout = async () => {
+    setLogoutConfirmOpen(false);
+    await signOut();
+    window.location.href = "/";
+  };
 
   // Handlers
   const handleOpenProfile = (patient: NursePatient) => {
@@ -350,6 +375,16 @@ export function NurseLayout() {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => setLogoutConfirmOpen(true)}
+                className="rounded-full text-destructive hover:text-destructive"
+                aria-label="Sign out"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setActiveTab("alerts")}
                 className="relative rounded-full"
                 aria-label="Alerts"
@@ -449,6 +484,28 @@ export function NurseLayout() {
           )}
         </main>
       </div>
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="max-w-xs rounded-2xl border-border bg-card p-6">
+          <DialogHeader>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <LogOut className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-center text-xl">Confirm Sign Out</DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground">
+              Are you sure you want to sign out of your MediQ account?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setLogoutConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={handleConfirmLogout}>
+              Sign Out
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Patient Profile Modal */}
       <NursePatientProfileModal
