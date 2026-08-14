@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { LabStaffLayout } from "@/components/mediq/labstaff/LabStaffLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { LabStaffOnlyRoute } from "@/components/mediq/ProtectedRoute";
 
 const title = "MediQ Laboratory Staff Dashboard — Pathology & Diagnostic Station";
 const description =
@@ -21,9 +20,8 @@ export const Route = createFileRoute("/laboratory-staff")({
 
 function LaboratoryStaffDashboardPage() {
   return (
-    <ThemeProvider>
+    <LabStaffOnlyRoute>
       <LabStaffLayout />
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    </LabStaffOnlyRoute>
   );
 }

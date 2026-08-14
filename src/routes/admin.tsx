@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { AdminLayout } from "@/components/mediq/admin/AdminLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { AdminOnlyRoute } from "@/components/mediq/ProtectedRoute";
 
 const title = "MediQ Super Admin Dashboard — Global Enterprise Command Center";
 const description =
@@ -21,9 +20,8 @@ export const Route = createFileRoute("/admin")({
 
 function SuperAdminDashboardPage() {
   return (
-    <ThemeProvider>
+    <AdminOnlyRoute>
       <AdminLayout />
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    </AdminOnlyRoute>
   );
 }

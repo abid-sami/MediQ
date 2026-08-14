@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { NurseLayout } from "@/components/mediq/nurse/NurseLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { NurseOnlyRoute } from "@/components/mediq/ProtectedRoute";
 
 const title = "MediQ Nurse Dashboard — Ward Management & Bedside Patient Care";
 const description =
@@ -21,9 +20,8 @@ export const Route = createFileRoute("/nurse")({
 
 function NurseDashboardPage() {
   return (
-    <ThemeProvider>
+    <NurseOnlyRoute>
       <NurseLayout />
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    </NurseOnlyRoute>
   );
 }

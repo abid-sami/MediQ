@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Navigate } from "@tanstack/react-router";
 
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/hooks/use-theme";
@@ -17,6 +18,7 @@ import { Footer } from "@/components/mediq/Footer";
 import { SOSModal } from "@/components/mediq/SOSModal";
 import { AppointmentModal } from "@/components/mediq/AppointmentModal";
 import { AuthModal } from "@/components/mediq/AuthModal";
+import { useAuth, getRouteForRole } from "@/hooks/use-auth";
 
 const title = "MediQ — Healthcare, Connected in One Place";
 const description =
@@ -35,6 +37,23 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { user, role, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user && role) {
+    return <Navigate to={getRouteForRole(role)} replace />;
+  }
+
   return (
     <ThemeProvider>
       <MediQActionsProvider>

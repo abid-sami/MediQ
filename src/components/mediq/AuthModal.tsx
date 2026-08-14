@@ -29,9 +29,11 @@ import {
   UserCheck,
   ShieldCheck,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMediQActions } from "./actions-context";
+import { useAuth, getRouteForRole } from "@/hooks/use-auth";
 
 type RoleOption = {
   label: string;
@@ -56,6 +58,7 @@ const ROLES: RoleOption[] = [
 export function AuthModal() {
   const { loginOpen, registerOpen, closeLogin, closeRegister, openLogin, openRegister } =
     useMediQActions();
+  const { signIn, signUp } = useAuth();
 
   const isOpen = loginOpen || registerOpen;
   const isLogin = loginOpen;
@@ -64,6 +67,7 @@ export function AuthModal() {
   const [identifier, setIdentifier] = useState("sami@mediq.health");
   const [password, setPassword] = useState("123456");
   const [selectedRole, setSelectedRole] = useState<RoleOption>(ROLES[1]); // Default Patient
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Register state (Patient / Staff)
   const [regName, setRegName] = useState("");
@@ -74,6 +78,7 @@ export function AuthModal() {
   const [regRePassword, setRegRePassword] = useState("");
   const [regBloodGroup, setRegBloodGroup] = useState("");
   const [regAddress, setRegAddress] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const handleClose = () => {
     closeLogin();
@@ -100,14 +105,31 @@ export function AuthModal() {
       return;
     }
 
-    // Try Supabase Auth Login
-    const { loginWithSupabase } = await import("@/services/supabase-service");
-    await loginWithSupabase(identifier, password);
+    setIsLoggingIn(true);
 
-    // Determine route based on selectedRole
-    toast.success(`Welcome back! Logging in as ${selectedRole.label}...`);
-    handleClose();
-    window.location.href = selectedRole.route;
+    try {
+      const { error } = await signIn(identifier, password);
+
+      if (error) {
+        toast.error("Login failed", {
+          description: error.message || "Invalid credentials. Please try again.",
+        });
+        setIsLoggingIn(false);
+        return;
+      }
+
+      toast.success(`Welcome back! Redirecting to ${selectedRole.label} Portal...`);
+      handleClose();
+      // Use SPA navigation instead of full page reload
+      setTimeout(() => {
+        window.location.href = getRouteForRole(selectedRole.role as any);
+      }, 1000);
+    } catch (err: any) {
+      toast.error("Login failed", {
+        description: err.message || "An unexpected error occurred",
+      });
+      setIsLoggingIn(false);
+    }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -135,21 +157,48 @@ export function AuthModal() {
 
     const targetRole = ROLES.find((r) => r.label === regRole || r.role === regRole) || ROLES[1];
 
-    // Try Supabase Auth Registration
-    const { registerWithSupabase } = await import("@/services/supabase-service");
-    await registerWithSupabase({
-      name: regName,
-      email: regEmail,
-      phone: regNumber,
-      role: targetRole.role,
-      passwordText: regPassword,
-      bloodGroup: regBloodGroup,
-      address: regAddress,
-    });
+    setIsRegistering(true);
 
-    toast.success(`Account Registered Successfully for ${regName} (${targetRole.label})!`);
-    handleClose();
-    window.location.href = targetRole.route;
+    try {
+      const { error } = await signUp({
+        name: regName,
+        email: regEmail,
+        phone: regNumber,
+        role: targetRole.role,
+        password: regPassword,
+        bloodGroup: regBloodGroup,
+        address: regAddress,
+      });
+
+      if (error) {
+        toast.error("Registration failed", {
+          description: error.message || "Unable to create account. Please try again.",
+        });
+        setIsRegistering(false);
+        return;
+      }
+
+      toast.success(`Account Registered Successfully for ${regName} (${targetRole.label})!`);
+      handleClose();
+
+      // Check if email verification is needed
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        // Auto login successful - redirect to their portal
+        setTimeout(() => {
+          window.location.href = getRouteForRole(targetRole.role as any);
+        }, 1000);
+      } else {
+        toast.info("Please check your email to verify your account before logging in.");
+      }
+    } catch (err: any) {
+      toast.error("Registration failed", {
+        description: err.message || "An unexpected error occurred",
+      });
+      setIsRegistering(false);
+    }
   };
 
   return (
@@ -265,9 +314,15 @@ export function AuthModal() {
 
               <Button
                 type="submit"
-                className="w-full gradient-primary text-primary-foreground font-bold rounded-2xl py-6 text-sm shadow-md"
+                disabled={isLoggingIn}
+                className="w-full gradient-primary text-primary-foreground font-bold rounded-2xl py-6 text-sm shadow-md disabled:opacity-50"
               >
-                <LogIn className="mr-2 h-4 w-4" /> LOGIN TO {selectedRole.label.toUpperCase()} PORTAL
+                {isLoggingIn ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <LogIn className="mr-2 h-4 w-4" />
+                )}
+                {isLoggingIn ? "SIGNING IN..." : `LOGIN TO ${selectedRole.label.toUpperCase()} PORTAL`}
               </Button>
 
               <div className="text-center pt-2">
@@ -400,9 +455,15 @@ export function AuthModal() {
 
               <Button
                 type="submit"
-                className="w-full gradient-primary text-primary-foreground font-bold rounded-2xl py-6 text-sm shadow-md mt-2"
+                disabled={isRegistering}
+                className="w-full gradient-primary text-primary-foreground font-bold rounded-2xl py-6 text-sm shadow-md mt-2 disabled:opacity-50"
               >
-                <UserPlus className="mr-2 h-4 w-4" /> REGISTER PATIENT ACCOUNT
+                {isRegistering ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <UserPlus className="mr-2 h-4 w-4" />
+                )}
+                {isRegistering ? "REGISTERING..." : "REGISTER PATIENT ACCOUNT"}
               </Button>
 
               <div className="text-center pt-2">

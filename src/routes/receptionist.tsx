@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { ReceptionistLayout } from "@/components/mediq/receptionist/ReceptionistLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { ReceptionistOnlyRoute } from "@/components/mediq/ProtectedRoute";
 
 const title = "MediQ Receptionist Dashboard — Patient Access & Front Desk Operations";
 const description =
@@ -21,9 +20,8 @@ export const Route = createFileRoute("/receptionist")({
 
 function ReceptionistDashboardPage() {
   return (
-    <ThemeProvider>
+    <ReceptionistOnlyRoute>
       <ReceptionistLayout />
-      <Toaster position="top-right" />
-    </ThemeProvider>
+    </ReceptionistOnlyRoute>
   );
 }
