@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
@@ -19,6 +19,7 @@ import {
   X,
   ChevronRight,
   Stethoscope,
+  Loader2,
 } from "lucide-react";
 import {
   initialNurseProfile,
@@ -36,6 +37,10 @@ import {
   WardBed,
   NurseAlert,
 } from "@/data/nurse-data";
+import {
+  fetchSupabaseBeds,
+  fetchSupabaseProfiles,
+} from "@/services/supabase-service";
 
 import { NurseOverview } from "./NurseOverview";
 import { MyPatientsModule } from "./MyPatientsModule";
@@ -65,6 +70,7 @@ export function NurseLayout() {
 
   const [activeTab, setActiveTab] = useState<NurseTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Global Nurse State
   const [nurseProfile, setNurseProfile] = useState<NurseProfile>(initialNurseProfile);
@@ -78,6 +84,64 @@ export function NurseLayout() {
   // Active Patient for Chart Modal / Form
   const [selectedPatient, setSelectedPatient] = useState<NursePatient | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch beds
+        const bedsData = await fetchSupabaseBeds();
+        if (bedsData && bedsData.length > 0) {
+          // Transform to WardBed format
+          const transformedBeds = bedsData.map((b: any) => ({
+            id: b.id,
+            bedNumber: b.bedNumber,
+            wardType: b.wardType,
+            floorNumber: b.floorNumber,
+            dailyRate: b.dailyRate,
+            status: b.status,
+            admittedPatientName: b.admittedPatientName,
+            attendingDoctor: b.attendingDoctor,
+            admissionDate: b.admissionDate,
+          }));
+          setWardBeds(transformedBeds);
+        }
+
+        // Fetch patients
+        const patientsData = await fetchSupabaseProfiles("Patient");
+        if (patientsData && patientsData.length > 0) {
+          const transformedPatients = patientsData.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            age: 35,
+            gender: "Other",
+            bloodGroup: p.bloodGroup || "O+",
+            admission: p.email ? `${p.email}@hospital` : "ICU",
+            room: "Room A",
+            bed: "Bed 101",
+            attending: "Dr. Smith",
+            diagnosis: "General Care",
+            status: "Stable",
+            latestVitals: {
+              bp: "120/80 mmHg",
+              pulse: "75 bpm",
+              temp: "37°C",
+              spo2: "98%",
+            },
+          }));
+          setPatients(transformedPatients);
+        }
+      } catch (error) {
+        console.error("Error loading nurse data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const unreadAlertsCount = alerts.filter((a) => !a.resolved).length;
 

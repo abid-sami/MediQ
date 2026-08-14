@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
@@ -23,6 +23,7 @@ import {
   Stethoscope,
   ChevronRight,
   Heart,
+  Loader2,
 } from "lucide-react";
 import {
   initialPatientUser,
@@ -48,6 +49,11 @@ import {
   PatientBill,
   PatientNotification,
 } from "@/data/patient-data";
+import {
+  fetchSupabaseAppointments,
+  fetchSupabasePharmacyOrders,
+  fetchSupabaseLabOrders,
+} from "@/services/supabase-service";
 
 import { PatientOverview } from "./PatientOverview";
 import { FindDoctorModule } from "./FindDoctorModule";
@@ -82,6 +88,7 @@ export function PatientLayout() {
 
   const [activeTab, setActiveTab] = useState<PatientTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Global State
   const [patientUser, setPatientUser] = useState<PatientUserProfile>(initialPatientUser);
@@ -94,6 +101,69 @@ export function PatientLayout() {
   const [bloodRequests, setBloodRequests] = useState<PatientBloodRequest[]>(initialPatientBloodRequests);
   const [ambulance, setAmbulance] = useState<ActiveAmbulance | null>(initialActiveAmbulance);
   const [bills, setBills] = useState<PatientBill[]>(initialPatientBills);
+
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch patient appointments
+        const appointmentsData = await fetchSupabaseAppointments();
+        if (appointmentsData && appointmentsData.length > 0) {
+          const transformedAppointments = appointmentsData.map((a: any) => ({
+            id: a.id,
+            appointmentId: a.patientId,
+            doctorId: a.id,
+            doctorName: a.patientName,
+            doctorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330",
+            category: a.department,
+            hospital: "MediQ Hospital",
+            date: a.appointmentTime?.split(" ")[0] || new Date().toLocaleDateString(),
+            time: a.appointmentTime || "10:00 AM",
+            status: a.status,
+            reason: "Consultation",
+            fee: 50,
+          }));
+          setAppointments(transformedAppointments);
+        }
+
+        // Fetch pharmacy orders
+        const ordersData = await fetchSupabasePharmacyOrders();
+        if (ordersData && ordersData.length > 0) {
+          const transformedOrders = ordersData.map((o: any) => ({
+            id: o.id,
+            orderId: o.orderId,
+            date: new Date().toLocaleDateString(),
+            medicines: o.medicines || [],
+            totalAmount: o.totalAmount,
+            status: o.orderStatus,
+          }));
+          setPharmacyOrders(transformedOrders);
+        }
+
+        // Fetch lab orders
+        const labData = await fetchSupabaseLabOrders();
+        if (labData && labData.length > 0) {
+          const transformedLabs = labData.map((l: any) => ({
+            id: l.id,
+            testId: l.testId,
+            testName: l.testName,
+            date: l.date,
+            status: l.status,
+            facility: "MediQ Lab",
+          }));
+          setLabTests(transformedLabs);
+        }
+      } catch (error) {
+        console.error("Error loading patient data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const unreadNotifs = 2;
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
@@ -18,6 +18,7 @@ import {
   X,
   ChevronRight,
   Microscope,
+  Loader2,
 } from "lucide-react";
 import {
   initialLabStaffProfile,
@@ -32,6 +33,10 @@ import {
   LabCatalogItem,
   LabTestOrderStatus,
 } from "@/data/lab-staff-data";
+import {
+  fetchSupabaseLabOrders,
+  fetchSupabaseLabCatalog,
+} from "@/services/supabase-service";
 
 import { LabStaffOverview } from "./LabStaffOverview";
 import { LabTestOrdersModule } from "./LabTestOrdersModule";
@@ -59,6 +64,7 @@ export function LabStaffLayout() {
 
   const [activeTab, setActiveTab] = useState<LabStaffTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Global State
   const [profile, setProfile] = useState<LabStaffProfile>(initialLabStaffProfile);
@@ -66,6 +72,33 @@ export function LabStaffLayout() {
   const [processingItems, setProcessingItems] = useState<LabProcessingItem[]>(initialProcessingItems);
   const [parameters, setParameters] = useState<LabResultParameter[]>(initialResultParameters);
   const [catalog, setCatalog] = useState<LabCatalogItem[]>(initialLabCatalog);
+
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch lab test orders
+        const ordersData = await fetchSupabaseLabOrders();
+        if (ordersData && ordersData.length > 0) {
+          setOrders(ordersData);
+        }
+
+        // Fetch lab test catalog
+        const catalogData = await fetchSupabaseLabCatalog();
+        if (catalogData && catalogData.length > 0) {
+          setCatalog(catalogData);
+        }
+      } catch (error) {
+        console.error("Error loading lab staff data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const pendingSamplesCount = orders.filter((o) => o.status === "Sample Pending" || o.status === "Requested").length;
   const statCount = orders.filter((o) => o.priority === "STAT Emergency" && o.status !== "Completed").length;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
@@ -19,6 +19,7 @@ import {
   X,
   ChevronRight,
   UserPlus,
+  Loader2,
 } from "lucide-react";
 import {
   initialReceptionistProfile,
@@ -37,6 +38,11 @@ import {
   ReceptionBill,
   AppointmentStatus,
 } from "@/data/receptionist-data";
+import {
+  fetchSupabaseProfiles,
+  fetchSupabaseAppointments,
+  fetchSupabaseBeds,
+} from "@/services/supabase-service";
 
 import { ReceptionistOverview } from "./ReceptionistOverview";
 import { PatientRegistrationModule } from "./PatientRegistrationModule";
@@ -66,6 +72,7 @@ export function ReceptionistLayout() {
 
   const [activeTab, setActiveTab] = useState<ReceptionistTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Global State
   const [profile, setProfile] = useState<ReceptionistProfile>(initialReceptionistProfile);
@@ -75,6 +82,84 @@ export function ReceptionistLayout() {
   const [admissions, setAdmissions] = useState<HospitalAdmission[]>(initialAdmissions);
   const [bedCategories, setBedCategories] = useState<BedCategoryAvailability[]>(initialBedCategories);
   const [bills, setBills] = useState<ReceptionBill[]>(initialReceptionBills);
+
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch patients
+        const patientsData = await fetchSupabaseProfiles("Patient");
+        if (patientsData && patientsData.length > 0) {
+          const transformedPatients = patientsData.map((p: any) => ({
+            id: p.id,
+            registrationNo: p.id.substring(0, 8),
+            name: p.name,
+            phone: p.phone,
+            email: p.email,
+            age: 35,
+            gender: "Other",
+            bloodGroup: p.bloodGroup || "O+",
+            registrationDate: new Date().toLocaleDateString(),
+            status: "Active",
+            insuranceNo: "INS-12345",
+            lastVisit: new Date().toLocaleDateString(),
+          }));
+          setPatients(transformedPatients);
+        }
+
+        // Fetch appointments
+        const appointmentsData = await fetchSupabaseAppointments();
+        if (appointmentsData && appointmentsData.length > 0) {
+          const transformedAppointments = appointmentsData.map((a: any) => ({
+            id: a.id,
+            appointmentNo: a.serialNumber,
+            patientName: a.patientName,
+            doctorName: a.department,
+            date: a.appointmentTime?.split(" ")[0] || new Date().toLocaleDateString(),
+            time: a.appointmentTime || "10:00 AM",
+            status: a.status,
+            checkedIn: false,
+          }));
+          setAppointments(transformedAppointments);
+        }
+
+        // Fetch beds
+        const bedsData = await fetchSupabaseBeds();
+        if (bedsData && bedsData.length > 0) {
+          const transformedBeds = bedsData.map((b: any) => ({
+            id: b.id,
+            bedNumber: b.bedNumber,
+            wardType: b.wardType,
+            status: b.status,
+          }));
+          // Group beds by ward type
+          const groupedBeds = transformedBeds.reduce((acc: any, bed: any) => {
+            const existing = acc.find((c: any) => c.category === bed.wardType);
+            if (existing) {
+              existing.available = existing.total - existing.occupied;
+            } else {
+              acc.push({
+                category: bed.wardType,
+                total: 10,
+                occupied: 5,
+                available: 5,
+              });
+            }
+            return acc;
+          }, []);
+          setBedCategories(groupedBeds);
+        }
+      } catch (error) {
+        console.error("Error loading receptionist data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const pendingCheckInCount = appointments.filter(
     (a) => a.status === "Confirmed" || a.status === "Requested"

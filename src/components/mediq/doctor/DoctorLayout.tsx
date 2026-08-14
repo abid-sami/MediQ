@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   Stethoscope,
   ChevronRight,
   LogOut,
+  Loader2,
 } from "lucide-react";
 import {
   initialDoctorProfile,
@@ -48,6 +49,11 @@ import {
   DiagnosticStatus,
   FollowUpStatus,
 } from "@/data/doctor-data";
+import {
+  fetchSupabaseAppointments,
+  fetchSupabaseProfiles,
+  fetchSupabaseLabOrders,
+} from "@/services/supabase-service";
 
 import { DoctorOverview } from "./DoctorOverview";
 import { TodayAppointments } from "./TodayAppointments";
@@ -80,6 +86,7 @@ export function DoctorLayout() {
   // Active Tab state
   const [activeTab, setActiveTab] = useState<SidebarTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Global State
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile>(initialDoctorProfile);
@@ -98,6 +105,56 @@ export function DoctorLayout() {
   const [activeConsultationApt, setActiveConsultationApt] = useState<Appointment | null>(null);
   const [activeConsultationPatient, setActiveConsultationPatient] = useState<Patient | null>(null);
   const [selectedReportForView, setSelectedReportForView] = useState<MedicalReport | null>(null);
+
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch appointments
+        const appointmentsData = await fetchSupabaseAppointments();
+        if (appointmentsData && appointmentsData.length > 0) {
+          setAppointments(appointmentsData);
+        }
+
+        // Fetch patients (all profiles with role 'Patient')
+        const patientsData = await fetchSupabaseProfiles("Patient");
+        if (patientsData && patientsData.length > 0) {
+          // Transform to Patient format
+          const transformedPatients = patientsData.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            age: 35,
+            gender: "Other",
+            bloodGroup: p.bloodGroup || "O+",
+            contact: p.phone,
+            email: p.email,
+            address: p.address || "",
+            emergencyContact: { name: "N/A", relationship: "N/A", phone: p.phone },
+            allergies: [],
+            chronicConditions: [],
+            medicalHistory: "",
+            previousVisitsCount: 0,
+            lastVisitDate: new Date().toLocaleDateString(),
+          }));
+          setPatients(transformedPatients);
+        }
+
+        // Fetch lab requests
+        const labData = await fetchSupabaseLabOrders();
+        if (labData && labData.length > 0) {
+          setLabRequests(labData);
+        }
+      } catch (error) {
+        console.error("Error loading doctor data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   // Unread notifications
   const unreadNotifCount = notifications.filter((n) => !n.read).length;

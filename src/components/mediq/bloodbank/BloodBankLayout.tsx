@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
@@ -17,6 +17,7 @@ import {
   X,
   ChevronRight,
   Stethoscope,
+  Loader2,
 } from "lucide-react";
 import {
   initialBloodBankStaffProfile,
@@ -33,6 +34,11 @@ import {
   BloodDonation,
   BloodReservation,
 } from "@/data/blood-bank-data";
+import {
+  fetchSupabaseBloodInventory,
+  fetchSupabaseBloodRequests,
+  fetchSupabaseBloodDonors,
+} from "@/services/supabase-service";
 
 import { BloodBankOverview } from "./BloodBankOverview";
 import { BloodInventoryModule } from "./BloodInventoryModule";
@@ -58,6 +64,7 @@ export function BloodBankLayout() {
 
   const [activeTab, setActiveTab] = useState<BloodBankTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Global State
   const [staffProfile, setStaffProfile] = useState<BloodBankStaffProfile>(initialBloodBankStaffProfile);
@@ -66,6 +73,39 @@ export function BloodBankLayout() {
   const [donors, setDonors] = useState<BloodDonor[]>(initialDonors);
   const [donations, setDonations] = useState<BloodDonation[]>(initialDonations);
   const [reservations, setReservations] = useState<BloodReservation[]>(initialReservations);
+
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch blood inventory
+        const inventoryData = await fetchSupabaseBloodInventory();
+        if (inventoryData && inventoryData.length > 0) {
+          setGroups(inventoryData);
+        }
+
+        // Fetch blood requests
+        const requestsData = await fetchSupabaseBloodRequests();
+        if (requestsData && requestsData.length > 0) {
+          setRequests(requestsData);
+        }
+
+        // Fetch blood donors
+        const donorsData = await fetchSupabaseBloodDonors();
+        if (donorsData && donorsData.length > 0) {
+          setDonors(donorsData);
+        }
+      } catch (error) {
+        console.error("Error loading blood bank data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const pendingRequestsCount = requests.filter((r) => r.status === "Pending").length;
   const emergencyCount = requests.filter((r) => r.urgency === "Emergency" && r.status === "Pending").length;

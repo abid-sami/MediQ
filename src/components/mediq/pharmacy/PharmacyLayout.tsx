@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
@@ -19,6 +19,7 @@ import {
   X,
   ChevronRight,
   Stethoscope,
+  Loader2,
 } from "lucide-react";
 import {
   initialPharmacistProfile,
@@ -33,6 +34,10 @@ import {
   PharmacySupplier,
   OrderStatus,
 } from "@/data/pharmacy-data";
+import {
+  fetchSupabasePharmacyOrders,
+  fetchSupabasePharmacyMedicines,
+} from "@/services/supabase-service";
 
 import { PharmacyOverview } from "./PharmacyOverview";
 import { PrescriptionVerificationModule } from "./PrescriptionVerificationModule";
@@ -61,6 +66,7 @@ export function PharmacyLayout() {
 
   const [activeTab, setActiveTab] = useState<PharmacyTab>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Global Pharmacy State
   const [profile, setProfile] = useState<PharmacistProfile>(initialPharmacistProfile);
@@ -68,6 +74,59 @@ export function PharmacyLayout() {
   const [orders, setOrders] = useState<PharmacyOrder[]>(initialPharmacyOrders);
   const [medicines, setMedicines] = useState<PharmacyMedicine[]>(initialMedicines);
   const [suppliers, setSuppliers] = useState<PharmacySupplier[]>(initialSuppliers);
+
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch pharmacy orders
+        const ordersData = await fetchSupabasePharmacyOrders();
+        if (ordersData && ordersData.length > 0) {
+          // Transform to PharmacyOrder format
+          const transformedOrders = ordersData.map((o: any) => ({
+            id: o.id,
+            orderId: o.orderId,
+            patientName: o.patientName,
+            patientContact: o.patientContact,
+            medicines: o.medicines || [],
+            totalAmount: o.totalAmount,
+            prescriptionStatus: o.prescriptionStatus,
+            orderStatus: o.orderStatus,
+            orderTime: o.orderTime,
+          }));
+          setOrders(transformedOrders);
+        }
+
+        // Fetch medicines
+        const medicinesData = await fetchSupabasePharmacyMedicines();
+        if (medicinesData && medicinesData.length > 0) {
+          // Transform to PharmacyMedicine format
+          const transformedMedicines = medicinesData.map((m: any) => ({
+            id: m.id,
+            medicineCode: m.medicineCode,
+            medicineName: m.medicineName,
+            genericName: m.genericName,
+            category: m.category,
+            dosageStrength: m.dosageStrength,
+            pricePerUnit: m.pricePerUnit,
+            stock: m.stock,
+            reorderLevel: m.reorderLevel,
+            manufacturer: m.manufacturer,
+            stockStatus: m.stockStatus,
+          }));
+          setMedicines(transformedMedicines);
+        }
+      } catch (error) {
+        console.error("Error loading pharmacy data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const pendingRxCount = prescriptions.filter((p) => p.verificationStatus === "Pending").length;
 
