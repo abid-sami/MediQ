@@ -302,7 +302,7 @@ export function AuthModal() {
                     />
                   </div>
 
-                  <div>
+                  {/* <div>
                     <Label className="text-xs font-bold text-muted-foreground">Account Role *</Label>
                     <Select value={regRole} onValueChange={setRegRole}>
                       <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
@@ -319,7 +319,7 @@ export function AuthModal() {
                         <SelectItem value="Lab Staff">Lab Staff</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
