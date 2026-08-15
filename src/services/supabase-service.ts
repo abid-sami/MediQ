@@ -33,6 +33,50 @@ export async function loginWithSupabase(emailOrPhone: string, passwordText: stri
   }
 }
 
+// Preferred way to create staff/patient accounts from the Admin panel.
+// Runs entirely server-side via the admin-create-user Edge Function, using
+// the service role key, so it isn't subject to the same-user RLS rule that
+// blocks a normal client-side insert into `profiles`.
+export async function createUserAsAdmin(params: {
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  passwordText: string;
+  bloodGroup?: string;
+  address?: string;
+}) {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (!accessToken) {
+      return { data: null, error: { message: "Not authenticated" } };
+    }
+
+    const { data, error } = await supabase.functions.invoke("admin-create-user", {
+      body: {
+        name: params.name,
+        email: params.email,
+        phone: params.phone,
+        role: params.role,
+        password: params.passwordText,
+        bloodGroup: params.bloodGroup,
+        address: params.address,
+      },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    return { data, error: data?.error ? { message: data.error } : null };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
 export async function registerWithSupabase(params: {
   name: string;
   email: string;
@@ -75,7 +119,7 @@ export async function registerWithSupabase(params: {
       role: params.role,
       blood_group: params.bloodGroup || "O+",
       address: params.address || "",
-      avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+      avatar_url: "https://ibb.co.com/39NqwQCP",
       created_at: new Date().toISOString(),
     };
 
@@ -93,13 +137,22 @@ export async function registerWithSupabase(params: {
     }
 
     // 2. Upsert into public.profiles table in Supabase
+    let profileError: any = null;
     try {
-      await supabase.from("profiles").upsert(newProfile);
+      const { error: upsertError } = await supabase.from("profiles").upsert(newProfile);
+      if (upsertError) {
+        console.error("Supabase profiles table upsert failed:", upsertError);
+        profileError = upsertError;
+      }
     } catch (e) {
-      console.warn("Supabase profiles table upsert:", e);
+      console.error("Supabase profiles table upsert threw:", e);
+      profileError = e;
     }
 
-    return { data: authData, error: authError };
+    // Surface the profile-write failure even if Auth signUp itself succeeded,
+    // so the caller (and the admin UI) knows the account won't show up in
+    // User Management until this is fixed.
+    return { data: authData, error: authError || profileError };
   } catch (err: any) {
     return { data: null, error: err };
   }
@@ -134,7 +187,7 @@ export async function fetchSupabaseAppointments() {
       serialNumber: a.serial_number || 1,
       serialToken: a.serial_token || `Serial #${a.serial_number}`,
       reason: "General consultation and checkup",
-      patientAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      patientAvatar: "https://ibb.co.com/39NqwQCP",
     }));
   } catch (e) {
     console.warn("Using local appointments store:", e);
@@ -607,6 +660,9 @@ export async function fetchSupabaseProfiles(role?: string) {
       query = query.eq("role", role);
     }
     const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) {
+      console.error("fetchSupabaseProfiles: profiles SELECT failed:", error);
+    }
     if (!error && data) {
       dbProfiles = data.map((p: any) => ({
         id: p.id,

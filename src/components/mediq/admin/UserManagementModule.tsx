@@ -156,7 +156,7 @@ export function UserManagementModule({
         registeredDate: new Date().toISOString().split("T")[0],
         lastActive: "Just now",
         avatar:
-          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+          "https://ibb.co.com/39NqwQCP",
       };
 
       if (onAddUser) {
@@ -291,7 +291,7 @@ export function UserManagementModule({
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={u.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"}
+                          src={u.avatar || "https://ibb.co.com/39NqwQCP"}
                           alt={u.name || "User"}
                           className="h-9 w-9 rounded-xl object-cover border border-primary/30"
                         />
