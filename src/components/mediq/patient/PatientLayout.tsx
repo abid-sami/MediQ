@@ -25,6 +25,7 @@ import {
   Stethoscope,
   ChevronRight,
   Heart,
+  Sparkles,
   Loader2,
   LogOut,
 } from "lucide-react";
@@ -69,6 +70,7 @@ import { PatientBloodBankModule } from "./PatientBloodBankModule";
 import { PatientAmbulanceModule } from "./PatientAmbulanceModule";
 import { PatientBillingModule } from "./PatientBillingModule";
 import { PatientProfileModule } from "./PatientProfileModule";
+import { PatientWellnessModule } from "./wellness/PatientWellnessModule";
 import { NotificationsModule } from "../doctor/NotificationsModule";
 
 export type PatientTab =
@@ -83,6 +85,7 @@ export type PatientTab =
   | "blood-bank"
   | "ambulance"
   | "billing"
+  | "wellness"
   | "notifications"
   | "profile";
 
@@ -250,6 +253,7 @@ export function PatientLayout() {
     { id: "blood-bank", label: "Blood Bank", icon: Droplet },
     { id: "ambulance", label: "Ambulance", icon: Siren, badge: ambulance ? 1 : 0 },
     { id: "billing", label: "Billing", icon: CreditCard },
+    { id: "wellness", label: "Wellness & Relaxation", icon: Sparkles },
     { id: "notifications", label: "Notifications", icon: Bell, badge: unreadNotifs },
     { id: "profile", label: "Profile", icon: User },
   ];
@@ -499,6 +503,10 @@ export function PatientLayout() {
               onPayBill={handlePayBill}
               onAddBill={handleAddBill}
             />
+          )}
+
+          {activeTab === "wellness" && (
+            <PatientWellnessModule />
           )}
 
           {activeTab === "profile" && (

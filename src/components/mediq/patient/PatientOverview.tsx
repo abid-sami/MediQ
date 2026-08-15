@@ -248,6 +248,89 @@ export function PatientOverview({
           </div>
         )}
       </div>
+
+      {/* Dedicated Patient Wellness & Relaxation Activities Showcase */}
+      <div className="bg-card border border-border rounded-3xl p-6 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-teal/15 text-teal flex items-center justify-center">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Patient Wellness & Relaxation Activities</h3>
+              <p className="text-xs text-muted-foreground">Calming, low-pressure exercises for waiting and recovery</p>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => onNavigateTab("wellness")}
+            variant="outline"
+            size="sm"
+            className="rounded-xl text-xs font-semibold self-start sm:self-auto"
+          >
+            Open Wellness Hub <ChevronRight className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Card 1: Guided Breathing */}
+          <div
+            onClick={() => onNavigateTab("wellness")}
+            className="p-4 rounded-2xl border border-teal/20 bg-teal/5 hover:bg-teal/10 cursor-pointer card-lift transition-all flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-teal">Breathing Exercise</span>
+              <span className="text-base">🌬️</span>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-foreground">Guided Breathing</h4>
+              <p className="text-xs text-muted-foreground mt-0.5">Take a few minutes to relax and breathe.</p>
+            </div>
+            <div className="pt-2 border-t border-teal/20 flex items-center justify-between text-xs font-bold text-teal">
+              <span>Start Activity</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </div>
+          </div>
+
+          {/* Card 2: Memory Match */}
+          <div
+            onClick={() => onNavigateTab("wellness")}
+            className="p-4 rounded-2xl border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 cursor-pointer card-lift transition-all flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">Memory Exercise</span>
+              <span className="text-base">🩺</span>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-foreground">Memory Match</h4>
+              <p className="text-xs text-muted-foreground mt-0.5">A simple memory activity at your own pace.</p>
+            </div>
+            <div className="pt-2 border-t border-purple-500/20 flex items-center justify-between text-xs font-bold text-purple-600 dark:text-purple-400">
+              <span>Start Activity</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </div>
+          </div>
+
+          {/* Card 3: Calm Coloring */}
+          <div
+            onClick={() => onNavigateTab("wellness")}
+            className="p-4 rounded-2xl border border-pink-500/20 bg-pink-500/5 hover:bg-pink-500/10 cursor-pointer card-lift transition-all flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-pink-600 dark:text-pink-400">Creative Art</span>
+              <span className="text-base">🎨</span>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-foreground">Calm Coloring</h4>
+              <p className="text-xs text-muted-foreground mt-0.5">Relax and create something.</p>
+            </div>
+            <div className="pt-2 border-t border-pink-500/20 flex items-center justify-between text-xs font-bold text-pink-600 dark:text-pink-400">
+              <span>Start Activity</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
