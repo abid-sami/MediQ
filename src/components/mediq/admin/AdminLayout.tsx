@@ -149,7 +149,7 @@ export function AdminLayout() {
               status: "Active",
               registeredDate: new Date().toISOString().split("T")[0],
               lastActive: "Just now",
-              avatar: p.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+              avatar: p.avatarUrl || "https://ibb.co.com/39NqwQCP0",
             };
           });
 

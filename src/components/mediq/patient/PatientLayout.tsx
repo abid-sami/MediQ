@@ -136,7 +136,7 @@ export function PatientLayout() {
             appointmentId: a.patientId,
             doctorId: a.id,
             doctorName: a.patientName,
-            doctorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330",
+            doctorAvatar: "https://ibb.co.com/39NqwQCP",
             category: a.department,
             hospital: "MediQ Hospital",
             date: a.appointmentTime?.split(" ")[0] || new Date().toLocaleDateString(),
