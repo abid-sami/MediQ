@@ -57,6 +57,8 @@ export function AuthModal() {
   const [regEmail, setRegEmail] = useState("");
   const [regNumber, setRegNumber] = useState("");
   const [regRole, setRegRole] = useState<string>("Patient");
+  const [regAge, setRegAge] = useState<string>("");
+  const [regGender, setRegGender] = useState<string>("Male");
   const [regPassword, setRegPassword] = useState("");
   const [regRePassword, setRegRePassword] = useState("");
   const [regBloodGroup, setRegBloodGroup] = useState("");
@@ -79,24 +81,23 @@ export function AuthModal() {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 digits");
+    if (!password) {
+      toast.error("Please enter your Password");
       return;
     }
 
     setIsLoggingIn(true);
 
     try {
-      // 1. Sign in with Supabase & resolve role automatically from profile/metadata
-      const { error, role: resolvedRole } = await signIn(identifier, password);
+      const { error, role: detectedRole } = await signIn(identifier, password);
 
       if (error) {
-        toast.error(error.message || "Invalid credentials. Please check your email/phone and password.");
+        toast.error(error.message || "Invalid credentials. Please check your details.");
         setIsLoggingIn(false);
         return;
       }
 
-      const activeRole = resolvedRole || "Patient";
+      const activeRole = detectedRole || mapRole(identifier) || "Patient";
       setLocalRole(activeRole);
 
       const targetRoute = getRouteForRole(activeRole);
@@ -148,6 +149,8 @@ export function AuthModal() {
         phone: regNumber,
         role: mapped,
         password: regPassword,
+        age: regAge ? Number(regAge) : undefined,
+        gender: regGender || "Male",
         bloodGroup: regBloodGroup,
         address: regAddress,
       });
@@ -290,36 +293,45 @@ export function AuthModal() {
             /* Register Form (Patients Default) */
             <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs">
               <div className="space-y-3">
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Full Name *</Label>
+                  <Input
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    required
+                    placeholder="Your Name"
+                    className="mt-1 rounded-xl text-xs font-semibold"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-bold text-muted-foreground">Full Name *</Label>
+                    <Label className="text-xs font-bold text-muted-foreground">Age (Years) *</Label>
                     <Input
-                      value={regName}
-                      onChange={(e) => setRegName(e.target.value)}
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={regAge}
+                      onChange={(e) => setRegAge(e.target.value)}
                       required
-                      placeholder="Your Name"
+                      placeholder="e.g. 28"
                       className="mt-1 rounded-xl text-xs font-semibold"
                     />
                   </div>
 
-                  {/* <div>
-                    <Label className="text-xs font-bold text-muted-foreground">Account Role *</Label>
-                    <Select value={regRole} onValueChange={setRegRole}>
+                  <div>
+                    <Label className="text-xs font-bold text-muted-foreground">Gender *</Label>
+                    <Select value={regGender} onValueChange={setRegGender}>
                       <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
-                        <SelectValue placeholder="Select Account Role" />
+                        <SelectValue placeholder="Select Gender" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Patient">Patient</SelectItem>
-                        <SelectItem value="Doctor">Doctor</SelectItem>
-                        <SelectItem value="Nurse">Nurse</SelectItem>
-                        <SelectItem value="Pharmacist">Pharmacist</SelectItem>
-                        <SelectItem value="Blood Bank Staff">Blood Bank Staff</SelectItem>
-                        <SelectItem value="Ambulance Driver">Ambulance Driver</SelectItem>
-                        <SelectItem value="Receptionist">Receptionist</SelectItem>
-                        <SelectItem value="Lab Staff">Lab Staff</SelectItem>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div> */}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

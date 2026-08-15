@@ -93,8 +93,8 @@ export const initialAdminProfile: AdminProfile = {
   role: "Super Admin",
   department: "Global Platform Command & Governance",
   hospitalNetwork: "MediQ Healthcare Network",
-  email: "admin@mediq.health",
-  phone: "+1 (555) 000-0000",
+  email: "admin@gmail.com",
+  phone: "",
 };
 
 export const initialSystemUsers: SystemUser[] = [];

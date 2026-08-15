@@ -83,6 +83,8 @@ export async function registerWithSupabase(params: {
   phone: string;
   role: string;
   passwordText: string;
+  age?: number;
+  gender?: string;
   bloodGroup?: string;
   address?: string;
 }) {
@@ -100,6 +102,8 @@ export async function registerWithSupabase(params: {
           name: params.name,
           phone: params.phone,
           role: params.role,
+          age: params.age,
+          gender: params.gender || "Not specified",
           bloodGroup: params.bloodGroup || "O+",
           address: params.address || "",
         },
@@ -117,6 +121,8 @@ export async function registerWithSupabase(params: {
       email,
       phone: params.phone,
       role: params.role,
+      age: params.age,
+      gender: params.gender || "Not specified",
       blood_group: params.bloodGroup || "O+",
       address: params.address || "",
       avatar_url: "https://ibb.co.com/39NqwQCP",
@@ -163,6 +169,16 @@ export async function registerWithSupabase(params: {
 // ============================================================================
 
 export async function fetchSupabaseAppointments() {
+  let localAppointments: any[] = [];
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_appointments_v2");
+      if (stored) {
+        localAppointments = JSON.parse(stored);
+      }
+    }
+  } catch (e) {}
+
   try {
     const { data, error } = await supabase
       .from("appointments")
@@ -170,28 +186,45 @@ export async function fetchSupabaseAppointments() {
       .order("created_at", { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return [];
+      return localAppointments;
     }
 
-    return data.map((a: any) => ({
+    const fetched = data.map((a: any) => ({
       id: a.id,
+      appointmentId: a.appointment_id || a.id,
       patientId: a.patient_id || a.appointment_id,
       patientName: a.patient_name,
+      patientPhone: a.patient_phone,
+      doctorName: a.doctor_name,
+      doctorId: a.doctor_id || "doc-101",
       patientAge: a.patient_age || 30,
       patientGender: "Other",
       patientBloodGroup: "O+",
       appointmentTime: a.appointment_time,
+      appointmentDate: a.appointment_date,
       appointmentType: "In-Person",
       department: a.department || a.specialty,
+      specialty: a.specialty,
       status: a.status || "Scheduled",
       serialNumber: a.serial_number || 1,
       serialToken: a.serial_token || `Serial #${a.serial_number}`,
       reason: "General consultation and checkup",
+      fee: a.fee || 50,
       patientAvatar: "https://ibb.co.com/39NqwQCP",
     }));
+
+    // Merge with local appointments
+    const merged = [...localAppointments];
+    fetched.forEach((f: any) => {
+      if (!merged.some((m: any) => m.id === f.id || m.appointmentId === f.appointmentId)) {
+        merged.push(f);
+      }
+    });
+
+    return merged;
   } catch (e) {
     console.warn("Using local appointments store:", e);
-    return [];
+    return localAppointments;
   }
 }
 
@@ -200,12 +233,48 @@ export async function createSupabaseAppointment(payload: {
   patientName: string;
   patientPhone: string;
   doctorName: string;
+  doctorId?: string;
   specialty: string;
   appointmentDate: string;
   appointmentTime: string;
   serialNumber: number;
   serialToken: string;
+  fee?: number;
 }) {
+  const newApt = {
+    id: payload.appointmentId,
+    appointmentId: payload.appointmentId,
+    patientId: `pat-${Date.now()}`,
+    patientName: payload.patientName,
+    patientPhone: payload.patientPhone,
+    doctorName: payload.doctorName,
+    doctorId: payload.doctorId || "doc-101",
+    patientAge: 30,
+    patientGender: "Other",
+    patientBloodGroup: "O+",
+    appointmentDate: payload.appointmentDate,
+    appointmentTime: payload.appointmentTime,
+    appointmentType: "In-Person",
+    department: payload.specialty,
+    specialty: payload.specialty,
+    status: "Scheduled",
+    serialNumber: payload.serialNumber,
+    serialToken: payload.serialToken,
+    fee: payload.fee || 50,
+    reason: "General consultation and checkup",
+    patientAvatar: "https://ibb.co.com/39NqwQCP",
+  };
+
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_appointments_v2");
+      const list = stored ? JSON.parse(stored) : [];
+      list.unshift(newApt);
+      localStorage.setItem("mediq_appointments_v2", JSON.stringify(list));
+      window.dispatchEvent(new Event("mediq_appointments_updated"));
+    }
+  } catch (e) {}
+
   try {
     const { data, error } = await supabase.from("appointments").insert({
       appointment_id: payload.appointmentId,
@@ -219,9 +288,9 @@ export async function createSupabaseAppointment(payload: {
       serial_token: payload.serialToken,
       status: "Scheduled",
     });
-    return { data, error };
+    return { data: data || newApt, error };
   } catch (err: any) {
-    return { data: null, error: err };
+    return { data: newApt, error: err };
   }
 }
 
@@ -422,27 +491,56 @@ export async function fetchSupabaseBloodInventory() {
 }
 
 export async function fetchSupabaseBloodRequests() {
+  let dbRequests: any[] = [];
   try {
     const { data, error } = await supabase.from("blood_requests").select("*").order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) {
-      return [];
+    if (!error && data) {
+      dbRequests = data.map((r: any) => ({
+        id: r.id || `br-${r.request_id}`,
+        requestId: r.request_id,
+        patientName: r.patient_name,
+        patientAge: r.patient_age || 35,
+        bloodGroup: r.blood_group,
+        unitsNeeded: r.units_needed,
+        hospitalName: r.hospital_name || "MediQ Central Hospital",
+        doctorName: r.doctor_name || "Staff Physician",
+        requiredDate: r.required_date || new Date().toISOString().split("T")[0],
+        urgency: r.urgency || "Urgent",
+        status: r.status || "Pending",
+      }));
     }
-    return data.map((r: any) => ({
-      id: r.id,
-      requestId: r.request_id,
-      patientName: r.patient_name,
-      patientAge: r.patient_age,
-      bloodGroup: r.blood_group,
-      unitsNeeded: r.units_needed,
-      hospitalName: r.hospital_name,
-      doctorName: r.doctor_name,
-      requiredDate: r.required_date,
-      urgency: r.urgency,
-      status: r.status,
-    }));
   } catch (e) {
-    return [];
+    console.warn("fetchSupabaseBloodRequests DB fetch:", e);
   }
+
+  let localRequests: any[] = [];
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_blood_requests");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          localRequests = parsed;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("fetchSupabaseBloodRequests local storage read:", e);
+  }
+
+  const merged = [...dbRequests];
+  for (const lr of localRequests) {
+    const existingIndex = merged.findIndex(
+      (mr) => mr.requestId === lr.requestId || mr.id === lr.id
+    );
+    if (existingIndex >= 0) {
+      merged[existingIndex] = { ...merged[existingIndex], status: lr.status || merged[existingIndex].status };
+    } else {
+      merged.push(lr);
+    }
+  }
+
+  return merged;
 }
 
 export async function createSupabaseBloodRequest(payload: {
@@ -455,6 +553,30 @@ export async function createSupabaseBloodRequest(payload: {
   doctorName: string;
   urgency: string;
 }) {
+  const newReq = {
+    id: `br-${Date.now()}`,
+    requestId: payload.requestId,
+    patientName: payload.patientName,
+    patientAge: payload.patientAge || 35,
+    bloodGroup: payload.bloodGroup,
+    unitsNeeded: payload.unitsNeeded,
+    hospitalName: payload.hospitalName || "MediQ Central Hospital",
+    doctorName: payload.doctorName || "Staff Physician",
+    requiredDate: new Date().toISOString().split("T")[0],
+    urgency: payload.urgency,
+    status: "Pending",
+  };
+
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_blood_requests");
+      const existing = stored ? JSON.parse(stored) : [];
+      localStorage.setItem("mediq_blood_requests", JSON.stringify([newReq, ...existing]));
+    }
+  } catch (e) {
+    console.warn("LocalStorage save error:", e);
+  }
+
   try {
     const { data, error } = await supabase.from("blood_requests").insert({
       request_id: payload.requestId,
@@ -467,9 +589,9 @@ export async function createSupabaseBloodRequest(payload: {
       urgency: payload.urgency,
       status: "Pending",
     });
-    return { data, error };
+    return { data: newReq, error };
   } catch (err: any) {
-    return { data: null, error: err };
+    return { data: newReq, error: err };
   }
 }
 
@@ -961,6 +1083,23 @@ export async function updateSupabasePharmacyOrderStatus(orderId: string, status:
 }
 
 export async function updateSupabaseBloodRequestStatus(requestId: string, status: string) {
+  try {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("mediq_blood_requests");
+      if (stored) {
+        const existing = JSON.parse(stored);
+        if (Array.isArray(existing)) {
+          const updated = existing.map((r: any) =>
+            r.requestId === requestId || r.id === requestId ? { ...r, status } : r
+          );
+          localStorage.setItem("mediq_blood_requests", JSON.stringify(updated));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("LocalStorage status update error:", e);
+  }
+
   try {
     const { data, error } = await supabase.from("blood_requests").update({ status }).eq("request_id", requestId);
     return { data, error };

@@ -41,6 +41,7 @@ import {
   fetchSupabaseBloodInventory,
   fetchSupabaseBloodRequests,
   fetchSupabaseBloodDonors,
+  updateSupabaseBloodRequestStatus,
 } from "@/services/supabase-service";
 
 import { BloodBankOverview } from "./BloodBankOverview";
@@ -136,25 +137,37 @@ export function BloodBankLayout() {
 
   // Handlers
   const handleApproveRequest = (id: string) => {
+    const target = requests.find((r) => r.id === id || r.requestId === id);
     setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "Approved" } : r))
+      prev.map((r) => (r.id === id || r.requestId === id ? { ...r, status: "Approved" } : r))
     );
+    if (target?.requestId || id) {
+      updateSupabaseBloodRequestStatus(target?.requestId || id, "Approved");
+    }
   };
 
   const handleRejectRequest = (id: string) => {
+    const target = requests.find((r) => r.id === id || r.requestId === id);
     setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "Rejected" } : r))
+      prev.map((r) => (r.id === id || r.requestId === id ? { ...r, status: "Rejected" } : r))
     );
+    if (target?.requestId || id) {
+      updateSupabaseBloodRequestStatus(target?.requestId || id, "Rejected");
+    }
   };
 
   const handleReserveRequest = (id: string) => {
+    const target = requests.find((r) => r.id === id || r.requestId === id);
     setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "Reserved" } : r))
+      prev.map((r) => (r.id === id || r.requestId === id ? { ...r, status: "Reserved" } : r))
     );
+    if (target?.requestId || id) {
+      updateSupabaseBloodRequestStatus(target?.requestId || id, "Reserved");
+    }
   };
 
   const handleFulfillRequest = (id: string) => {
-    const req = requests.find((r) => r.id === id);
+    const req = requests.find((r) => r.id === id || r.requestId === id);
     if (req) {
       // Deduct inventory
       setGroups((prev) =>
@@ -175,8 +188,11 @@ export function BloodBankLayout() {
       );
     }
     setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "Fulfilled" } : r))
+      prev.map((r) => (r.id === id || r.requestId === id ? { ...r, status: "Fulfilled" } : r))
     );
+    if (req?.requestId || id) {
+      updateSupabaseBloodRequestStatus(req?.requestId || id, "Fulfilled");
+    }
   };
 
   const handleAddUnits = (group: BloodGroupType, units: number) => {

@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Droplet, HeartHandshake, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -5,10 +6,44 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { bloodGroups, statusStyles } from "@/data/mediq";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { createSupabaseBloodDonor } from "@/services/supabase-service";
 
 import { LivePill, Reveal, Section, SectionHeading } from "./primitives";
+import { RequestBloodModal } from "./RequestBloodModal";
+import { BecomeDonorModal } from "./BecomeDonorModal";
 
 export function BloodBank() {
+  const { profile, user } = useAuth();
+
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [donorModalOpen, setDonorModalOpen] = useState(false);
+
+  const handleBecomeDonorClick = async () => {
+    // Check if user's profile has a blood group specified
+    if (!profile?.bloodGroup) {
+      setDonorModalOpen(true);
+    } else {
+      // Register directly with profile blood group
+      const donorName = profile.name || user?.email?.split("@")[0] || "Voluntary Donor";
+      const donorPhone = profile.phone || "+1 (555) 000-0000";
+      const donorEmail = profile.email || user?.email || "";
+      const donorId = `DNR-${Math.floor(1000 + Math.random() * 8999)}`;
+
+      await createSupabaseBloodDonor({
+        donorId,
+        name: donorName,
+        bloodGroup: profile.bloodGroup,
+        phone: donorPhone,
+        email: donorEmail,
+      });
+
+      toast.success(`Registered as Voluntary Blood Donor (${profile.bloodGroup})!`, {
+        description: `Thank you ${donorName}! Your blood group ${profile.bloodGroup} is registered with MediQ Blood Bank.`,
+      });
+    }
+  };
+
   return (
     <Section id="blood-bank" className="relative overflow-hidden border-y border-border bg-surface">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
@@ -78,21 +113,33 @@ export function BloodBank() {
       <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
         <Button
           className="rounded-xl gradient-emergency font-semibold text-emergency-foreground hover:opacity-95"
-          onClick={() => toast.success("Blood request form will open with the blood bank module.")}
+          onClick={() => setRequestModalOpen(true)}
         >
           <Send className="mr-2 h-4 w-4" /> Request Blood
         </Button>
         <Button
           variant="outline"
           className="rounded-xl border-teal/40 font-semibold"
-          onClick={() => toast.success("Thank you — donor registration is coming next.")}
+          onClick={handleBecomeDonorClick}
         >
           <HeartHandshake className="mr-2 h-4 w-4" /> Become a Donor
         </Button>
-        <Button variant="ghost" className="rounded-xl font-semibold">
-          View Blood Bank
-        </Button>
+        <a href="/patient">
+          <Button variant="ghost" className="rounded-xl font-semibold w-full sm:w-auto">
+            View Blood Bank
+          </Button>
+        </a>
       </div>
+
+      <RequestBloodModal
+        open={requestModalOpen}
+        onOpenChange={setRequestModalOpen}
+      />
+
+      <BecomeDonorModal
+        open={donorModalOpen}
+        onOpenChange={setDonorModalOpen}
+      />
     </Section>
   );
 }

@@ -1,25 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Droplet,
   Plus,
-  CheckCircle2,
   Heart,
-  AlertCircle,
   Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PatientBloodRequest } from "@/data/patient-data";
-import { fetchSupabaseBloodInventory } from "@/services/supabase-service";
+import { fetchSupabaseBloodInventory, createSupabaseBloodDonor } from "@/services/supabase-service";
+import { useAuth } from "@/hooks/use-auth";
+import { RequestBloodModal } from "@/components/mediq/RequestBloodModal";
+import { BecomeDonorModal } from "@/components/mediq/BecomeDonorModal";
 
 interface PatientBloodBankModuleProps {
   requests: PatientBloodRequest[];
@@ -30,7 +23,11 @@ export function PatientBloodBankModule({
   requests,
   onRequestBlood,
 }: PatientBloodBankModuleProps) {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const { profile, user } = useAuth();
+
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [donorModalOpen, setDonorModalOpen] = useState(false);
+
   const [bloodUnits, setBloodUnits] = useState<{ group: string; units: number; status: string }[]>([]);
 
   useEffect(() => {
@@ -51,32 +48,42 @@ export function PatientBloodBankModule({
       );
     });
   }, []);
-  const [bloodGroup, setBloodGroup] = useState("O+");
-  const [units, setUnits] = useState(1);
-  const [urgency, setUrgency] = useState<PatientBloodRequest["urgency"]>("Routine");
 
-  const handleCreateRequest = () => {
-    const newReq: PatientBloodRequest = {
-      id: `br-${Date.now()}`,
-      requestId: `BLD-REQ-2026-${Math.floor(10 + Math.random() * 90)}`,
-      bloodGroup,
-      unitsNeeded: units,
-      hospital: "MediQ Central Hospital",
-      urgency,
-      requestedDate: new Date().toISOString().split("T")[0],
-      status: "Approved",
-    };
-    onRequestBlood(newReq);
-    setDialogOpen(false);
-    toast.success("Blood Requisition Submitted", {
-      description: `Request ID ${newReq.requestId} for ${units} unit(s) of ${bloodGroup}`,
-    });
+  const handleBecomeDonorClick = async () => {
+    if (!profile?.bloodGroup) {
+      setDonorModalOpen(true);
+    } else {
+      const donorName = profile.name || user?.email?.split("@")[0] || "Voluntary Donor";
+      const donorPhone = profile.phone || "+1 (555) 000-0000";
+      const donorEmail = profile.email || user?.email || "";
+      const donorId = `DNR-${Math.floor(1000 + Math.random() * 8999)}`;
+
+      await createSupabaseBloodDonor({
+        donorId,
+        name: donorName,
+        bloodGroup: profile.bloodGroup,
+        phone: donorPhone,
+        email: donorEmail,
+      });
+
+      toast.success(`Registered as Voluntary Blood Donor (${profile.bloodGroup})!`, {
+        description: `Thank you ${donorName}! Your blood group ${profile.bloodGroup} is registered with MediQ Blood Bank.`,
+      });
+    }
   };
 
-  const handleBecomeDonor = () => {
-    toast.success("Thank you for registering as a MediQ Blood Donor!", {
-      description: "Our blood bank coordinator will contact you for eligibility screening.",
-    });
+  const handleRequestSubmitted = (newReq: any) => {
+    const patientReq: PatientBloodRequest = {
+      id: newReq.id || `br-${Date.now()}`,
+      requestId: newReq.requestId || `BLD-REQ-${Math.floor(100 + Math.random() * 900)}`,
+      bloodGroup: newReq.bloodGroup || "O+",
+      unitsNeeded: newReq.unitsNeeded || 1,
+      hospital: newReq.hospitalName || "MediQ Central Hospital",
+      urgency: newReq.urgency || "Routine",
+      requestedDate: newReq.requiredDate || new Date().toISOString().split("T")[0],
+      status: newReq.status || "Pending",
+    };
+    onRequestBlood(patientReq);
   };
 
   return (
@@ -94,7 +101,7 @@ export function PatientBloodBankModule({
 
         <div className="flex items-center gap-2 flex-wrap">
           <Button
-            onClick={handleBecomeDonor}
+            onClick={handleBecomeDonorClick}
             variant="outline"
             className="rounded-xl text-xs font-bold border-red-500/30 text-red-500 hover:bg-red-500/10"
           >
@@ -102,7 +109,7 @@ export function PatientBloodBankModule({
           </Button>
 
           <Button
-            onClick={() => setDialogOpen(true)}
+            onClick={() => setRequestModalOpen(true)}
             className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md"
           >
             <Plus className="mr-1.5 h-4 w-4" /> Request Blood
@@ -142,77 +149,62 @@ export function PatientBloodBankModule({
       <div className="space-y-3 pt-4 border-t border-border">
         <h3 className="text-sm font-bold">My Blood Requisitions</h3>
 
-        <div className="space-y-3">
-          {requests.map((r) => (
-            <div
-              key={r.id}
-              className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between gap-4"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 font-extrabold flex items-center justify-center text-sm">
-                  {r.bloodGroup}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-xs font-mono">{r.requestId}</h4>
-                    <Badge variant="outline" className="text-[10px]">
-                      {r.unitsNeeded} Unit(s)
-                    </Badge>
+        {requests.length === 0 ? (
+          <div className="p-6 text-center text-muted-foreground bg-muted/20 rounded-2xl border border-dashed border-border">
+            <p className="text-xs font-semibold">No Active Blood Requisitions</p>
+            <p className="text-[11px] mt-0.5">Click "Request Blood" above to submit a new requisition to the Blood Bank.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {requests.map((r) => (
+              <div
+                key={r.id}
+                className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 font-extrabold flex items-center justify-center text-sm">
+                    {r.bloodGroup}
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Hospital: {r.hospital} | Requested: {r.requestedDate}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-xs font-mono">{r.requestId}</h4>
+                      <Badge variant="outline" className="text-[10px]">
+                        {r.unitsNeeded} Unit(s)
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Hospital: {r.hospital} | Requested: {r.requestedDate}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                {r.status}
-              </Badge>
-            </div>
-          ))}
-        </div>
+                <Badge
+                  className={
+                    r.status === "Approved" || r.status === "Fulfilled"
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold"
+                      : r.status === "Rejected"
+                      ? "bg-red-500/20 text-red-600 dark:text-red-400 font-bold"
+                      : "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold"
+                  }
+                >
+                  {r.status === "Pending" ? "Pending Approval" : r.status}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Request Modal */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <Droplet className="h-5 w-5 text-red-500" /> Request Blood Units
-            </DialogTitle>
-          </DialogHeader>
+      <RequestBloodModal
+        open={requestModalOpen}
+        onOpenChange={setRequestModalOpen}
+        onRequestSubmitted={handleRequestSubmitted}
+      />
 
-          <div className="space-y-4 mt-2">
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground">Blood Group Required</Label>
-              <Input
-                value={bloodGroup}
-                onChange={(e) => setBloodGroup(e.target.value)}
-                className="mt-1 rounded-xl text-xs font-bold"
-              />
-            </div>
-
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground">Units Needed</Label>
-              <Input
-                type="number"
-                min={1}
-                max={5}
-                value={units}
-                onChange={(e) => setUnits(Number(e.target.value))}
-                className="mt-1 rounded-xl text-xs font-bold"
-              />
-            </div>
-
-            <Button
-              onClick={handleCreateRequest}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl py-5 shadow-md"
-            >
-              Submit Blood Request
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <BecomeDonorModal
+        open={donorModalOpen}
+        onOpenChange={setDonorModalOpen}
+      />
     </div>
   );
 }

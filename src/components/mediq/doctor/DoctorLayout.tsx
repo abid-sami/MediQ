@@ -171,6 +171,16 @@ export function DoctorLayout() {
     };
 
     loadData();
+
+    const handleAptUpdate = async () => {
+      const freshApts = await fetchSupabaseAppointments();
+      if (freshApts && freshApts.length > 0) {
+        setAppointments(freshApts);
+      }
+    };
+
+    window.addEventListener("mediq_appointments_updated", handleAptUpdate);
+    return () => window.removeEventListener("mediq_appointments_updated", handleAptUpdate);
   }, []);
 
   // Unread notifications

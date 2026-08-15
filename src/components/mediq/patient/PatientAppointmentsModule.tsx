@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PatientAppointment } from "@/data/patient-data";
+import { getDoctorSchedules, isDoctorAvailableOnDay, generateDoctorTimeSlots } from "@/data/doctor-schedule-store";
+import { Calendar as CalendarUI } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 interface PatientAppointmentsModuleProps {
   appointments: PatientAppointment[];
@@ -36,15 +39,42 @@ export function PatientAppointmentsModule({
   onNavigateToFindDoctor,
 }: PatientAppointmentsModuleProps) {
   const [rescheduleApt, setRescheduleApt] = useState<PatientAppointment | null>(null);
-  const [newDate, setNewDate] = useState("2026-08-22");
+  const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined);
   const [newTime, setNewTime] = useState("11:00 AM");
 
+  const schedules = getDoctorSchedules();
+  const activeSched = rescheduleApt ? (schedules[rescheduleApt.doctorId] || schedules["doc-101"]) : null;
+  const dynamicSlots = activeSched ? generateDoctorTimeSlots(activeSched.startTime, activeSched.endTime) : ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
+
+  const bookedSlots = rescheduleApt && rescheduleDate
+    ? JSON.parse(localStorage.getItem(`mediq_booked_slots_${rescheduleApt.doctorId}_${format(rescheduleDate, "yyyy-MM-dd")}`) || "[]")
+    : [];
+
   const handleConfirmReschedule = () => {
-    if (!rescheduleApt) return;
-    onRescheduleAppointment(rescheduleApt.id, newDate, newTime);
+    if (!rescheduleApt || !rescheduleDate || !newTime) {
+      toast.error("Please select a valid date and time slot");
+      return;
+    }
+
+    const formattedDate = format(rescheduleDate, "yyyy-MM-dd");
+    const takenSlots = JSON.parse(localStorage.getItem(`mediq_booked_slots_${rescheduleApt.doctorId}_${formattedDate}`) || "[]");
+
+    if (takenSlots.includes(newTime)) {
+      toast.error(`The selected time slot is no longer available for ${rescheduleApt.doctorName} on ${formattedDate}.`);
+      return;
+    }
+
+    if (activeSched && !isDoctorAvailableOnDay(activeSched.workingDays, rescheduleDate)) {
+      toast.error(`${rescheduleApt.doctorName} is unavailable on the selected date.`);
+      return;
+    }
+
+    onRescheduleAppointment(rescheduleApt.id, formattedDate, newTime);
     setRescheduleApt(null);
+    setRescheduleDate(undefined);
+    setNewTime("11:00 AM");
     toast.success("Appointment Rescheduled Successfully", {
-      description: `New schedule: ${newDate} at ${newTime}`,
+      description: `New schedule: ${formattedDate} at ${newTime}`,
     });
   };
 
@@ -57,7 +87,7 @@ export function PatientAppointmentsModule({
             <Calendar className="h-6 w-6 text-primary" /> My Appointments
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            View upcoming consultations, reschedule dates, or book new doctor appointments.
+            View upcoming consultations, reschedule dates according to doctor schedules, or book new doctor appointments.
           </p>
         </div>
 
@@ -86,8 +116,11 @@ export function PatientAppointmentsModule({
 
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-base text-foreground">{apt.doctorName}</h3>
-                    <Badge variant="outline" className="text-[10px] font-semibold text-primary">
+                    <h3 className="font-extrabold text-base text-foreground flex items-center gap-1.5">
+                      <Stethoscope className="h-4 w-4 text-primary shrink-0" />
+                      {apt.doctorName}
+                    </h3>
+                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[11px] font-bold">
                       {apt.category}
                     </Badge>
                     <Badge variant="secondary" className="text-[10px] font-mono font-bold">
@@ -117,7 +150,7 @@ export function PatientAppointmentsModule({
                     <span className="flex items-center gap-1 text-teal">
                       <Clock className="h-3.5 w-3.5" /> {apt.time}
                     </span>
-                    <span className="text-muted-foreground font-normal">Fee: ${apt.fee}</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Fee: ${apt.fee}</span>
                   </div>
                 </div>
               </div>
@@ -129,7 +162,10 @@ export function PatientAppointmentsModule({
                     size="sm"
                     variant="outline"
                     className="rounded-xl text-xs font-semibold"
-                    onClick={() => setRescheduleApt(apt)}
+                    onClick={() => {
+                      setRescheduleApt(apt);
+                      setRescheduleDate(undefined);
+                    }}
                   >
                     <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> Reschedule
                   </Button>
@@ -155,7 +191,7 @@ export function PatientAppointmentsModule({
       {/* Reschedule Dialog */}
       {rescheduleApt && (
         <Dialog open={!!rescheduleApt} onOpenChange={() => setRescheduleApt(null)}>
-          <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
+          <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
                 <RotateCcw className="h-5 w-5 text-amber-500" /> Reschedule Appointment
@@ -163,31 +199,69 @@ export function PatientAppointmentsModule({
             </DialogHeader>
 
             <div className="space-y-4 mt-2">
-              <p className="text-xs text-muted-foreground">
-                Select a new date and time for consultation with <strong>{rescheduleApt.doctorName}</strong>.
-              </p>
-
-              <div>
-                <Label className="text-xs font-bold text-muted-foreground">New Date</Label>
-                <Input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="mt-1 rounded-xl text-xs"
-                />
+              <div className="p-3 rounded-xl bg-muted/40 border border-border text-xs">
+                <p className="font-bold text-foreground">Doctor: {rescheduleApt.doctorName}</p>
+                <p className="text-muted-foreground">{rescheduleApt.category}</p>
+                {activeSched && (
+                  <p className="text-teal font-medium mt-1">
+                    Available Days: {activeSched.workingDays.join(", ")} ({activeSched.startTime} - {activeSched.endTime})
+                  </p>
+                )}
               </div>
 
-              <div>
-                <Label className="text-xs font-bold text-muted-foreground">New Time Slot</Label>
-                <Input
-                  value={newTime}
-                  onChange={(e) => setNewTime(e.target.value)}
-                  className="mt-1 rounded-xl text-xs"
-                />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">Select New Available Date *</Label>
+                <div className="rounded-2xl border border-border bg-surface p-2">
+                  <CalendarUI
+                    mode="single"
+                    selected={rescheduleDate}
+                    onSelect={(date) => {
+                      setRescheduleDate(date);
+                      setNewTime("");
+                    }}
+                    disabled={(d) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      if (d < today) return true;
+                      if (activeSched) {
+                        return !isDoctorAvailableOnDay(activeSched.workingDays, d);
+                      }
+                      return false;
+                    }}
+                    className="mx-auto"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">Select New Time Slot *</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {dynamicSlots.map((slot) => {
+                    const isBooked = bookedSlots.includes(slot);
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        disabled={isBooked}
+                        onClick={() => setNewTime(slot)}
+                        className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-all text-center ${
+                          isBooked
+                            ? "border-dashed border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60 line-through"
+                            : newTime === slot
+                              ? "border-transparent bg-amber-500 text-white font-bold"
+                              : "border-border bg-card text-foreground hover:border-amber-500/50"
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <Button
-                onClick={handleConfirmBookingReschedule}
+                onClick={handleConfirmReschedule}
+                disabled={!rescheduleDate}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl py-5 shadow-md"
               >
                 Confirm Reschedule
@@ -198,11 +272,4 @@ export function PatientAppointmentsModule({
       )}
     </div>
   );
-
-  function handleConfirmBookingReschedule() {
-    if (!rescheduleApt) return;
-    onRescheduleAppointment(rescheduleApt.id, newDate, newTime);
-    setRescheduleApt(null);
-    toast.success("Appointment Rescheduled");
-  }
 }

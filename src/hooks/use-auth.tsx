@@ -22,6 +22,8 @@ export interface UserProfile {
   email: string;
   phone: string;
   role: string;
+  age?: number;
+  gender?: string;
   bloodGroup?: string;
   address?: string;
   avatarUrl?: string;
@@ -39,6 +41,8 @@ export interface SignUpData {
   phone: string;
   role: string;
   password: string;
+  age?: number;
+  gender?: string;
   bloodGroup?: string;
   address?: string;
 }
@@ -256,6 +260,8 @@ const fetchProfile = async (
         email: profileRow.email || userEmail || "",
         phone: profileRow.phone || "",
         role: resolvedRole,
+        age: profileRow.age ?? userMeta?.age,
+        gender: profileRow.gender ?? userMeta?.gender,
         bloodGroup: profileRow.blood_group,
         address: profileRow.address,
         avatarUrl: profileRow.avatar_url,
@@ -274,6 +280,8 @@ const fetchProfile = async (
         email: userEmail || userMeta?.email || "",
         phone: userMeta?.phone || "",
         role: resolvedRole,
+        age: userMeta?.age,
+        gender: userMeta?.gender,
       };
       setProfile?.(newProfile);
       try {
@@ -282,29 +290,20 @@ const fetchProfile = async (
           name: newProfile.name,
           email: newProfile.email,
           phone: newProfile.phone,
-          role: resolvedRole,
+          role: newProfile.role,
+          age: newProfile.age,
+          gender: newProfile.gender,
         });
-      } catch (err) {
-        console.warn("Auto profile sync note:", err);
+      } catch (e) {
+        console.warn("Failed to create profile row:", e);
       }
     }
 
     setRole?.(resolvedRole);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("mediq_user_role", resolvedRole);
-      localStorage.setItem("mediq_logged_in", "true");
-    }
     return resolvedRole;
-  } catch (err) {
+  } catch (err: any) {
     console.error("fetchProfile error:", err);
-    // Fallback to metadata or Patient
-    const fallbackRole = mapRole(userMeta?.role) || "Patient";
-    setRole?.(fallbackRole);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("mediq_user_role", fallbackRole);
-      localStorage.setItem("mediq_logged_in", "true");
-    }
-    return fallbackRole;
+    return "Patient";
   }
 };
 
@@ -312,31 +311,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [role, setRole] = useState<UserRole>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("mediq_user_role");
-      return mapRole(saved);
-    }
-    return null;
-  });
+  const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchCurrentProfile = async (uId: string, meta?: any, email?: string) => {
+    return await fetchProfile(uId, meta, email, setProfile, setRole);
+  };
+
   useEffect(() => {
-    // 1. Check existing Supabase session
+    // 1. Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(
+        fetchCurrentProfile(
           session.user.id,
           session.user.user_metadata,
-          session.user.email,
-          setProfile,
-          setRole
+          session.user.email
         );
+      } else {
+        const isLoggedIn = typeof window !== "undefined" && localStorage.getItem("mediq_logged_in") === "true";
+        const savedRole = isLoggedIn ? mapRole(localStorage.getItem("mediq_user_role")) : null;
+        setRole(savedRole);
       }
-      setLoading(false);
-    }).catch(() => {
       setLoading(false);
     });
 
@@ -356,12 +353,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem("mediq_logged_in");
           }
         } else if (session?.user) {
-          await fetchProfile(
+          await fetchCurrentProfile(
             session.user.id,
             session.user.user_metadata,
-            session.user.email,
-            setProfile,
-            setRole
+            session.user.email
           );
         } else {
           const isLoggedIn = typeof window !== "undefined" && localStorage.getItem("mediq_logged_in") === "true";
@@ -391,17 +386,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     selectedRole?: string
   ): Promise<{ error: Error | null; role?: UserRole }> => {
     try {
-      if (selectedRole) {
-        setLocalRole(mapRole(selectedRole));
-      }
-
-      const cleanInput = emailOrPhone.trim();
-      const emailToUse = cleanInput.includes("@")
-        ? cleanInput
-        : `${cleanInput.replace(/\D/g, "")}@mediq.health`;
+      const email = emailOrPhone.includes("@")
+        ? emailOrPhone.trim()
+        : `${emailOrPhone.replace(/\D/g, "")}@mediq.health`;
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: emailToUse,
+        email,
         password: passwordText,
       });
 
@@ -409,20 +399,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error };
       }
 
+      let activeRole: UserRole = null;
       if (data?.user) {
-        setUser(data.user);
-        setSession(data.session);
-        const resolvedRole = await fetchProfile(
+        activeRole = await fetchCurrentProfile(
           data.user.id,
           data.user.user_metadata,
-          data.user.email,
-          setProfile,
-          setRole
+          data.user.email
         );
-        return { error: null, role: resolvedRole };
       }
 
-      return { error: new Error("No user session returned from sign in") };
+      if (!activeRole && selectedRole) {
+        activeRole = mapRole(selectedRole);
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mediq_logged_in", "true");
+        if (activeRole) {
+          localStorage.setItem("mediq_user_role", activeRole);
+        }
+      }
+
+      return { error: null, role: activeRole };
     } catch (err: any) {
       return { error: err };
     }
@@ -445,6 +442,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: data.name,
             phone: data.phone,
             role: mapped,
+            age: data.age || null,
+            gender: data.gender || "Not specified",
             bloodGroup: data.bloodGroup || "O+",
             address: data.address || "",
           },
@@ -462,6 +461,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email,
           phone: data.phone,
           role: mapped,
+          age: data.age || null,
+          gender: data.gender || "Not specified",
           blood_group: data.bloodGroup || "O+",
           address: data.address || "",
         });

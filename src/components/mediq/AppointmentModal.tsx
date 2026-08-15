@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { CalendarCheck, CheckCircle2, Loader2, Clock, Hash, AlertTriangle, ShieldCheck } from "lucide-react";
+import { CalendarCheck, CheckCircle2, Loader2, Clock, Hash, AlertTriangle, ShieldCheck, Stethoscope, Sparkles, User, DollarSign, Calendar as CalendarIcon, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -23,12 +23,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { doctorCategories, doctors, timeSlots } from "@/data/mediq";
+import { doctorCategories } from "@/data/mediq";
+import { getPatientDoctorCards } from "@/data/patient-data";
 import { cn } from "@/lib/utils";
 import {
   getDoctorSchedules,
   incrementDoctorBookings,
   DoctorScheduleConfig,
+  isDoctorAvailableOnDay,
+  generateDoctorTimeSlots,
+  getBookedSlotsForDoctorAndDate,
+  markSlotBooked,
 } from "@/data/doctor-schedule-store";
 
 import { useMediQActions } from "./actions-context";
@@ -43,6 +48,7 @@ type Booking = {
   time: string;
   patientName: string;
   patientPhone: string;
+  fee: number;
 };
 
 export function AppointmentModal() {
@@ -65,18 +71,45 @@ export function AppointmentModal() {
       setSchedules(getDoctorSchedules());
     };
     window.addEventListener("mediq_schedule_updated", handleUpdate);
-    return () => window.removeEventListener("mediq_schedule_updated", handleUpdate);
+    window.addEventListener("mediq_slots_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("mediq_schedule_updated", handleUpdate);
+      window.removeEventListener("mediq_slots_updated", handleUpdate);
+    };
   }, []);
 
-  const availableDoctors = useMemo(
-    () => doctors.filter((d) => d.category === category),
-    [category],
-  );
+  const availableDoctors = useMemo(() => {
+    return getPatientDoctorCards().filter((d) => {
+      const matchesCat = category ? d.category === category : true;
+      const sched = schedules[d.id] || schedules["doc-101"];
+      const isVacation = sched?.onVacation;
+      return matchesCat && !isVacation;
+    });
+  }, [category, schedules]);
+
+  const selectedDoctorObj = useMemo(() => {
+    return getPatientDoctorCards().find((d) => d.id === doctorId) || null;
+  }, [doctorId]);
 
   const activeDoctorSchedule = useMemo(() => {
     if (!doctorId) return null;
     return schedules[doctorId] || schedules["doc-101"] || null;
   }, [doctorId, schedules]);
+
+  // Dynamic time slots for the selected doctor
+  const dynamicDoctorSlots = useMemo(() => {
+    return generateDoctorTimeSlots(
+      activeDoctorSchedule?.startTime,
+      activeDoctorSchedule?.endTime
+    );
+  }, [activeDoctorSchedule]);
+
+  // Booked slots for selected doctor and date
+  const bookedSlots = useMemo(() => {
+    if (!doctorId || !date) return [];
+    const dateStr = format(date, "yyyy-MM-dd");
+    return getBookedSlotsForDoctorAndDate(doctorId, dateStr);
+  }, [doctorId, date]);
 
   const reset = () => {
     setBooking(null);
@@ -90,14 +123,21 @@ export function AppointmentModal() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const doctor = doctors.find((d) => d.id === doctorId);
-    if (!name.trim() || !phone.trim() || !category || !doctor || !date || !time) {
+    const doctor = selectedDoctorObj;
+    if (!name.trim() || !phone.trim() || !doctor || !date || !time) {
       toast.error("Please complete every step to confirm your appointment.");
       return;
     }
 
-    if (activeDoctorSchedule && !activeDoctorSchedule.isAcceptingBookings) {
-      toast.error(`${doctor.name} is currently not accepting new online bookings.`);
+    if (activeDoctorSchedule && (activeDoctorSchedule.onVacation || !activeDoctorSchedule.isAcceptingBookings)) {
+      toast.error(`${doctor.name} is currently on vacation / not accepting online bookings.`);
+      return;
+    }
+
+    const dateStr = format(date, "yyyy-MM-dd");
+    const currentBooked = getBookedSlotsForDoctorAndDate(doctorId, dateStr);
+    if (currentBooked.includes(time)) {
+      toast.error(`The time slot ${time} on ${dateStr} has already been booked. Please select another slot.`);
       return;
     }
 
@@ -120,19 +160,25 @@ export function AppointmentModal() {
       ? `${activeDoctorSchedule.startTime} - ${activeDoctorSchedule.endTime}`
       : "09:00 AM - 05:00 PM";
     const aptId = `APT-${Math.floor(10000 + Math.random() * 89999)}`;
+    const feeAmount = activeDoctorSchedule?.consultationFee || 50;
 
-    // Asynchronously sync with Supabase Database
+    // Mark slot booked locally & dispatch event
+    markSlotBooked(doctorId, dateStr, time);
+
+    // Asynchronously sync with Supabase Database & localStorage
     import("@/services/supabase-service").then(({ createSupabaseAppointment }) => {
       createSupabaseAppointment({
         appointmentId: aptId,
         patientName: name,
         patientPhone: phone,
         doctorName: doctor.name,
-        specialty: category,
-        appointmentDate: format(date, "yyyy-MM-dd"),
+        doctorId,
+        specialty: `${doctor.category} - ${doctor.title}`,
+        appointmentDate: dateStr,
         appointmentTime: time,
         serialNumber: newSerialNum,
         serialToken: formattedSerial,
+        fee: feeAmount,
       });
     });
 
@@ -141,245 +187,316 @@ export function AppointmentModal() {
         id: aptId,
         serialNo: formattedSerial,
         doctor: doctor.name,
-        department: category,
+        department: `${doctor.category} - ${doctor.title}`,
         consultationHours: hoursText,
         date: format(date, "EEEE, d MMMM yyyy"),
         time,
         patientName: name,
         patientPhone: phone,
+        fee: feeAmount,
       });
       setSubmitting(false);
-      toast.success(`Appointment Confirmed! Assigned ${formattedSerial}`);
+      toast.success(`Appointment Booked Successfully! ${formattedSerial}`);
     }, 600);
   };
 
   return (
-    <Dialog
-      open={appointmentOpen}
-      onOpenChange={(open) => {
-        if (!open) {
-          closeAppointment();
-          window.setTimeout(reset, 250);
-        }
-      }}
-    >
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-3xl sm:max-w-lg">
-        <AnimatePresence mode="wait" initial={false}>
-          {!booking ? (
-            <motion.div
-              key="form"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.28 }}
-            >
-              <DialogHeader>
-                <div className="mb-2 flex items-center gap-3">
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl gradient-primary text-primary-foreground">
-                    <CalendarCheck className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <DialogTitle className="text-xl">Book Doctor Appointment</DialogTitle>
-                    <DialogDescription>
-                      No account login required. Select a specialist to receive your serial number token.
-                    </DialogDescription>
-                  </div>
-                </div>
-              </DialogHeader>
+    <Dialog open={appointmentOpen} onOpenChange={closeAppointment}>
+      <DialogContent className="max-w-lg p-6 rounded-2xl bg-card border-border max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+              <CalendarCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <DialogTitle className="text-[17px]">Book Doctor Appointment</DialogTitle>
+              <DialogDescription className="text-xs">
+                Select your preferred doctor, schedule date, and consultation time slot.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-              <form onSubmit={submit} className="mt-2 space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="apt-name">Patient Full Name *</Label>
-                    <Input
-                      id="apt-name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Your full name"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="apt-phone">Phone Number *</Label>
-                    <Input
-                      id="apt-phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 (555)..."
-                      required
-                    />
-                  </div>
-                </div>
+        {booking ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="space-y-4 text-center py-2"
+          >
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="apt-category">Medical Category / Department *</Label>
-                  <Select
-                    value={category}
-                    onValueChange={(value) => {
-                      setCategory(value);
-                      setDoctorId("");
-                    }}
-                  >
-                    <SelectTrigger id="apt-category">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {doctorCategories.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div>
+              <Badge className="bg-primary/20 text-primary font-mono text-xs mb-1">
+                {booking.id}
+              </Badge>
+              <h3 className="text-lg font-bold text-foreground">Appointment Confirmed</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your serial token has been registered in MediQ Patient Dispatch System.
+              </p>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="apt-doctor">Select Specialist Doctor *</Label>
-                  <Select value={doctorId} onValueChange={setDoctorId} disabled={!category}>
-                    <SelectTrigger id="apt-doctor">
-                      <SelectValue
-                        placeholder={category ? "Select doctor" : "Select a category first"}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableDoctors.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.name} — {d.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="p-4 rounded-2xl bg-muted/40 border border-border text-xs text-left space-y-2 font-medium">
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted-foreground">Serial Token:</span>
+                <span className="font-bold text-foreground font-mono">{booking.serialNo}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted-foreground">Doctor Name:</span>
+                <span className="font-bold text-foreground">{booking.doctor}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted-foreground">Specialization:</span>
+                <span className="font-bold text-foreground">{booking.department}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted-foreground">Consultation Fee:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">${booking.fee}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted-foreground">Date:</span>
+                <span className="font-bold text-foreground">{booking.date}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted-foreground">Time Slot:</span>
+                <span className="font-bold text-teal">{booking.time}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted-foreground">Patient:</span>
+                <span className="font-bold text-foreground">{booking.patientName} ({booking.patientPhone})</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-muted-foreground">Consultation Hours:</span>
+                <span className="font-bold text-foreground">{booking.consultationHours}</span>
+              </div>
+            </div>
 
-                {/* Doctor Schedule Live Availability Badge */}
-                {activeDoctorSchedule && (
-                  <div className="p-3.5 rounded-2xl bg-teal/10 border border-teal/30 space-y-1 text-xs">
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="flex items-center gap-1.5 text-teal-foreground dark:text-teal">
-                        <Clock className="h-4 w-4" /> Hours: {activeDoctorSchedule.startTime} - {activeDoctorSchedule.endTime}
-                      </span>
-                      <Badge className="bg-teal text-teal-foreground font-extrabold text-[10px]">
-                        Capacity: {activeDoctorSchedule.currentBookedCount} / {activeDoctorSchedule.dailyPatientLimit} Booked
+            <Button onClick={reset} className="w-full gradient-primary font-bold rounded-xl py-5">
+              Book Another Appointment
+            </Button>
+          </motion.div>
+        ) : (
+          <form onSubmit={submit} className="space-y-4 text-xs mt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="apt-name">Patient Name *</Label>
+                <Input
+                  id="apt-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Abid Sami"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="apt-phone">Phone Number *</Label>
+                <Input
+                  id="apt-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 (555)..."
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="apt-category">Medical Category / Department *</Label>
+              <Select
+                value={category}
+                onValueChange={(value) => {
+                  setCategory(value);
+                  setDoctorId("");
+                  setDate(undefined);
+                  setTime("");
+                }}
+              >
+                <SelectTrigger id="apt-category">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {doctorCategories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="apt-doctor">Select Specialist Doctor *</Label>
+              <Select
+                value={doctorId}
+                onValueChange={(val) => {
+                  setDoctorId(val);
+                  setDate(undefined);
+                  setTime("");
+                }}
+                disabled={!category}
+              >
+                <SelectTrigger id="apt-doctor">
+                  <SelectValue
+                    placeholder={category ? "Select doctor" : "Select a category first"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableDoctors.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name} - {d.category} - {d.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Prominently Highlighted Doctor Information Card */}
+            {selectedDoctorObj && activeDoctorSchedule && (
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/10 via-teal/5 to-primary/5 border border-primary/25 space-y-3 shadow-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-primary tracking-wider block">
+                      SELECTED SPECIALIST
+                    </span>
+                    <h3 className="font-extrabold text-base text-foreground flex items-center gap-1.5">
+                      <Stethoscope className="h-4 w-4 text-primary" /> {selectedDoctorObj.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <Badge className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 font-bold text-[11px]">
+                        {selectedDoctorObj.category} - {selectedDoctorObj.title}
+                      </Badge>
+                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-semibold">
+                        Available for Booking
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Next Serial Token Number: <strong className="text-foreground font-mono">Serial #{String(activeDoctorSchedule.currentBookedCount + 1).padStart(2, "0")}</strong>
-                    </p>
                   </div>
-                )}
 
-                <div className="space-y-2">
-                  <Label>Select Date *</Label>
-                  <div className="rounded-2xl border border-border bg-surface p-2">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={setDate}
-                      disabled={{ before: new Date() }}
-                      className="mx-auto"
-                    />
+                  <div className="text-right shrink-0 bg-card/80 p-2.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-muted-foreground block font-bold">CONSULTATION FEE</span>
+                    <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                      ${activeDoctorSchedule.consultationFee || 50}
+                    </span>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Select Preferred Time Slot *</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {timeSlots.map((slot) => (
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60 text-xs">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5 text-teal" />
+                    <span>Hours: <strong className="text-foreground">{activeDoctorSchedule.startTime} - {activeDoctorSchedule.endTime}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+                    <span>Days: <strong className="text-foreground">{activeDoctorSchedule.workingDays.join(", ")}</strong></span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Schedule-Restricted Calendar Picker */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Select Available Appointment Date *</Label>
+                {activeDoctorSchedule && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Available Days: <strong className="text-primary">{activeDoctorSchedule.workingDays.join(", ")}</strong>
+                  </span>
+                )}
+              </div>
+              <div className="rounded-2xl border border-border bg-surface p-2">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(d) => {
+                    setDate(d);
+                    setTime("");
+                  }}
+                  disabled={(d) => {
+                    // Disable past dates
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (d < today) return true;
+                    // Disable non-working days for this doctor
+                    if (activeDoctorSchedule) {
+                      return !isDoctorAvailableOnDay(activeDoctorSchedule.workingDays, d);
+                    }
+                    return false;
+                  }}
+                  className="mx-auto"
+                />
+              </div>
+              {date && (
+                <p className="text-[11px] text-teal font-semibold text-center">
+                  Selected Date: {format(date, "EEEE, MMMM d, yyyy")}
+                </p>
+              )}
+            </div>
+
+            {/* Dynamic Time Slots with Booked State Prevention */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Select Preferred Time Slot *</Label>
+                {date && bookedSlots.length > 0 && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                    {bookedSlots.length} slot(s) already booked for this date
+                  </span>
+                )}
+              </div>
+
+              {!date ? (
+                <p className="text-xs text-muted-foreground p-3 rounded-xl bg-muted/40 border border-border text-center">
+                  Please select an available date above to view time slots.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {dynamicDoctorSlots.map((slot) => {
+                    const isBooked = bookedSlots.includes(slot);
+                    return (
                       <button
                         key={slot}
                         type="button"
+                        disabled={isBooked}
                         onClick={() => setTime(slot)}
                         className={cn(
-                          "rounded-full border px-3.5 py-2 text-sm font-semibold transition-all duration-200",
-                          time === slot
-                            ? "border-transparent gradient-primary text-primary-foreground shadow-soft"
-                            : "border-border bg-card text-muted-foreground hover:border-teal/50 hover:text-foreground",
+                          "rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 text-center flex flex-col items-center justify-center",
+                          isBooked
+                            ? "border-dashed border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60 line-through"
+                            : time === slot
+                            ? "border-transparent gradient-primary text-primary-foreground shadow-soft font-bold scale-[1.02]"
+                            : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"
                         )}
                       >
-                        {slot}
+                        <span>{slot}</span>
+                        {isBooked && (
+                          <span className="text-[9px] text-destructive font-mono no-underline uppercase">
+                            Booked
+                          </span>
+                        )}
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
 
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full rounded-xl gradient-primary py-6 text-base font-bold tracking-wide text-primary-foreground hover:opacity-95 shadow-md"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> GENERATING SERIAL TOKEN...
-                    </>
-                  ) : (
-                    "CONFIRM APPOINTMENT & GET SERIAL NO"
-                  )}
-                </Button>
-              </form>
-            </motion.div>
-          ) : (
-            /* Confirmation Success Screen with Serial Token Number */
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="space-y-4"
+            <Button
+              type="submit"
+              disabled={submitting || !doctorId || !date || !time}
+              className="w-full rounded-xl gradient-primary py-6 text-base font-bold tracking-wide text-primary-foreground hover:opacity-95 shadow-md mt-2"
             >
-              <DialogHeader className="items-center text-center">
-                <motion.span
-                  initial={{ scale: 0.5 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                  className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                >
-                  <CheckCircle2 className="h-8 w-8" />
-                </motion.span>
-                <DialogTitle className="mt-3 text-center text-xl font-bold">Appointment & Serial Token Confirmed!</DialogTitle>
-                <DialogDescription className="text-center text-xs">
-                  Your appointment and serial number token have been generated successfully. Details sent to {booking.patientPhone}.
-                </DialogDescription>
-              </DialogHeader>
-
-              {/* Highlighted Serial Token Number Banner */}
-              <div className="gradient-primary p-4 rounded-2xl text-primary-foreground text-center space-y-1 shadow-soft">
-                <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">Assigned Serial Token Number</span>
-                <h2 className="text-3xl font-black font-mono tracking-tight">{booking.serialNo}</h2>
-                <p className="text-xs opacity-90">Please present this serial number at the clinic reception.</p>
-              </div>
-
-              <dl className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card text-xs">
-                {[
-                  ["Patient Name", booking.patientName],
-                  ["Doctor", booking.doctor],
-                  ["Department", booking.department],
-                  ["Consultation Hours", booking.consultationHours],
-                  ["Appointment Date", booking.date],
-                  ["Requested Slot", booking.time],
-                  ["Appointment ID", booking.id],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                    <dt className="text-muted-foreground font-semibold">{label}</dt>
-                    <dd className="min-w-0 truncate font-bold text-foreground">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <Button
-                className="w-full rounded-xl font-bold gradient-primary text-primary-foreground py-5"
-                onClick={() => {
-                  closeAppointment();
-                  window.setTimeout(reset, 250);
-                }}
-              >
-                Done
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> GENERATING SERIAL TOKEN...
+                </>
+              ) : (
+                "CONFIRM APPOINTMENT & GET SERIAL NO"
+              )}
+            </Button>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+

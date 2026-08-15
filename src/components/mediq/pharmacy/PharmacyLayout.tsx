@@ -35,12 +35,15 @@ import {
   PharmacyOrder,
   PharmacyMedicine,
   PharmacySupplier,
-  OrderStatus,
 } from "@/data/pharmacy-data";
 import {
-  fetchSupabasePharmacyOrders,
-  fetchSupabasePharmacyMedicines,
-} from "@/services/supabase-service";
+  getDynamicMedicines,
+  getDynamicPharmacyOrders,
+  updateDynamicPharmacyOrderStatus,
+  addDynamicMedicine,
+  updateDynamicMedicine,
+  deleteDynamicMedicine,
+} from "@/data/pharmacy-store";
 
 import { PharmacyOverview } from "./PharmacyOverview";
 import { PrescriptionVerificationModule } from "./PrescriptionVerificationModule";
@@ -93,48 +96,22 @@ export function PharmacyLayout() {
     }
   }, [authProfile]);
 
-  // Fetch data from Supabase on mount
+  // Fetch data from dynamic store on mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
 
-        // Fetch pharmacy orders
-        const ordersData = await fetchSupabasePharmacyOrders();
+        // Fetch dynamic pharmacy orders
+        const ordersData = await getDynamicPharmacyOrders();
         if (ordersData && ordersData.length > 0) {
-          // Transform to PharmacyOrder format
-          const transformedOrders = ordersData.map((o: any) => ({
-            id: o.id,
-            orderId: o.orderId,
-            patientName: o.patientName,
-            patientContact: o.patientContact,
-            medicines: o.medicines || [],
-            totalAmount: o.totalAmount,
-            prescriptionStatus: o.prescriptionStatus,
-            orderStatus: o.orderStatus,
-            orderTime: o.orderTime,
-          }));
-          setOrders(transformedOrders);
+          setOrders(ordersData);
         }
 
-        // Fetch medicines
-        const medicinesData = await fetchSupabasePharmacyMedicines();
+        // Fetch dynamic medicines
+        const medicinesData = await getDynamicMedicines();
         if (medicinesData && medicinesData.length > 0) {
-          // Transform to PharmacyMedicine format
-          const transformedMedicines = medicinesData.map((m: any) => ({
-            id: m.id,
-            medicineCode: m.medicineCode,
-            medicineName: m.medicineName,
-            genericName: m.genericName,
-            category: m.category,
-            dosageStrength: m.dosageStrength,
-            pricePerUnit: m.pricePerUnit,
-            stock: m.stock,
-            reorderLevel: m.reorderLevel,
-            manufacturer: m.manufacturer,
-            stockStatus: m.stockStatus,
-          }));
-          setMedicines(transformedMedicines);
+          setMedicines(medicinesData);
         }
       } catch (error) {
         console.error("Error loading pharmacy data:", error);
@@ -175,28 +152,44 @@ export function PharmacyLayout() {
     );
   };
 
-  const handleUpdateOrderStatus = (id: string, newStatus: OrderStatus) => {
+  const handleUpdateOrderStatus = async (id: string, newStatus: any) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, orderStatus: newStatus } : o))
     );
+    await updateDynamicPharmacyOrderStatus(id, newStatus);
   };
 
   const handleAddMedicine = (med: PharmacyMedicine) => {
-    setMedicines((prev) => [med, ...prev]);
+    setMedicines((prev) => [med, ...prev.filter((m) => m.id !== med.id)]);
   };
 
-  const handleRestockMedicine = (id: string, qty: number) => {
+  const handleUpdateMedicine = (medId: string, updates: Partial<PharmacyMedicine>) => {
     setMedicines((prev) =>
-      prev.map((m) =>
-        m.id === id
-          ? {
-              ...m,
-              stock: m.stock + qty,
-              stockStatus: m.stock + qty > m.reorderLevel ? "In Stock" : "Low Stock",
-            }
-          : m
-      )
+      prev.map((m) => (m.id === medId ? { ...m, ...updates } : m))
     );
+  };
+
+  const handleDeleteMedicine = (medId: string) => {
+    setMedicines((prev) => prev.filter((m) => m.id !== medId));
+  };
+
+  const handleRestockMedicine = async (id: string, qty: number) => {
+    const med = medicines.find((m) => m.id === id);
+    if (med) {
+      const newStock = med.stock + qty;
+      await updateDynamicMedicine(id, { stock: newStock });
+      setMedicines((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                stock: newStock,
+                stockStatus: newStock > m.reorderLevel ? "In Stock" : "Low Stock",
+              }
+            : m
+        )
+      );
+    }
   };
 
   const handleAddOrder = (order: PharmacyOrder) => {
@@ -404,6 +397,8 @@ export function PharmacyLayout() {
             <MedicinesModule
               medicines={medicines}
               onAddMedicine={handleAddMedicine}
+              onUpdateMedicine={handleUpdateMedicine}
+              onDeleteMedicine={handleDeleteMedicine}
             />
           )}
 
