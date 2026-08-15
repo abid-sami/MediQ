@@ -60,6 +60,7 @@ import { AdminOverview } from "./AdminOverview";
 import { UserManagementModule } from "./UserManagementModule";
 import { HospitalManagementModule } from "./HospitalManagementModule";
 import { DepartmentManagementModule } from "./DepartmentManagementModule";
+import { IndoorNavigationManagementModule } from "./IndoorNavigationManagementModule";
 import { EmergencyCommandCenterModule } from "./EmergencyCommandCenterModule";
 import { AppointmentsMonitoringModule } from "./AppointmentsMonitoringModule";
 import { BedsAndWardsMonitoringModule } from "./BedsAndWardsMonitoringModule";
@@ -306,7 +307,7 @@ export function AdminLayout() {
         { id: "emergency", label: "Emergency / SOS", icon: Siren, badge: (sosItems || []).length },
         { id: "ambulances", label: "Ambulances", icon: Siren },
         { id: "beds", label: "Beds & Wards", icon: Bed },
-        { id: "ward-maps", label: "Ward Maps", icon: MapPin },
+        { id: "ward-maps", label: "Indoor Navigation", icon: MapPin },
         { id: "diagnostics", label: "Diagnostics", icon: Microscope },
         { id: "pharmacy", label: "Pharmacy", icon: Pill },
         { id: "blood-bank", label: "Blood Bank", icon: Droplet },
@@ -531,8 +532,12 @@ export function AdminLayout() {
             <AppointmentsMonitoringModule />
           )}
 
-          {(activeTab === "beds" || activeTab === "ward-maps") && (
+          {activeTab === "beds" && (
             <BedsAndWardsMonitoringModule />
+          )}
+
+          {activeTab === "ward-maps" && (
+            <IndoorNavigationManagementModule />
           )}
 
           {activeTab === "blood-bank" && (

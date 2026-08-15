@@ -8,7 +8,7 @@ import { Hero } from "@/components/mediq/Hero";
 import { QuickServices } from "@/components/mediq/QuickServices";
 import { HospitalStats } from "@/components/mediq/HospitalStats";
 import { BedAvailability } from "@/components/mediq/BedAvailability";
-import { WardMap } from "@/components/mediq/WardMap";
+import { HospitalNavigation } from "@/components/mediq/HospitalNavigation";
 import { BloodBank } from "@/components/mediq/BloodBank";
 import { Pharmacy } from "@/components/mediq/Pharmacy";
 import { HealthcareNetwork } from "@/components/mediq/HealthcareNetwork";
@@ -59,7 +59,7 @@ function Index() {
             <QuickServices />
             <HospitalStats />
             <BedAvailability />
-            <WardMap />
+            <HospitalNavigation />
             <BloodBank />
             <Pharmacy />
             <HealthcareNetwork />
