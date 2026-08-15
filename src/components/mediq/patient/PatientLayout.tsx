@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import {
   initialPatientUser,
-  sampleDoctors,
+  getPatientDoctorCards,
   initialPatientAppointments,
   initialMedicalRecords,
   initialPatientPrescriptions,
@@ -100,7 +100,7 @@ export function PatientLayout() {
 
   // Global State
   const [patientUser, setPatientUser] = useState<PatientUserProfile>(initialPatientUser);
-  const [doctors, setDoctors] = useState<DoctorCard[]>(sampleDoctors);
+  const [doctors, setDoctors] = useState<DoctorCard[]>(() => getPatientDoctorCards());
   const [appointments, setAppointments] = useState<PatientAppointment[]>(initialPatientAppointments);
   const [records, setRecords] = useState<MedicalRecordItem[]>(initialMedicalRecords);
   const [prescriptions, setPrescriptions] = useState<PatientPrescription[]>(initialPatientPrescriptions);
@@ -126,6 +126,18 @@ export function PatientLayout() {
   }, [authProfile]);
 
   // Fetch data from Supabase on mount
+  useEffect(() => {
+    const refreshDoctors = () => setDoctors(getPatientDoctorCards());
+    refreshDoctors();
+    window.addEventListener("mediq_schedule_updated", refreshDoctors);
+    window.addEventListener("mediq_slots_updated", refreshDoctors);
+
+    return () => {
+      window.removeEventListener("mediq_schedule_updated", refreshDoctors);
+      window.removeEventListener("mediq_slots_updated", refreshDoctors);
+    };
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -476,6 +488,8 @@ export function PatientLayout() {
             <PatientPharmacyModule
               orders={pharmacyOrders}
               onNewOrder={handleNewPharmacyOrder}
+              onAddBill={handleAddBill}
+              patientName={patientUser.name}
             />
           )}
 

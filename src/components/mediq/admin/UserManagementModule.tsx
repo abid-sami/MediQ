@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,14 @@ import {
   Loader2,
   Trash2,
   AlertTriangle,
+  Stethoscope,
+  UserCheck,
+  Activity,
+  Microscope,
+  Pill,
+  Droplet,
+  Siren,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SystemUser, UserRole, UserStatus } from "@/data/admin-data";
@@ -36,6 +44,7 @@ import { registerWithSupabase } from "@/services/supabase-service";
 
 interface UserManagementModuleProps {
   users: SystemUser[];
+  activeTab?: string;
   onUpdateUser: (updated: SystemUser) => void;
   onAddUser?: (user: SystemUser) => void;
   onDeleteUser?: (userId: string) => void;
@@ -43,6 +52,7 @@ interface UserManagementModuleProps {
 
 export function UserManagementModule({
   users,
+  activeTab,
   onUpdateUser,
   onAddUser,
   onDeleteUser,
@@ -55,6 +65,8 @@ export function UserManagementModule({
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState<UserRole>("Doctor");
+  const [editAge, setEditAge] = useState<string>("");
+  const [editGender, setEditGender] = useState<string>("Male");
   const [editStatus, setEditStatus] = useState<UserStatus>("Active");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -65,6 +77,8 @@ export function UserManagementModule({
   const [createEmail, setCreateEmail] = useState("");
   const [createNumber, setCreateNumber] = useState("");
   const [createRole, setCreateRole] = useState<UserRole>("Doctor");
+  const [createAge, setCreateAge] = useState<string>("");
+  const [createGender, setCreateGender] = useState<string>("Male");
   const [createPassword, setCreatePassword] = useState("");
   const [createRePassword, setCreateRePassword] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -72,10 +86,55 @@ export function UserManagementModule({
   // Delete User Modal State
   const [deletingUser, setDeletingUser] = useState<SystemUser | null>(null);
 
+  // Auto-sync roleFilter and createRole when activeTab changes
+  useEffect(() => {
+    if (!activeTab) return;
+    switch (activeTab) {
+      case "doctors":
+        setRoleFilter("Doctor");
+        setCreateRole("Doctor");
+        break;
+      case "patients":
+        setRoleFilter("Patient");
+        setCreateRole("Patient");
+        break;
+      case "receptionists":
+        setRoleFilter("Receptionist");
+        setCreateRole("Receptionist");
+        break;
+      case "nurses":
+        setRoleFilter("Nurse");
+        setCreateRole("Nurse");
+        break;
+      case "lab-staff":
+        setRoleFilter("Lab Staff");
+        setCreateRole("Lab Staff");
+        break;
+      case "pharmacists":
+        setRoleFilter("Pharmacist");
+        setCreateRole("Pharmacist");
+        break;
+      case "blood-bank-staff":
+        setRoleFilter("Blood Bank Staff");
+        setCreateRole("Blood Bank Staff");
+        break;
+      case "drivers":
+        setRoleFilter("Ambulance Driver");
+        setCreateRole("Ambulance Driver");
+        break;
+      case "users":
+      default:
+        setRoleFilter("All");
+        break;
+    }
+  }, [activeTab]);
+
   const handleOpenEdit = (u: SystemUser) => {
     setEditingUser(u);
     setEditName(u.name);
     setEditRole(u.role);
+    setEditAge(u.age ? String(u.age) : "");
+    setEditGender(u.gender || "Male");
     setEditStatus(u.status);
     setEditPhone(u.phone);
     setEditEmail(u.email);
@@ -89,6 +148,8 @@ export function UserManagementModule({
       ...editingUser,
       name: editName,
       role: editRole,
+      age: editAge ? Number(editAge) : undefined,
+      gender: editGender,
       status: editStatus,
       phone: editPhone,
       email: editEmail,
@@ -135,6 +196,8 @@ export function UserManagementModule({
         phone: createNumber,
         role: createRole,
         passwordText: createPassword,
+        age: createAge ? Number(createAge) : undefined,
+        gender: createGender || "Male",
       });
 
       if (error) {
@@ -152,6 +215,8 @@ export function UserManagementModule({
         email: emailToUse,
         phone: createNumber,
         role: createRole,
+        age: createAge ? Number(createAge) : undefined,
+        gender: createGender || "Male",
         status: "Active",
         registeredDate: new Date().toISOString().split("T")[0],
         lastActive: "Just now",
@@ -180,6 +245,27 @@ export function UserManagementModule({
     }
   };
 
+  const matchesRoleFilter = (userRole: string, filter: string) => {
+    if (filter === "All") return true;
+    if (userRole === filter) return true;
+
+    const u = (userRole || "").toLowerCase().trim();
+    const f = filter.toLowerCase().trim();
+    if (u === f) return true;
+
+    if (f === "doctor" && (u === "dr" || u === "physician" || u === "surgeon" || u === "doc")) return true;
+    if (f === "nurse" && (u === "staff nurse" || u === "registered nurse" || u === "rn")) return true;
+    if (f === "lab staff" && (u === "lab tech" || u === "laboratory staff" || u === "laboratory")) return true;
+    if (f === "lab tech" && (u === "lab staff" || u === "laboratory staff" || u === "laboratory")) return true;
+    if (f === "pharmacist" && (u === "pharmacy staff" || u === "pharmacy")) return true;
+    if (f === "blood bank staff" && (u === "blood bank" || u === "transfusion officer")) return true;
+    if (f === "ambulance driver" && (u === "driver" || u === "ambulance" || u === "emt" || u === "paramedic")) return true;
+    if (f === "receptionist" && (u === "reception" || u === "front desk")) return true;
+    if (f === "patient" && (u === "user" || u === "client")) return true;
+
+    return false;
+  };
+
   const filtered = (users || []).filter((u) => {
     if (!u) return false;
     const nameStr = String(u.name || "");
@@ -191,10 +277,73 @@ export function UserManagementModule({
       nameStr.toLowerCase().includes(search) ||
       emailStr.toLowerCase().includes(search) ||
       userIdStr.toLowerCase().includes(search);
-    const matchesRole = roleFilter === "All" || u.role === roleFilter;
+
+    const matchesRole = matchesRoleFilter(u.role, roleFilter);
     const matchesStatus = statusFilter === "All" || u.status === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  const getHeaderMeta = () => {
+    switch (activeTab) {
+      case "doctors":
+        return {
+          title: "Doctors Management & Accounts Directory",
+          desc: "View and manage all registered doctor accounts, medical credentials, and active staff status across MediQ.",
+          icon: Stethoscope,
+        };
+      case "receptionists":
+        return {
+          title: "Receptionists Management Directory",
+          desc: "Manage front desk receptionist accounts, intake officers, and user permissions.",
+          icon: UserCheck,
+        };
+      case "nurses":
+        return {
+          title: "Nurses Directory",
+          desc: "Manage registered nursing staff, ward supervisors, and active nursing accounts.",
+          icon: Activity,
+        };
+      case "lab-staff":
+        return {
+          title: "Laboratory & Diagnostic Staff Directory",
+          desc: "Manage lab technicians, pathologists, and diagnostic center personnel accounts.",
+          icon: Microscope,
+        };
+      case "pharmacists":
+        return {
+          title: "Pharmacists Directory",
+          desc: "Manage hospital pharmacists and pharmacy management accounts.",
+          icon: Pill,
+        };
+      case "blood-bank-staff":
+        return {
+          title: "Blood Bank Staff Directory",
+          desc: "Manage blood bank officers, transfusion specialists, and inventory personnel accounts.",
+          icon: Droplet,
+        };
+      case "drivers":
+        return {
+          title: "Ambulance Drivers & Response Crew Directory",
+          desc: "Manage emergency response driver accounts, paramedic dispatchers, and crew credentials.",
+          icon: Siren,
+        };
+      case "patients":
+        return {
+          title: "Patients Directory",
+          desc: "View and manage registered patient accounts, portal profiles, and status.",
+          icon: User,
+        };
+      default:
+        return {
+          title: "Enterprise User Role & Governance Directory",
+          desc: "Admin management panel: Create and edit staff & patient accounts across all healthcare roles.",
+          icon: Users,
+        };
+    }
+  };
+
+  const headerMeta = getHeaderMeta();
+  const HeaderIcon = headerMeta.icon;
 
   return (
     <div className="space-y-6">
@@ -202,10 +351,10 @@ export function UserManagementModule({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" /> Enterprise User Role & Governance Directory
+            <HeaderIcon className="h-6 w-6 text-primary" /> {headerMeta.title}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Admin management panel: Create and edit staff & patient accounts across all 8 healthcare roles.
+            {headerMeta.desc}
           </p>
         </div>
 
@@ -244,6 +393,7 @@ export function UserManagementModule({
               <SelectItem value="Blood Bank Staff">Blood Bank Staff</SelectItem>
               <SelectItem value="Ambulance Driver">Ambulance Driver</SelectItem>
               <SelectItem value="Receptionist">Receptionist</SelectItem>
+              <SelectItem value="Lab Staff">Lab Staff</SelectItem>
               <SelectItem value="Lab Tech">Lab Tech</SelectItem>
             </SelectContent>
           </Select>
@@ -399,6 +549,35 @@ export function UserManagementModule({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
+                <Label className="text-xs font-bold text-muted-foreground">Age (Years)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={createAge}
+                  onChange={(e) => setCreateAge(e.target.value)}
+                  placeholder="e.g. 32"
+                  className="mt-1 rounded-xl text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Gender</Label>
+                <Select value={createGender} onValueChange={setCreateGender}>
+                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                    <SelectValue placeholder="Gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
                 <Label className="text-xs font-bold text-muted-foreground">Phone Number *</Label>
                 <Input
                   value={createNumber}
@@ -479,39 +658,70 @@ export function UserManagementModule({
                 <Input value={editName} onChange={(e) => setEditName(e.target.value)} required className="mt-1 rounded-xl text-xs font-semibold" />
               </div>
 
-              <div>
-                <Label className="text-xs font-bold text-muted-foreground">Role</Label>
-                <Select value={editRole} onValueChange={(v) => setEditRole(v as UserRole)}>
-                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
-                    <SelectValue placeholder="Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Super Admin">Super Admin</SelectItem>
-                    <SelectItem value="Doctor">Doctor</SelectItem>
-                    <SelectItem value="Patient">Patient</SelectItem>
-                    <SelectItem value="Nurse">Nurse</SelectItem>
-                    <SelectItem value="Pharmacist">Pharmacist</SelectItem>
-                    <SelectItem value="Blood Bank Staff">Blood Bank Staff</SelectItem>
-                    <SelectItem value="Ambulance Driver">Ambulance Driver</SelectItem>
-                    <SelectItem value="Receptionist">Receptionist</SelectItem>
-                    <SelectItem value="Lab Tech">Lab Tech</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Role</Label>
+                  <Select value={editRole} onValueChange={(v) => setEditRole(v as UserRole)}>
+                    <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Super Admin">Super Admin</SelectItem>
+                      <SelectItem value="Doctor">Doctor</SelectItem>
+                      <SelectItem value="Patient">Patient</SelectItem>
+                      <SelectItem value="Nurse">Nurse</SelectItem>
+                      <SelectItem value="Pharmacist">Pharmacist</SelectItem>
+                      <SelectItem value="Blood Bank Staff">Blood Bank Staff</SelectItem>
+                      <SelectItem value="Ambulance Driver">Ambulance Driver</SelectItem>
+                      <SelectItem value="Receptionist">Receptionist</SelectItem>
+                      <SelectItem value="Lab Tech">Lab Tech</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Account Status</Label>
+                  <Select value={editStatus} onValueChange={(v) => setEditStatus(v as UserStatus)}>
+                    <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                      <SelectItem value="Suspended">Suspended</SelectItem>
+                      <SelectItem value="Pending Verification">Pending Verification</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div>
-                <Label className="text-xs font-bold text-muted-foreground">Account Status</Label>
-                <Select value={editStatus} onValueChange={(v) => setEditStatus(v as UserStatus)}>
-                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                    <SelectItem value="Suspended">Suspended</SelectItem>
-                    <SelectItem value="Pending Verification">Pending Verification</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Age (Years)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={editAge}
+                    onChange={(e) => setEditAge(e.target.value)}
+                    placeholder="e.g. 32"
+                    className="mt-1 rounded-xl text-xs font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Gender</Label>
+                  <Select value={editGender} onValueChange={setEditGender}>
+                    <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
+                      <SelectValue placeholder="Gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>

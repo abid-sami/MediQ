@@ -59,6 +59,7 @@ import {
 import { AdminOverview } from "./AdminOverview";
 import { UserManagementModule } from "./UserManagementModule";
 import { HospitalManagementModule } from "./HospitalManagementModule";
+import { DepartmentManagementModule } from "./DepartmentManagementModule";
 import { EmergencyCommandCenterModule } from "./EmergencyCommandCenterModule";
 import { AppointmentsMonitoringModule } from "./AppointmentsMonitoringModule";
 import { BedsAndWardsMonitoringModule } from "./BedsAndWardsMonitoringModule";
@@ -70,6 +71,7 @@ export type AdminTab =
   | "dashboard"
   | "users"
   | "hospitals"
+  | "departments"
   | "doctors"
   | "patients"
   | "receptionists"
@@ -153,7 +155,20 @@ export function AdminLayout() {
             };
           });
 
-          setUsers(fetchedUsers);
+          // Merge fetched Supabase users with seed users
+          const mergedUsers = [...fetchedUsers];
+          for (const seed of initialSystemUsers) {
+            if (
+              !mergedUsers.some(
+                (u) =>
+                  u.id === seed.id ||
+                  (u.email && seed.email && u.email.toLowerCase() === seed.email.toLowerCase())
+              )
+            ) {
+              mergedUsers.push(seed);
+            }
+          }
+          setUsers(mergedUsers);
         }
 
         // Fetch hospitals
@@ -189,41 +204,24 @@ export function AdminLayout() {
     window.location.href = "/";
   };
 
-  const handleUpdateUser = async (updated: SystemUser) => {
+  const handleUpdateUser = (updated: SystemUser) => {
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    try {
-      const { error } = await updateSupabaseProfile(updated.id, {
-        name: updated.name,
-        role: updated.role,
-        phone: updated.phone,
-        email: updated.email,
-      });
-      if (error) {
-        toast.error(`Failed to sync user changes to Supabase: ${error.message}`);
-      } else {
-        toast.success(`User role & profile synced to Supabase for ${updated.name}`);
-      }
-    } catch (e: any) {
-      console.warn("Update profile error:", e);
-    }
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
-    try {
-      const { error } = await deleteSupabaseProfile(userId);
-      if (error) {
-        toast.error(`Failed to delete profile from Supabase: ${error.message}`);
-      } else {
-        toast.success("User account deleted successfully from Supabase");
-      }
-    } catch (e: any) {
-      console.warn("Delete profile error:", e);
-    }
+    updateSupabaseProfile(updated.id, {
+      name: updated.name,
+      email: updated.email,
+      phone: updated.phone,
+      role: updated.role,
+    });
   };
 
   const handleAddUser = (user: SystemUser) => {
     setUsers((prev) => [user, ...prev]);
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    deleteSupabaseProfile(userId);
+    toast.success("User account deleted successfully.");
   };
 
   const handleAddHospital = (hosp: NetworkHospital) => {
@@ -241,19 +239,64 @@ export function AdminLayout() {
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
         { id: "users", label: "Users Management", icon: Users, badge: (users || []).length },
         { id: "hospitals", label: "Hospitals", icon: Building2, badge: (hospitals || []).length },
+        { id: "departments", label: "Departments", icon: Building2 },
       ],
     },
     {
       group: "STAFF & ROLES",
       items: [
-        { id: "doctors", label: "Doctors", icon: Stethoscope, badge: (users || []).filter((u) => u?.role === "Doctor").length },
-        { id: "patients", label: "Patients", icon: User },
-        { id: "receptionists", label: "Receptionists", icon: UserCheck },
-        { id: "nurses", label: "Nurses", icon: Activity },
-        { id: "lab-staff", label: "Lab Staff", icon: Microscope },
-        { id: "pharmacists", label: "Pharmacists", icon: Pill },
-        { id: "blood-bank-staff", label: "Blood Bank Staff", icon: Droplet },
-        { id: "drivers", label: "Ambulance Drivers", icon: Siren },
+        {
+          id: "doctors",
+          label: "Doctors",
+          icon: Stethoscope,
+          badge: (users || []).filter((u) => u?.role === "Doctor" || u?.role === "Dr").length,
+        },
+        {
+          id: "patients",
+          label: "Patients",
+          icon: User,
+          badge: (users || []).filter((u) => u?.role === "Patient").length,
+        },
+        {
+          id: "receptionists",
+          label: "Receptionists",
+          icon: UserCheck,
+          badge: (users || []).filter((u) => u?.role === "Receptionist").length,
+        },
+        {
+          id: "nurses",
+          label: "Nurses",
+          icon: Activity,
+          badge: (users || []).filter(
+            (u) => u?.role === "Nurse" || u?.role === "Staff Nurse" || u?.role === "Registered Nurse"
+          ).length,
+        },
+        {
+          id: "lab-staff",
+          label: "Lab Staff",
+          icon: Microscope,
+          badge: (users || []).filter(
+            (u) => u?.role === "Lab Staff" || u?.role === "Lab Tech" || u?.role === "Laboratory Staff"
+          ).length,
+        },
+        {
+          id: "pharmacists",
+          label: "Pharmacists",
+          icon: Pill,
+          badge: (users || []).filter((u) => u?.role === "Pharmacist" || u?.role === "Pharmacy Staff").length,
+        },
+        {
+          id: "blood-bank-staff",
+          label: "Blood Bank Staff",
+          icon: Droplet,
+          badge: (users || []).filter((u) => u?.role === "Blood Bank Staff").length,
+        },
+        {
+          id: "drivers",
+          label: "Ambulance Drivers",
+          icon: Siren,
+          badge: (users || []).filter((u) => u?.role === "Ambulance Driver" || u?.role === "Driver").length,
+        },
       ],
     },
     {
@@ -459,6 +502,7 @@ export function AdminLayout() {
             activeTab === "drivers") && (
             <UserManagementModule
               users={users}
+              activeTab={activeTab}
               onUpdateUser={handleUpdateUser}
               onAddUser={handleAddUser}
               onDeleteUser={handleDeleteUser}
@@ -470,6 +514,10 @@ export function AdminLayout() {
               hospitals={hospitals}
               onAddHospital={handleAddHospital}
             />
+          )}
+
+          {activeTab === "departments" && (
+            <DepartmentManagementModule />
           )}
 
           {(activeTab === "emergency" || activeTab === "ambulances") && (

@@ -1,3 +1,5 @@
+import { getDoctorSchedules } from "@/data/doctor-schedule-store";
+
 /**
  * Types & Schema Definitions for MediQ Patient Dashboard.
  */
@@ -170,7 +172,44 @@ export const initialPatientUser: PatientUserProfile = {
   chronicConditions: [],
 };
 
-export const sampleDoctors: DoctorCard[] = [];
+const defaultDoctorAvatars = [
+  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
+  "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80",
+  "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=400&q=80",
+  "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=400&q=80",
+  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80",
+  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80",
+];
+
+export function getPatientDoctorCards(): DoctorCard[] {
+  const schedules = getDoctorSchedules();
+  const seen = new Set<string>();
+
+  return Object.values(schedules)
+    .filter((schedule) => !schedule.onVacation && schedule.isAcceptingBookings)
+    .filter((schedule) => {
+      const key = `${schedule.doctorName}|${schedule.specialization}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((schedule, index) => ({
+      id: schedule.doctorId,
+      name: schedule.doctorName,
+      avatar: defaultDoctorAvatars[index % defaultDoctorAvatars.length],
+      specialization: schedule.specialization,
+      category: schedule.department,
+      experience: "Specialist",
+      hospital: "MediQ Hospital",
+      consultationFee: schedule.consultationFee ?? 50,
+      rating: 4.8,
+      reviewsCount: 128 + (index * 17),
+      availableDays: schedule.workingDays,
+      availableTime: `${schedule.startTime} - ${schedule.endTime}`,
+    }));
+}
+
+export const sampleDoctors: DoctorCard[] = getPatientDoctorCards();
 export const initialPatientAppointments: PatientAppointment[] = [];
 export const initialMedicalRecords: MedicalRecordItem[] = [];
 export const initialPatientPrescriptions: PatientPrescription[] = [];

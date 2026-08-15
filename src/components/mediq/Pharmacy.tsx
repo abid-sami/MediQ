@@ -9,14 +9,18 @@ import {
   ShieldAlert,
   Sparkles,
   Upload,
+  ShoppingCart,
+  Plus,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { medicines, pharmacyCategories } from "@/data/mediq";
 import { cn } from "@/lib/utils";
+import { PharmacyMedicine } from "@/data/pharmacy-data";
+import { getDynamicMedicines } from "@/data/pharmacy-store";
 
 import { Reveal, Section, SectionHeading } from "./primitives";
 
@@ -31,19 +35,45 @@ const icons = {
 
 export function Pharmacy() {
   const [query, setQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [medicines, setMedicines] = useState<PharmacyMedicine[]>([]);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<string[]>([]);
 
-  const results = useMemo(
-    () => medicines.filter((m) => m.name.toLowerCase().includes(query.trim().toLowerCase())),
-    [query],
-  );
+  useEffect(() => {
+    getDynamicMedicines().then((data) => {
+      setMedicines(data);
+      setLoading(false);
+    });
+  }, []);
+
+  const categories = [
+    "All",
+    "Pain & Fever",
+    "Cardiac & Hypertension",
+    "Diabetes Care",
+    "Antibiotics",
+    "Gastrointestinal",
+    "Respiratory",
+    "Vitamins & Supplements",
+  ];
+
+  const results = useMemo(() => {
+    return medicines.filter((m) => {
+      const matchesQuery =
+        m.name.toLowerCase().includes(query.trim().toLowerCase()) ||
+        m.genericName.toLowerCase().includes(query.trim().toLowerCase());
+      const matchesCat = selectedCategory === "All" || m.category === selectedCategory;
+      return matchesQuery && matchesCat;
+    });
+  }, [query, selectedCategory, medicines]);
 
   return (
     <Section id="pharmacy">
       <SectionHeading
         eyebrow="Pharmacy"
-        title="MediQ Pharmacy"
-        subtitle="Find medicines and healthcare essentials from one place."
+        title="MediQ Pharmacy & Medicine Store"
+        subtitle="Find authentic prescription medicines, health essentials, and home healthcare delivery."
       />
 
       <div className="mx-auto mt-8 max-w-2xl">
@@ -52,84 +82,94 @@ export function Pharmacy() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search medicines, healthcare products..."
+            placeholder="Search brand name, generic formulation, or medicine..."
             aria-label="Search medicines"
             className="h-14 rounded-2xl border-border bg-card pl-11 pr-4 text-base shadow-soft"
           />
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {pharmacyCategories.map((category, i) => {
-          const Icon = icons[category.icon];
+      {/* Category Pills */}
+      <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto pb-2 no-scrollbar flex-wrap">
+        {categories.map((category) => {
+          const active = selectedCategory === category;
           return (
-            <Reveal key={category.id} delay={i * 0.04}>
-              <button
-                type="button"
-                onClick={() => toast.info(`${category.name} catalogue opens with the full pharmacy.`)}
-                className="card-lift flex h-full w-full flex-col items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-soft"
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-teal/12 text-teal-foreground dark:text-teal">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="text-sm font-semibold leading-snug">{category.name}</span>
-              </button>
-            </Reveal>
+            <button
+              key={category}
+              type="button"
+              onClick={() => setSelectedCategory(category)}
+              className={cn(
+                "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
+                active
+                  ? "gradient-primary text-primary-foreground border-primary shadow-soft"
+                  : "bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {category}
+            </button>
           );
         })}
       </div>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {results.length === 0 ? (
+        {loading ? (
+          <div className="col-span-full py-16 text-center text-muted-foreground">
+            <Pill className="h-8 w-8 mx-auto mb-2 animate-bounce text-primary" />
+            <p className="font-semibold text-sm">Loading dynamic pharmacy catalog...</p>
+          </div>
+        ) : results.length === 0 ? (
           <div className="col-span-full rounded-3xl border border-dashed border-border bg-surface p-10 text-center">
             <p className="font-semibold">No medicines matched “{query}”</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Try a generic name, or upload your prescription and we&apos;ll find it for you.
+              Try a generic name, or sign in to your patient portal for full prescription ordering.
             </p>
           </div>
         ) : (
           results.map((medicine, i) => {
             const inCart = cart.includes(medicine.id);
+            const inStock = medicine.stock > 0;
+
             return (
               <Reveal key={medicine.id} delay={i * 0.05}>
-                <div className="card-lift flex h-full flex-col rounded-3xl border border-border bg-card p-5 shadow-soft">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-base font-semibold">{medicine.name}</h3>
-                      <p className="text-sm text-muted-foreground">{medicine.strength}</p>
+                <div className="card-lift flex h-full flex-col rounded-3xl border border-border bg-card p-5 shadow-soft justify-between space-y-3">
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-base font-bold text-foreground">{medicine.name}</h3>
+                        <p className="text-xs text-primary font-semibold">{medicine.strength}</p>
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                          inStock
+                            ? "border-success/30 bg-success/10 text-success"
+                            : "border-destructive/30 bg-destructive/10 text-destructive",
+                        )}
+                      >
+                        {inStock ? `${medicine.stock} in stock` : "Out of stock"}
+                      </span>
                     </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-                        medicine.inStock
-                          ? "border-success/30 bg-success/10 text-success"
-                          : "border-warning/30 bg-warning/10 text-warning",
-                      )}
-                    >
-                      {medicine.inStock ? "In stock" : "Out of stock"}
-                    </span>
+
+                    <p className="text-[11px] text-muted-foreground line-clamp-1">
+                      Generic: <strong className="text-foreground">{medicine.genericName}</strong>
+                    </p>
+
+                    {medicine.prescriptionRequired && (
+                      <p className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                        <ShieldAlert className="h-3.5 w-3.5" /> Rx Prescription required
+                      </p>
+                    )}
                   </div>
 
-                  {medicine.prescriptionRequired ? (
-                    <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-warning">
-                      <ShieldAlert className="h-3.5 w-3.5" /> Prescription verification required
-                    </p>
-                  ) : null}
-
-                  <div className="mt-auto flex items-center justify-between gap-3 pt-5">
-                    <p className="text-lg font-bold">${medicine.price.toFixed(2)}</p>
-                    <Button
-                      size="sm"
-                      variant={inCart ? "outline" : "default"}
-                      disabled={!medicine.inStock}
-                      className="rounded-full font-semibold"
-                      onClick={() => {
-                        setCart((prev) => [...prev, medicine.id]);
-                        toast.success(`${medicine.name} added to cart`);
-                      }}
+                  <div className="pt-4 border-t border-border flex items-center justify-between gap-3">
+                    <p className="text-lg font-black text-foreground">${medicine.price.toFixed(2)}</p>
+                    <Link
+                      to="/patient"
+                      className="inline-flex items-center gap-1 text-xs font-bold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-3 py-1.5 rounded-xl transition-all"
                     >
-                      {inCart ? "Added" : "Add"}
-                    </Button>
+                      <ShoppingCart className="h-3.5 w-3.5" />
+                      <span>Order in Portal</span>
+                    </Link>
                   </div>
                 </div>
               </Reveal>
@@ -139,16 +179,19 @@ export function Pharmacy() {
       </div>
 
       <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-        <Button className="rounded-xl gradient-primary font-semibold text-primary-foreground">
-          Browse Pharmacy <ArrowRight className="ml-1.5 h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          className="rounded-xl font-semibold"
-          onClick={() => toast.info("Prescription upload requires a verified account.")}
-        >
-          <Upload className="mr-2 h-4 w-4" /> Upload Prescription
-        </Button>
+        <Link to="/patient">
+          <Button className="rounded-xl gradient-primary font-semibold text-primary-foreground w-full sm:w-auto">
+            Open Patient Pharmacy & Cart <ArrowRight className="ml-1.5 h-4 w-4" />
+          </Button>
+        </Link>
+        <Link to="/patient">
+          <Button
+            variant="outline"
+            className="rounded-xl font-semibold w-full sm:w-auto"
+          >
+            <Upload className="mr-2 h-4 w-4" /> Upload & Verify Prescription
+          </Button>
+        </Link>
       </div>
     </Section>
   );

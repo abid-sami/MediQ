@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import {
   User,
@@ -27,7 +28,7 @@ export function BloodBankProfileModule({
   profile,
   onUpdateProfile,
 }: BloodBankProfileModuleProps) {
-  const [formData, setFormData] = useState<BloodBankStaffProfile>(profile);
+  const [formData, setFormData] = useState<BloodBankStaffProfile & { age?: number; gender?: string }>(profile);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -36,7 +37,7 @@ export function BloodBankProfileModule({
 
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateProfile(formData);
+    onUpdateProfile(formData as BloodBankStaffProfile);
     toast.success("Blood Bank Staff Credentials Saved", {
       description: "Updated administrative credentials across MediQ Repository System",
     });
@@ -91,7 +92,9 @@ export function BloodBankProfileModule({
                 </Badge>
               </div>
               <p className="text-xs font-semibold opacity-95 mt-1">{formData.role}</p>
-              <p className="text-xs opacity-80 mt-0.5">{formData.facility}</p>
+              <p className="text-xs opacity-80 mt-0.5">
+                Age: {formData.age || 30} yrs | Gender: {formData.gender || "Male"} | {formData.facility}
+              </p>
             </div>
           </div>
         </div>
@@ -131,6 +134,35 @@ export function BloodBankProfileModule({
                   onChange={(e) => setFormData({ ...formData, badgeId: e.target.value })}
                   className="mt-1.5 rounded-xl text-xs font-mono"
                 />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Age (Years)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={formData.age || ""}
+                  onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
+                  className="mt-1.5 rounded-xl text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Gender</Label>
+                <Select
+                  value={formData.gender || "Male"}
+                  onValueChange={(val) => setFormData({ ...formData, gender: val })}
+                >
+                  <SelectTrigger className="mt-1.5 rounded-xl text-xs font-semibold">
+                    <SelectValue placeholder="Select Gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

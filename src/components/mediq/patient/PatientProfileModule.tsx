@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import {
   User,
@@ -137,6 +138,35 @@ export function PatientProfileModule({
                   onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
                   className="mt-1.5 rounded-xl text-xs font-bold text-red-500"
                 />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Age (Years)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={formData.age || ""}
+                  onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
+                  className="mt-1.5 rounded-xl text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Gender</Label>
+                <Select
+                  value={formData.gender || "Male"}
+                  onValueChange={(val) => setFormData({ ...formData, gender: val as any })}
+                >
+                  <SelectTrigger className="mt-1.5 rounded-xl text-xs font-semibold">
+                    <SelectValue placeholder="Select Gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

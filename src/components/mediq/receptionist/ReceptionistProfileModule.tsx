@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import {
   User,
@@ -26,7 +27,7 @@ export function ReceptionistProfileModule({
   profile,
   onUpdateProfile,
 }: ReceptionistProfileModuleProps) {
-  const [formData, setFormData] = useState<ReceptionistProfile>(profile);
+  const [formData, setFormData] = useState<ReceptionistProfile & { age?: number; gender?: string }>(profile);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -35,7 +36,7 @@ export function ReceptionistProfileModule({
 
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateProfile(formData);
+    onUpdateProfile(formData as ReceptionistProfile);
     toast.success("Receptionist Profile Saved", {
       description: "Updated front-desk credentials across MediQ Patient Access Network",
     });
@@ -90,7 +91,9 @@ export function ReceptionistProfileModule({
                 </Badge>
               </div>
               <p className="text-xs font-semibold opacity-95 mt-1">{formData.role}</p>
-              <p className="text-xs opacity-80 mt-0.5">{formData.deskLocation}</p>
+              <p className="text-xs opacity-80 mt-0.5">
+                Age: {formData.age || 29} yrs | Gender: {formData.gender || "Female"} | {formData.deskLocation}
+              </p>
             </div>
           </div>
         </div>
@@ -121,6 +124,37 @@ export function ReceptionistProfileModule({
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="mt-1.5 rounded-xl font-semibold text-xs"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Age (Years)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={formData.age || ""}
+                    onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
+                    className="mt-1.5 rounded-xl text-xs font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold text-muted-foreground">Gender</Label>
+                  <Select
+                    value={formData.gender || "Female"}
+                    onValueChange={(val) => setFormData({ ...formData, gender: val })}
+                  >
+                    <SelectTrigger className="mt-1.5 rounded-xl text-xs font-semibold">
+                      <SelectValue placeholder="Select Gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>

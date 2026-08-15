@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import {
   User,
@@ -25,9 +26,17 @@ import {
   Lock,
   Sparkles,
   HelpCircle,
+  Palmtree,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DoctorProfile } from "@/data/doctor-data";
+import {
+  getDepartments,
+  getDoctorSchedules,
+  toggleDoctorVacation,
+  DepartmentItem,
+} from "@/data/doctor-schedule-store";
 
 interface DoctorProfileModuleProps {
   profile: DoctorProfile;
@@ -38,7 +47,38 @@ export function DoctorProfileModule({
   profile,
   onUpdateProfile,
 }: DoctorProfileModuleProps) {
-  const [formData, setFormData] = useState<DoctorProfile>(profile);
+  const [formData, setFormData] = useState<DoctorProfile & { age?: number; gender?: string }>(profile);
+  const [departments, setDepartments] = useState<DepartmentItem[]>(() => getDepartments());
+
+  const docId = profile.id || "doc-101";
+  const [onVacation, setOnVacation] = useState<boolean>(() => {
+    const schedules = getDoctorSchedules();
+    return schedules[docId]?.onVacation ?? false;
+  });
+
+  useEffect(() => {
+    const handleDeptUpdate = () => {
+      setDepartments(getDepartments());
+    };
+    window.addEventListener("mediq_departments_updated", handleDeptUpdate);
+    return () => window.removeEventListener("mediq_departments_updated", handleDeptUpdate);
+  }, []);
+
+  const handleVacationToggle = () => {
+    const nextStatus = !onVacation;
+    setOnVacation(nextStatus);
+    toggleDoctorVacation(docId, nextStatus);
+    toast.success(
+      nextStatus
+        ? "Vacation Mode Turned ON"
+        : "Vacation Mode Turned OFF",
+      {
+        description: nextStatus
+          ? "You are now off-duty and hidden from patient booking lists."
+          : "You are now back on duty and visible for online appointments.",
+      }
+    );
+  };
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -47,7 +87,7 @@ export function DoctorProfileModule({
 
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateProfile(formData);
+    onUpdateProfile(formData as DoctorProfile);
     toast.success("Doctor Profile Details Updated", {
       description: "Changes applied successfully across MediQ Doctor Portal",
     });
@@ -84,6 +124,31 @@ export function DoctorProfileModule({
 
   return (
     <div className="space-y-6">
+      {/* Vacation Status Notice Banner if active */}
+      {onVacation && (
+        <div className="bg-amber-500/15 border-2 border-amber-500/40 p-4 rounded-2xl flex items-center justify-between gap-4 text-amber-700 dark:text-amber-300">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              <Palmtree className="h-6 w-6" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm">Vacation Mode Active (Off-Duty)</h4>
+              <p className="text-xs opacity-90">
+                You are currently hidden from patient booking lists on Home & Patient panel.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={handleVacationToggle}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl"
+          >
+            Turn Off Vacation Mode
+          </Button>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="gradient-primary p-6 rounded-2xl text-primary-foreground shadow-soft">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -99,24 +164,44 @@ export function DoctorProfileModule({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold">{formData.name}</h1>
-                <Badge className="bg-white/20 text-white font-semibold">
-                  {formData.experience} Experience
+                <Badge className="bg-white/20 text-white border-none font-bold">
+                  {formData.specialization}
                 </Badge>
+                {onVacation ? (
+                  <Badge className="bg-amber-500 text-white font-bold flex items-center gap-1">
+                    <Palmtree className="h-3 w-3" /> On Vacation
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-500 text-white font-bold flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Active On-Duty
+                  </Badge>
+                )}
               </div>
-              <p className="text-sm font-semibold opacity-95 mt-1">{formData.specialization}</p>
-              <p className="text-xs opacity-80 flex items-center gap-2 mt-1">
-                <Building2 className="h-3.5 w-3.5" /> {formData.hospital} ({formData.roomNo})
+              <p className="text-xs opacity-90 mt-1">
+                BMDC Reg: <span className="font-mono">{formData.licenseNumber}</span> | Capacity: {formData.maxPatientsPerDay} Patients/Day
+              </p>
+              <p className="text-xs opacity-80 mt-0.5">
+                Age: {formData.age || 38} yrs | Gender: {formData.gender || "Male"} | Dept: {formData.department || "Cardiology"}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col items-start md:items-end gap-1.5 text-xs bg-white/10 p-4 rounded-xl border border-white/20">
-            <span className="opacity-80">Consultation Fee</span>
+          <div className="flex flex-col items-start md:items-end gap-2 text-xs bg-white/10 p-4 rounded-xl border border-white/20">
+            <div className="flex items-center gap-2">
+              <span className="opacity-80">Vacation Mode:</span>
+              <Button
+                size="sm"
+                variant={onVacation ? "destructive" : "secondary"}
+                onClick={handleVacationToggle}
+                className="h-7 text-[11px] font-bold rounded-lg px-2.5"
+              >
+                <Palmtree className="mr-1 h-3.5 w-3.5" />
+                {onVacation ? "ON (Off-Duty)" : "OFF (On-Duty)"}
+              </Button>
+            </div>
+            <span className="opacity-80 mt-1">Consultation Fee</span>
             <span className="text-xl font-bold">
               ${formData.consultationFee} <span className="text-xs font-normal opacity-90">/ Session</span>
-            </span>
-            <span className="opacity-80 flex items-center gap-1 mt-0.5">
-              <Clock className="h-3 w-3" /> {formData.availableHours}
             </span>
           </div>
         </div>
@@ -126,7 +211,7 @@ export function DoctorProfileModule({
       <Tabs defaultValue="details" className="w-full">
         <TabsList className="bg-card border border-border p-1 rounded-xl mb-6 grid grid-cols-2 w-full max-w-md">
           <TabsTrigger value="details" className="rounded-lg text-xs font-semibold py-2">
-            <User className="mr-1.5 h-3.5 w-3.5 text-primary" /> Personal Info
+            <User className="mr-1.5 h-3.5 w-3.5 text-primary" /> Personal & Practice Info
           </TabsTrigger>
           <TabsTrigger value="security" className="rounded-lg text-xs font-semibold py-2">
             <Lock className="mr-1.5 h-3.5 w-3.5 text-teal" /> Security
@@ -160,12 +245,51 @@ export function DoctorProfileModule({
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Department</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Age (Years)</Label>
                 <Input
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="mt-1.5 rounded-xl text-xs"
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={formData.age || ""}
+                  onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
+                  className="mt-1.5 rounded-xl text-xs font-semibold"
                 />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Gender</Label>
+                <Select
+                  value={formData.gender || "Male"}
+                  onValueChange={(val) => setFormData({ ...formData, gender: val })}
+                >
+                  <SelectTrigger className="mt-1.5 rounded-xl text-xs font-semibold">
+                    <SelectValue placeholder="Select Gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Department</Label>
+                <Select
+                  value={formData.department || "Cardiology"}
+                  onValueChange={(val) => setFormData({ ...formData, department: val })}
+                >
+                  <SelectTrigger className="mt-1.5 rounded-xl text-xs font-semibold">
+                    <SelectValue placeholder="Select Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.name}>
+                        {d.name} ({d.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
