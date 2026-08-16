@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { PharmacyMedicine } from "@/data/pharmacy-data";
-import { getDynamicMedicines } from "@/data/pharmacy-store";
+import { getDynamicMedicines, getDynamicPharmacyCategories } from "@/data/pharmacy-store";
 
 import { Reveal, Section, SectionHeading } from "./primitives";
 
@@ -37,26 +37,32 @@ export function Pharmacy() {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [medicines, setMedicines] = useState<PharmacyMedicine[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<string[]>([]);
 
   useEffect(() => {
-    getDynamicMedicines().then((data) => {
-      setMedicines(data);
-      setLoading(false);
-    });
+    let active = true;
+    const loadMedicines = async () => {
+      const [data, categoryData] = await Promise.all([getDynamicMedicines(), getDynamicPharmacyCategories()]);
+      if (active) {
+        setMedicines(data);
+        setCategories(categoryData.map((category) => category.name));
+        setLoading(false);
+      }
+    };
+
+    void loadMedicines();
+    window.addEventListener("focus", loadMedicines);
+    const refreshTimer = window.setInterval(loadMedicines, 30000);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", loadMedicines);
+      window.clearInterval(refreshTimer);
+    };
   }, []);
 
-  const categories = [
-    "All",
-    "Pain & Fever",
-    "Cardiac & Hypertension",
-    "Diabetes Care",
-    "Antibiotics",
-    "Gastrointestinal",
-    "Respiratory",
-    "Vitamins & Supplements",
-  ];
+  const categoryFilters = ["All", ...categories];
 
   const results = useMemo(() => {
     return medicines.filter((m) => {
@@ -91,7 +97,7 @@ export function Pharmacy() {
 
       {/* Category Pills */}
       <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto pb-2 no-scrollbar flex-wrap">
-        {categories.map((category) => {
+        {categoryFilters.map((category) => {
           const active = selectedCategory === category;
           return (
             <button

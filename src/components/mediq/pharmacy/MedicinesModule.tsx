@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PharmacyMedicine } from "@/data/pharmacy-data";
+import { PharmacyCategory, PharmacyMedicine } from "@/data/pharmacy-data";
 import {
   addDynamicMedicine,
   updateDynamicMedicine,
@@ -37,6 +37,7 @@ import {
 
 interface MedicinesModuleProps {
   medicines: PharmacyMedicine[];
+  categories: PharmacyCategory[];
   onAddMedicine: (med: PharmacyMedicine) => void;
   onUpdateMedicine?: (medId: string, updates: Partial<PharmacyMedicine>) => void;
   onDeleteMedicine?: (medId: string) => void;
@@ -44,6 +45,7 @@ interface MedicinesModuleProps {
 
 export function MedicinesModule({
   medicines,
+  categories,
   onAddMedicine,
   onUpdateMedicine,
   onDeleteMedicine,
@@ -57,7 +59,11 @@ export function MedicinesModule({
   const [genericName, setGenericName] = useState("");
   const [brand, setBrand] = useState("");
   const [strength, setStrength] = useState("");
-  const [category, setCategory] = useState("Prescription Medicines");
+  const [category, setCategory] = useState("");
+
+  useEffect(() => {
+    if (!category && categories.length > 0) setCategory(categories[0].name);
+  }, [categories, category]);
   const [price, setPrice] = useState(5.0);
   const [stock, setStock] = useState(100);
   const [expiryDate, setExpiryDate] = useState("2028-12-31");
@@ -70,7 +76,10 @@ export function MedicinesModule({
   // Create Medicine
   const handleCreateMedicine = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !category) {
+      toast.error("Medicine name and category are required.");
+      return;
+    }
 
     try {
       const newMed = await addDynamicMedicine({
@@ -197,16 +206,7 @@ export function MedicinesModule({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Categories</SelectItem>
-            <SelectItem value="Pain & Fever">Pain & Fever</SelectItem>
-            <SelectItem value="Cardiac & Hypertension">Cardiac & Hypertension</SelectItem>
-            <SelectItem value="Diabetes Care">Diabetes Care</SelectItem>
-            <SelectItem value="Antibiotics">Antibiotics</SelectItem>
-            <SelectItem value="Gastrointestinal">Gastrointestinal</SelectItem>
-            <SelectItem value="Respiratory">Respiratory</SelectItem>
-            <SelectItem value="Vitamins & Supplements">Vitamins & Supplements</SelectItem>
-            <SelectItem value="Allergy & Cold">Allergy & Cold</SelectItem>
-            <SelectItem value="Prescription Medicines">Prescription Medicines</SelectItem>
-            <SelectItem value="OTC Medicines">OTC Medicines</SelectItem>
+            {categories.map((item) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -320,16 +320,7 @@ export function MedicinesModule({
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Pain & Fever">Pain & Fever</SelectItem>
-                  <SelectItem value="Cardiac & Hypertension">Cardiac & Hypertension</SelectItem>
-                  <SelectItem value="Diabetes Care">Diabetes Care</SelectItem>
-                  <SelectItem value="Antibiotics">Antibiotics</SelectItem>
-                  <SelectItem value="Gastrointestinal">Gastrointestinal</SelectItem>
-                  <SelectItem value="Respiratory">Respiratory</SelectItem>
-                  <SelectItem value="Vitamins & Supplements">Vitamins & Supplements</SelectItem>
-                  <SelectItem value="Allergy & Cold">Allergy & Cold</SelectItem>
-                  <SelectItem value="Prescription Medicines">Prescription Medicines</SelectItem>
-                  <SelectItem value="OTC Medicines">OTC Medicines</SelectItem>
+                  {categories.map((item) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

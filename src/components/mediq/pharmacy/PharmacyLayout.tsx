@@ -43,6 +43,9 @@ import {
   addDynamicMedicine,
   updateDynamicMedicine,
   deleteDynamicMedicine,
+  getDynamicPharmacyCategories,
+  getDynamicPrescriptionSubmissions,
+  updateDynamicPrescriptionStatus,
 } from "@/data/pharmacy-store";
 
 import { PharmacyOverview } from "./PharmacyOverview";
@@ -81,6 +84,7 @@ export function PharmacyLayout() {
   const [prescriptions, setPrescriptions] = useState<PrescriptionToVerify[]>(initialPrescriptionsToVerify);
   const [orders, setOrders] = useState<PharmacyOrder[]>(initialPharmacyOrders);
   const [medicines, setMedicines] = useState<PharmacyMedicine[]>(initialMedicines);
+  const [categories, setCategories] = useState<import("@/data/pharmacy-data").PharmacyCategory[]>([]);
   const [suppliers, setSuppliers] = useState<PharmacySupplier[]>(initialSuppliers);
 
   useEffect(() => {
@@ -110,9 +114,13 @@ export function PharmacyLayout() {
 
         // Fetch dynamic medicines
         const medicinesData = await getDynamicMedicines();
-        if (medicinesData && medicinesData.length > 0) {
-          setMedicines(medicinesData);
-        }
+        setMedicines(medicinesData);
+        const categoriesData = await getDynamicPharmacyCategories();
+        setCategories(categoriesData);
+
+        // Fetch patient-uploaded prescriptions awaiting pharmacist review
+        const prescriptionData = await getDynamicPrescriptionSubmissions();
+        setPrescriptions(prescriptionData);
       } catch (error) {
         console.error("Error loading pharmacy data:", error);
       } finally {
@@ -132,24 +140,34 @@ export function PharmacyLayout() {
   };
 
   // Handlers
-  const handleVerifyPrescription = (id: string) => {
-    setPrescriptions((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, verificationStatus: "Verified" } : p))
-    );
+  const handleVerifyPrescription = async (id: string) => {
+    try {
+      await updateDynamicPrescriptionStatus(id, "Verified", "Verified by pharmacist.");
+      setPrescriptions((prev) => prev.map((p) => (p.id === id ? { ...p, verificationStatus: "Verified", notes: "Verified by pharmacist." } : p)));
+    } catch (error: any) {
+      console.error("Prescription verification failed:", error);
+      throw error;
+    }
   };
 
-  const handleRejectPrescription = (id: string, reason: string) => {
-    setPrescriptions((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, verificationStatus: "Rejected", notes: reason } : p))
-    );
+  const handleRejectPrescription = async (id: string, reason: string) => {
+    try {
+      await updateDynamicPrescriptionStatus(id, "Rejected", reason);
+      setPrescriptions((prev) => prev.map((p) => (p.id === id ? { ...p, verificationStatus: "Rejected", notes: reason } : p)));
+    } catch (error: any) {
+      console.error("Prescription rejection failed:", error);
+      throw error;
+    }
   };
 
-  const handleClarifyPrescription = (id: string, notes: string) => {
-    setPrescriptions((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, verificationStatus: "Clarification Requested", notes } : p
-      )
-    );
+  const handleClarifyPrescription = async (id: string, notes: string) => {
+    try {
+      await updateDynamicPrescriptionStatus(id, "Clarification Requested", notes);
+      setPrescriptions((prev) => prev.map((p) => (p.id === id ? { ...p, verificationStatus: "Clarification Requested", notes } : p)));
+    } catch (error: any) {
+      console.error("Prescription clarification failed:", error);
+      throw error;
+    }
   };
 
   const handleUpdateOrderStatus = async (id: string, newStatus: any) => {
@@ -396,6 +414,7 @@ export function PharmacyLayout() {
           {activeTab === "medicines" && (
             <MedicinesModule
               medicines={medicines}
+              categories={categories}
               onAddMedicine={handleAddMedicine}
               onUpdateMedicine={handleUpdateMedicine}
               onDeleteMedicine={handleDeleteMedicine}
@@ -412,6 +431,7 @@ export function PharmacyLayout() {
           {(activeTab === "categories" || activeTab === "suppliers") && (
             <CategoriesAndSuppliersModule
               suppliers={suppliers}
+              categories={categories}
               onAddSupplier={handleAddSupplier}
             />
           )}

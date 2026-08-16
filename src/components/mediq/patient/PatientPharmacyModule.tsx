@@ -28,6 +28,7 @@ import {
   CreditCard,
   Building2,
   Sparkles,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PatientPharmacyOrder, PatientBill } from "@/data/patient-data";
@@ -36,6 +37,8 @@ import {
   getDynamicMedicines,
   getDynamicPharmacyOrders,
   createDynamicPharmacyOrder,
+  getDynamicPharmacyCategories,
+  uploadPrescriptionSubmission,
 } from "@/data/pharmacy-store";
 
 interface CartItem {
@@ -61,6 +64,7 @@ export function PatientPharmacyModule({
 
   // Dynamic Catalog State
   const [medicines, setMedicines] = useState<PharmacyMedicine[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -72,6 +76,7 @@ export function PatientPharmacyModule({
   const [deliveryAddress, setDeliveryAddress] = useState<string>("House 14, Road 5, Dhanmondi, Dhaka");
   const [patientPhone, setPatientPhone] = useState<string>("+1 (555) 234-5678");
   const [prescriptionNote, setPrescriptionNote] = useState<string>("");
+  const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Live Orders
@@ -81,8 +86,9 @@ export function PatientPharmacyModule({
   const loadData = async () => {
     try {
       setLoading(true);
-      const meds = await getDynamicMedicines();
+      const [meds, categoryData] = await Promise.all([getDynamicMedicines(), getDynamicPharmacyCategories()]);
       setMedicines(meds);
+      setCategories(categoryData.map((category) => category.name));
 
       const dynamicOrders = await getDynamicPharmacyOrders();
       if (dynamicOrders && dynamicOrders.length > 0) {
@@ -114,18 +120,8 @@ export function PatientPharmacyModule({
     loadData();
   }, []);
 
-  // Filter Categories
-  const categories = [
-    "All",
-    "Pain & Fever",
-    "Cardiac & Hypertension",
-    "Diabetes Care",
-    "Antibiotics",
-    "Gastrointestinal",
-    "Respiratory",
-    "Vitamins & Supplements",
-    "Allergy & Cold",
-  ];
+  // Filter Categories loaded from Supabase
+  const categoryFilters = ["All", ...categories];
 
   const filteredMedicines = medicines.filter((m) => {
     const matchesSearch =
@@ -199,6 +195,11 @@ export function PatientPharmacyModule({
       return;
     }
 
+    if (hasRxItem && !prescriptionFile) {
+      toast.error("Upload a prescription file before ordering prescription medicines.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -243,6 +244,15 @@ export function PatientPharmacyModule({
         deliveryType,
       });
 
+      if (hasRxItem && prescriptionFile) {
+        await uploadPrescriptionSubmission({
+          file: prescriptionFile,
+          patientName,
+          orderReference: orderNo,
+          notes: prescriptionNote,
+        });
+      }
+
       // 3. Automatically Generate Invoice in Patient's Billing!
       if (onAddBill) {
         const newBillInvoice: PatientBill = {
@@ -267,6 +277,8 @@ export function PatientPharmacyModule({
 
       // Clear cart
       setCart([]);
+      setPrescriptionFile(null);
+      setPrescriptionNote("");
       setCartOpen(false);
 
       toast.success(`Pharmacy Order ${orderNo} Confirmed!`, {
@@ -359,20 +371,20 @@ export function PatientPharmacyModule({
 
             {/* Category Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-              {categories.map((cat) => {
-                const active = selectedCategory === cat;
+              {categoryFilters.map((category) => {
+                const active = selectedCategory === category;
                 return (
                   <button
-                    key={cat}
+                    key={category}
                     type="button"
-                    onClick={() => setSelectedCategory(cat)}
+                    onClick={() => setSelectedCategory(category)}
                     className={`px-3.5 py-1.5 rounded-full font-bold whitespace-nowrap transition-all ${
                       active
                         ? "gradient-primary text-primary-foreground shadow-soft"
                         : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
                     }`}
                   >
-                    {cat}
+                    {category}
                   </button>
                 );
               })}
@@ -691,6 +703,16 @@ export function PatientPharmacyModule({
                       Our pharmacist will verify your active doctor prescription before dispensing.
                     </span>
                   </div>
+                </div>
+              )}
+
+              {hasRxItem && (
+                <div className="p-3 rounded-xl bg-card border border-primary/30 space-y-2 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-foreground"><Upload className="h-4 w-4 text-primary" /> Upload prescription for pharmacist review</div>
+                  <Input type="file" accept="image/*,.pdf" onChange={(e) => setPrescriptionFile(e.target.files?.[0] || null)} className="h-9 rounded-xl text-xs" />
+                  {prescriptionFile && <p className="text-[11px] text-emerald-600 font-semibold">Selected: {prescriptionFile.name}</p>}
+                  <Input value={prescriptionNote} onChange={(e) => setPrescriptionNote(e.target.value)} placeholder="Optional note for the pharmacist" className="h-9 rounded-xl text-xs" />
+                  <p className="text-[10px] text-muted-foreground">Accepted formats: PDF, JPG, PNG. Your pharmacist will verify it before dispensing.</p>
                 </div>
               )}
 

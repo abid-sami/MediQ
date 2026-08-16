@@ -63,6 +63,7 @@ import { AppointmentsMonitoringModule } from "./AppointmentsMonitoringModule";
 import { BedsAndWardsMonitoringModule } from "./BedsAndWardsMonitoringModule";
 import { BloodBankMonitoringModule } from "./BloodBankMonitoringModule";
 import { PharmacyLabMonitoringModule } from "./PharmacyLabMonitoringModule";
+import { AdminPharmacyManagementModule } from "./AdminPharmacyManagementModule";
 import { AuditLogsAndSettingsModule } from "./AuditLogsAndSettingsModule";
 
 export type AdminTab =
@@ -534,8 +535,9 @@ export function AdminLayout() {
             <BloodBankMonitoringModule />
           )}
 
+          {activeTab === "pharmacy" && <AdminPharmacyManagementModule />}
+
           {(activeTab === "diagnostics" ||
-            activeTab === "pharmacy" ||
             activeTab === "prescriptions" ||
             activeTab === "medical-records" ||
             activeTab === "billing") && (

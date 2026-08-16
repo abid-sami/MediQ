@@ -60,6 +60,18 @@ export interface PrescriptionToVerify {
   }[];
   verificationStatus: "Pending" | "Verified" | "Rejected" | "Clarification Requested";
   notes?: string;
+  fileName?: string;
+  fileUrl?: string;
+  orderReference?: string;
+  uploadedAt?: string;
+}
+
+export interface PharmacyCategory {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt?: string;
 }
 
 export type StockStatus = "In Stock" | "Low Stock" | "Out of Stock" | "Expiring Soon";

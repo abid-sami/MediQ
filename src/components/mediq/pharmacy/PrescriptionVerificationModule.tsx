@@ -26,9 +26,9 @@ import { PrescriptionToVerify } from "@/data/pharmacy-data";
 
 interface PrescriptionVerificationModuleProps {
   prescriptions: PrescriptionToVerify[];
-  onVerify: (id: string) => void;
-  onReject: (id: string, reason: string) => void;
-  onRequestClarification: (id: string, notes: string) => void;
+  onVerify: (id: string) => void | Promise<void>;
+  onReject: (id: string, reason: string) => void | Promise<void>;
+  onRequestClarification: (id: string, notes: string) => void | Promise<void>;
 }
 
 export function PrescriptionVerificationModule({
@@ -130,6 +130,12 @@ export function PrescriptionVerificationModule({
                 </table>
               </div>
 
+              {rx.fileUrl && (
+                <a href={rx.fileUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline">
+                  <FileText className="h-3.5 w-3.5" /> Open uploaded prescription{rx.fileName ? `: ${rx.fileName}` : ""}
+                </a>
+              )}
+              {rx.orderReference && <p className="text-[11px] text-muted-foreground mt-1">Order: <strong>{rx.orderReference}</strong></p>}
               {rx.notes && (
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold mt-2">
                   Notes: {rx.notes}
@@ -165,11 +171,15 @@ export function PrescriptionVerificationModule({
 
               <Button
                 size="sm"
-                onClick={() => {
-                  onVerify(rx.id);
-                  toast.success(`Verified Prescription ${rx.prescriptionId}`, {
-                    description: `Dispensing clearance granted for ${rx.patientName}`,
-                  });
+                onClick={async () => {
+                  try {
+                    await onVerify(rx.id);
+                    toast.success(`Verified Prescription ${rx.prescriptionId}`, {
+                      description: `Dispensing clearance granted for ${rx.patientName}`,
+                    });
+                  } catch (error: any) {
+                    toast.error(error?.message || "Could not verify prescription.");
+                  }
                 }}
                 className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-xs"
               >
@@ -203,10 +213,14 @@ export function PrescriptionVerificationModule({
               />
 
               <Button
-                onClick={() => {
-                  onReject(selectedRx.id, rejectReason);
-                  setRejectOpen(false);
-                  toast.error(`Rejected Prescription ${selectedRx.prescriptionId}`);
+                onClick={async () => {
+                  try {
+                    await onReject(selectedRx.id, rejectReason);
+                    setRejectOpen(false);
+                    toast.error(`Rejected Prescription ${selectedRx.prescriptionId}`);
+                  } catch (error: any) {
+                    toast.error(error?.message || "Could not reject prescription.");
+                  }
                 }}
                 className="w-full bg-destructive text-destructive-foreground font-bold rounded-xl py-5 shadow-md"
               >
@@ -240,10 +254,14 @@ export function PrescriptionVerificationModule({
               />
 
               <Button
-                onClick={() => {
-                  onRequestClarification(selectedRx.id, clarificationNotes);
-                  setClarifyOpen(false);
-                  toast.info(`Clarification Request Sent to ${selectedRx.doctorName}`);
+                onClick={async () => {
+                  try {
+                    await onRequestClarification(selectedRx.id, clarificationNotes);
+                    setClarifyOpen(false);
+                    toast.info(`Clarification Request Sent to ${selectedRx.doctorName}`);
+                  } catch (error: any) {
+                    toast.error(error?.message || "Could not save clarification request.");
+                  }
                 }}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl py-5 shadow-md"
               >
