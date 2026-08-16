@@ -1,23 +1,57 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Droplet, HeartHandshake, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { bloodGroups, statusStyles } from "@/data/mediq";
+import { statusStyles, type StatusLevel } from "@/data/mediq";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
-import { createSupabaseBloodDonor } from "@/services/supabase-service";
+import { createSupabaseBloodDonor, fetchSupabaseBloodInventory } from "@/services/supabase-service";
 
 import { LivePill, Reveal, Section, SectionHeading } from "./primitives";
 import { RequestBloodModal } from "./RequestBloodModal";
 import { BecomeDonorModal } from "./BecomeDonorModal";
+
+type BloodGroupDisplay = {
+  group: string;
+  units: number;
+  capacity: number;
+  status: StatusLevel;
+};
+
+function statusFromLabel(status: string): StatusLevel {
+  if (status === "Critical") return "full";
+  if (status === "Low") return "limited";
+  return "available";
+}
 
 export function BloodBank() {
   const { profile, user } = useAuth();
 
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [donorModalOpen, setDonorModalOpen] = useState(false);
+  const [bloodGroups, setBloodGroups] = useState<BloodGroupDisplay[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const inventory = await fetchSupabaseBloodInventory();
+      setBloodGroups(
+        inventory.map((b: any) => ({
+          group: b.group,
+          units: b.availableUnits || 0,
+          // A soft display ceiling so the progress bar has meaning; the
+          // actual low/critical read comes from the stored status.
+          capacity: Math.max(b.availableUnits || 0, (b.criticalThreshold || 10) * 5),
+          status: statusFromLabel(b.status),
+        }))
+      );
+      setLoading(false);
+    };
+    load();
+  }, []);
 
   const handleBecomeDonorClick = async () => {
     // Check if user's profile has a blood group specified
@@ -71,6 +105,11 @@ export function BloodBank() {
       </div>
 
       <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {!loading && bloodGroups.length === 0 && (
+          <p className="col-span-full text-sm text-muted-foreground">
+            Blood stock will appear here once inventory is recorded in the system.
+          </p>
+        )}
         {bloodGroups.map((group, i) => {
           const status = statusStyles[group.status];
           const pct = Math.round((group.units / group.capacity) * 100);

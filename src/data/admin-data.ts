@@ -43,6 +43,8 @@ export interface SystemUser {
   registeredDate: string;
   lastActive: string;
   avatar: string;
+  specialty?: string;
+  isFeatured?: boolean;
 }
 
 export interface NetworkHospital {
@@ -86,14 +88,14 @@ export interface AdminAuditLog {
 
 // Initial Data Structures (Dynamic & Populated via Database)
 export const initialAdminProfile: AdminProfile = {
-  id: "adm-001",
-  name: "System Administrator",
-  avatar: "https://ibb.co.com/39NqwQCP",
-  badgeId: "ADMIN-01",
+  id: "",
+  name: "",
+  avatar: "",
+  badgeId: "",
   role: "Super Admin",
-  department: "Global Platform Command & Governance",
+  department: "",
   hospitalNetwork: "MediQ Healthcare Network",
-  email: "admin@gmail.com",
+  email: "",
   phone: "",
 };
 

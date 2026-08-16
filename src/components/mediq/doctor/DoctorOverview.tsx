@@ -35,8 +35,10 @@ import {
 import {
   getDoctorSchedules,
   updateDoctorSchedule,
+  syncDoctorSchedulesFromProfiles,
   DoctorScheduleConfig,
 } from "@/data/doctor-schedule-store";
+import { useAuth } from "@/hooks/use-auth";
 
 interface DoctorOverviewProps {
   appointments: Appointment[];
@@ -59,11 +61,42 @@ export function DoctorOverview({
   onStartConsultation,
   onOpenPatientProfile,
 }: DoctorOverviewProps) {
+  const { user, profile: authProfile } = useAuth();
+  const doctorId = user?.id || "";
+
+  const defaultSchedule = (): DoctorScheduleConfig => ({
+    doctorId,
+    doctorName: authProfile?.name || "Doctor",
+    specialization: authProfile?.specialty || "General Physician",
+    department: authProfile?.specialty || "General Medicine",
+    startTime: "09:00 AM",
+    endTime: "05:00 PM",
+    dailyPatientLimit: 20,
+    currentBookedCount: 0,
+    isAcceptingBookings: true,
+    workingDays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
+    consultationFee: 0,
+    onVacation: false,
+  });
+
   // Doctor Consultation Schedule & Daily Patient Capacity State
   const [schedule, setSchedule] = useState<DoctorScheduleConfig>(() => {
     const all = getDoctorSchedules();
-    return all["doc-101"] || all["doc-1"];
+    return (doctorId && all[doctorId]) || defaultSchedule();
   });
+
+  // If this doctor doesn't have a schedule saved locally yet (e.g. first
+  // login on a new device), pull it in from Supabase instead of falling
+  // back to another doctor's hardcoded data.
+  useEffect(() => {
+    if (!doctorId) return;
+    const existing = getDoctorSchedules()[doctorId];
+    if (!existing) {
+      syncDoctorSchedulesFromProfiles().then((all) => {
+        if (all[doctorId]) setSchedule(all[doctorId]);
+      });
+    }
+  }, [doctorId]);
 
   const [startTime, setStartTime] = useState(schedule.startTime);
   const [endTime, setEndTime] = useState(schedule.endTime);
@@ -74,6 +107,7 @@ export function DoctorOverview({
     e.preventDefault();
     const updated: DoctorScheduleConfig = {
       ...schedule,
+      doctorId,
       startTime,
       endTime,
       dailyPatientLimit: Number(patientLimit),

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,60 +10,77 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Bed,
-  Plus,
-  Building2,
-  CheckCircle2,
-  Clock,
-  User,
-  Activity,
-  HeartPulse,
-} from "lucide-react";
+import { Bed, Plus, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   HospitalAdmission,
   BedCategoryAvailability,
 } from "@/data/receptionist-data";
 
+interface LiveBed {
+  id: string;
+  bedNumber: string;
+  wardType: string;
+  status: string;
+}
+
 interface AdmissionsAndBedsModuleProps {
   admissions: HospitalAdmission[];
   bedCategories: BedCategoryAvailability[];
-  onRegisterAdmission: (admission: HospitalAdmission) => void;
+  liveBeds: LiveBed[];
+  onRegisterAdmission: (admission: HospitalAdmission, bedId?: string) => void;
 }
 
 export function AdmissionsAndBedsModule({
   admissions,
   bedCategories,
+  liveBeds,
   onRegisterAdmission,
 }: AdmissionsAndBedsModuleProps) {
-  // Form State
+  const availableBeds = useMemo(
+    () => liveBeds.filter((b) => b.status === "Available"),
+    [liveBeds]
+  );
+
   const [patientName, setPatientName] = useState("");
-  const [department, setDepartment] = useState("Cardiology Care Unit");
-  const [wardName, setWardName] = useState("Ward 4A");
-  const [bedNo, setBedNo] = useState("Bed 404-A");
-  const [bedType, setBedType] = useState<HospitalAdmission["bedType"]>("General");
-  const [attendingDoctor, setAttendingDoctor] = useState("Dr. Sarah Rahman");
+  const [department, setDepartment] = useState("");
+  const [selectedBedId, setSelectedBedId] = useState<string>("");
+  const [attendingDoctor, setAttendingDoctor] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleAdmissionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientName) return;
+    if (!patientName || !selectedBedId) {
+      toast.error("Enter the patient name and pick an available bed.");
+      return;
+    }
 
+    const bed = availableBeds.find((b) => b.id === selectedBedId);
+    if (!bed) {
+      toast.error("That bed is no longer available. Please pick another.");
+      return;
+    }
+
+    setSubmitting(true);
     const newAdmission: HospitalAdmission = {
       id: `adm-${Date.now()}`,
-      admissionId: `ADM-2026-${Math.floor(100 + Math.random() * 900)}`,
+      admissionId: `ADM-${Date.now().toString().slice(-6)}`,
       patientName,
-      department,
-      wardName,
-      bedNo,
-      bedType,
+      department: department || bed.wardType,
+      wardName: bed.wardType,
+      bedNo: bed.bedNumber,
+      bedType: bed.wardType as HospitalAdmission["bedType"],
       admissionTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      attendingDoctor,
+      attendingDoctor: attendingDoctor || "Unassigned",
     };
 
-    onRegisterAdmission(newAdmission);
+    onRegisterAdmission(newAdmission, bed.id);
+    setSubmitting(false);
     setPatientName("");
-    toast.success(`Registered Admission for ${newAdmission.patientName}`, {
+    setDepartment("");
+    setSelectedBedId("");
+    setAttendingDoctor("");
+    toast.success(`Registered admission for ${newAdmission.patientName}`, {
       description: `Assigned Bed ${newAdmission.bedNo} (${newAdmission.wardName})`,
     });
   };
@@ -77,24 +94,31 @@ export function AdmissionsAndBedsModule({
             <Bed className="h-6 w-6 text-primary" /> Inpatient Ward Admissions & Bed Matrix
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Register new hospital admissions and track live capacity across General, ICU, CCU, Cabin, and Emergency beds.
+            Register new hospital admissions against live, available beds. Wards and beds are
+            added by Admin.
           </p>
         </div>
       </div>
 
-      {/* 5 Live Bed Availability Breakdown Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {bedCategories.map((cat, i) => (
-          <div key={i} className="p-4 rounded-2xl border border-border bg-card space-y-1 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-muted-foreground uppercase">{cat.category}</span>
-              <Bed className="h-4 w-4 text-primary" />
+      {/* Live Bed Availability Breakdown Cards */}
+      {bedCategories.length === 0 ? (
+        <div className="bg-card border border-border rounded-2xl p-6 text-center text-muted-foreground text-sm">
+          No wards set up yet. Ask an admin to add wards and beds first.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {bedCategories.map((cat, i) => (
+            <div key={i} className="p-4 rounded-2xl border border-border bg-card space-y-1 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground uppercase">{cat.category}</span>
+                <Bed className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-2xl font-extrabold text-foreground">{cat.available}</span>
+              <p className="text-[10px] text-muted-foreground">Available / {cat.totalBeds} Total</p>
             </div>
-            <span className="text-2xl font-extrabold text-foreground">{cat.available}</span>
-            <p className="text-[10px] text-muted-foreground">Available / {cat.totalBeds} Total</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Register Admission Form */}
@@ -107,48 +131,57 @@ export function AdmissionsAndBedsModule({
             <div className="space-y-3 text-xs">
               <div>
                 <Label className="text-xs font-bold text-muted-foreground">Patient Full Name</Label>
-                <Input value={patientName} onChange={(e) => setPatientName(e.target.value)} required placeholder="e.g. Kamrul Hasan" className="mt-1 rounded-xl text-xs font-semibold" />
+                <Input
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                  required
+                  placeholder="Patient full name"
+                  className="mt-1 rounded-xl text-xs font-semibold"
+                />
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Department</Label>
-                <Input value={department} onChange={(e) => setDepartment(e.target.value)} required className="mt-1 rounded-xl text-xs font-semibold" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs font-bold text-muted-foreground">Ward Name</Label>
-                  <Input value={wardName} onChange={(e) => setWardName(e.target.value)} required className="mt-1 rounded-xl text-xs font-semibold" />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-muted-foreground">Bed Number</Label>
-                  <Input value={bedNo} onChange={(e) => setBedNo(e.target.value)} required className="mt-1 rounded-xl text-xs font-bold" />
-                </div>
+                <Label className="text-xs font-bold text-muted-foreground">Department (optional)</Label>
+                <Input
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  placeholder="e.g. Cardiology Care Unit"
+                  className="mt-1 rounded-xl text-xs font-semibold"
+                />
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Bed Type</Label>
-                <Select value={bedType} onValueChange={(v) => setBedType(v as HospitalAdmission["bedType"])}>
+                <Label className="text-xs font-bold text-muted-foreground">Available Bed</Label>
+                <Select value={selectedBedId} onValueChange={setSelectedBedId} disabled={availableBeds.length === 0}>
                   <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
-                    <SelectValue placeholder="Bed Type" />
+                    <SelectValue placeholder={availableBeds.length === 0 ? "No beds available" : "Select a bed"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="General">General</SelectItem>
-                    <SelectItem value="ICU">ICU</SelectItem>
-                    <SelectItem value="CCU">CCU</SelectItem>
-                    <SelectItem value="Cabin">Cabin</SelectItem>
-                    <SelectItem value="Emergency">Emergency</SelectItem>
+                    {availableBeds.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.bedNumber} — {b.wardType}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
                 <Label className="text-xs font-bold text-muted-foreground">Attending Doctor</Label>
-                <Input value={attendingDoctor} onChange={(e) => setAttendingDoctor(e.target.value)} required className="mt-1 rounded-xl text-xs" />
+                <Input
+                  value={attendingDoctor}
+                  onChange={(e) => setAttendingDoctor(e.target.value)}
+                  placeholder="Doctor name"
+                  className="mt-1 rounded-xl text-xs"
+                />
               </div>
             </div>
 
-            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md">
+            <Button
+              type="submit"
+              disabled={submitting || availableBeds.length === 0}
+              className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md"
+            >
               <CheckCircle2 className="mr-1.5 h-4 w-4" /> Save & Complete Admission
             </Button>
           </form>
@@ -162,32 +195,38 @@ export function AdmissionsAndBedsModule({
               <Badge variant="outline" className="text-xs font-bold">{admissions.length} Active Admissions</Badge>
             </div>
 
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border text-muted-foreground font-bold uppercase">
-                  <th className="p-3.5">Admission ID</th>
-                  <th className="p-3.5">Patient Name</th>
-                  <th className="p-3.5">Ward & Bed</th>
-                  <th className="p-3.5">Type</th>
-                  <th className="p-3.5">Admission Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {admissions.map((adm) => (
-                  <tr key={adm.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="p-3.5 font-mono font-bold text-primary">{adm.admissionId}</td>
-                    <td className="p-3.5 font-bold text-foreground">{adm.patientName}</td>
-                    <td className="p-3.5">
-                      <span className="font-semibold text-foreground">{adm.wardName}</span> — <Badge variant="outline" className="text-[10px] font-bold text-primary">{adm.bedNo}</Badge>
-                    </td>
-                    <td className="p-3.5">
-                      <Badge className="bg-primary/20 text-primary font-bold text-[10px]">{adm.bedType}</Badge>
-                    </td>
-                    <td className="p-3.5 font-mono text-muted-foreground">{adm.admissionTime}</td>
+            {admissions.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-sm">
+                No admissions registered yet this shift.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border text-muted-foreground font-bold uppercase">
+                    <th className="p-3.5">Admission ID</th>
+                    <th className="p-3.5">Patient Name</th>
+                    <th className="p-3.5">Ward & Bed</th>
+                    <th className="p-3.5">Type</th>
+                    <th className="p-3.5">Admission Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {admissions.map((adm) => (
+                    <tr key={adm.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="p-3.5 font-mono font-bold text-primary">{adm.admissionId}</td>
+                      <td className="p-3.5 font-bold text-foreground">{adm.patientName}</td>
+                      <td className="p-3.5">
+                        <span className="font-semibold text-foreground">{adm.wardName}</span> — <Badge variant="outline" className="text-[10px] font-bold text-primary">{adm.bedNo}</Badge>
+                      </td>
+                      <td className="p-3.5">
+                        <Badge className="bg-primary/20 text-primary font-bold text-[10px]">{adm.bedType}</Badge>
+                      </td>
+                      <td className="p-3.5 font-mono text-muted-foreground">{adm.admissionTime}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>

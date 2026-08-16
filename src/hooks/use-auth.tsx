@@ -319,6 +319,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Pull real doctors/departments from Supabase into the local booking
+    // cache once per app load (fire-and-forget, doesn't block auth setup).
+    import("@/data/doctor-schedule-store").then(({ syncDepartmentsFromSchedules }) => {
+      syncDepartmentsFromSchedules().catch(() => {});
+    });
+
     // 1. Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);

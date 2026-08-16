@@ -42,6 +42,7 @@ import {
   fetchSupabaseBloodRequests,
   fetchSupabaseBloodDonors,
   updateSupabaseBloodRequestStatus,
+  updateSupabaseBloodInventory,
 } from "@/services/supabase-service";
 
 import { BloodBankOverview } from "./BloodBankOverview";
@@ -170,22 +171,24 @@ export function BloodBankLayout() {
     const req = requests.find((r) => r.id === id || r.requestId === id);
     if (req) {
       // Deduct inventory
-      setGroups((prev) =>
-        prev.map((g) =>
+      setGroups((prev) => {
+        const next = prev.map((g) =>
           g.group === req.bloodGroup
             ? {
                 ...g,
                 availableUnits: Math.max(0, g.availableUnits - req.unitsNeeded),
-                status:
-                  g.availableUnits - req.unitsNeeded < g.criticalThreshold
-                    ? "Critical"
-                    : g.availableUnits - req.unitsNeeded < g.criticalThreshold + 5
-                    ? "Low"
-                    : "Normal",
+                status: (g.availableUnits - req.unitsNeeded < g.criticalThreshold
+                  ? "Critical"
+                  : g.availableUnits - req.unitsNeeded < g.criticalThreshold + 5
+                  ? "Low"
+                  : "Normal") as BloodGroupItem["status"],
               }
             : g
-        )
-      );
+        );
+        const updated = next.find((g) => g.group === req.bloodGroup);
+        if (updated) updateSupabaseBloodInventory(req.bloodGroup, updated.availableUnits, updated.reservedUnits);
+        return next;
+      });
     }
     setRequests((prev) =>
       prev.map((r) => (r.id === id || r.requestId === id ? { ...r, status: "Fulfilled" } : r))
@@ -196,38 +199,42 @@ export function BloodBankLayout() {
   };
 
   const handleAddUnits = (group: BloodGroupType, units: number) => {
-    setGroups((prev) =>
-      prev.map((g) =>
+    setGroups((prev) => {
+      const next = prev.map((g) =>
         g.group === group
           ? {
               ...g,
               availableUnits: g.availableUnits + units,
-              status:
-                g.availableUnits + units > g.criticalThreshold ? "Normal" : "Low",
+              status: (g.availableUnits + units > g.criticalThreshold ? "Normal" : "Low") as BloodGroupItem["status"],
             }
           : g
-      )
-    );
+      );
+      const updated = next.find((g) => g.group === group);
+      if (updated) updateSupabaseBloodInventory(group, updated.availableUnits, updated.reservedUnits);
+      return next;
+    });
   };
 
   const handleRemoveUnits = (group: BloodGroupType, units: number) => {
-    setGroups((prev) =>
-      prev.map((g) =>
+    setGroups((prev) => {
+      const next = prev.map((g) =>
         g.group === group
           ? {
               ...g,
               availableUnits: Math.max(0, g.availableUnits - units),
-              status:
-                g.availableUnits - units < g.criticalThreshold ? "Critical" : "Low",
+              status: (g.availableUnits - units < g.criticalThreshold ? "Critical" : "Low") as BloodGroupItem["status"],
             }
           : g
-      )
-    );
+      );
+      const updated = next.find((g) => g.group === group);
+      if (updated) updateSupabaseBloodInventory(group, updated.availableUnits, updated.reservedUnits);
+      return next;
+    });
   };
 
   const handleReserveUnits = (group: BloodGroupType, units: number) => {
-    setGroups((prev) =>
-      prev.map((g) =>
+    setGroups((prev) => {
+      const next = prev.map((g) =>
         g.group === group
           ? {
               ...g,
@@ -235,21 +242,27 @@ export function BloodBankLayout() {
               reservedUnits: g.reservedUnits + units,
             }
           : g
-      )
-    );
+      );
+      const updated = next.find((g) => g.group === group);
+      if (updated) updateSupabaseBloodInventory(group, updated.availableUnits, updated.reservedUnits);
+      return next;
+    });
   };
 
   const handleMarkExpired = (group: BloodGroupType, units: number) => {
-    setGroups((prev) =>
-      prev.map((g) =>
+    setGroups((prev) => {
+      const next = prev.map((g) =>
         g.group === group
           ? {
               ...g,
               availableUnits: Math.max(0, g.availableUnits - units),
             }
           : g
-      )
-    );
+      );
+      const updated = next.find((g) => g.group === group);
+      if (updated) updateSupabaseBloodInventory(group, updated.availableUnits, updated.reservedUnits);
+      return next;
+    });
   };
 
   const handleAddDonor = (donor: BloodDonor) => {

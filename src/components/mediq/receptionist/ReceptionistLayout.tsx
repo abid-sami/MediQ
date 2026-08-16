@@ -45,6 +45,7 @@ import {
   fetchSupabaseProfiles,
   fetchSupabaseAppointments,
   fetchSupabaseBeds,
+  updateSupabaseBedStatus,
 } from "@/services/supabase-service";
 
 import { ReceptionistOverview } from "./ReceptionistOverview";
@@ -86,6 +87,7 @@ export function ReceptionistLayout() {
   const [doctorQueues, setDoctorQueues] = useState<DoctorQueueItem[]>(initialDoctorQueues);
   const [admissions, setAdmissions] = useState<HospitalAdmission[]>(initialAdmissions);
   const [bedCategories, setBedCategories] = useState<BedCategoryAvailability[]>(initialBedCategories);
+  const [liveBeds, setLiveBeds] = useState<any[]>([]);
   const [bills, setBills] = useState<ReceptionBill[]>(initialReceptionBills);
 
   useEffect(() => {
@@ -118,12 +120,12 @@ export function ReceptionistLayout() {
             name: p.name,
             phone: p.phone,
             email: p.email,
-            age: 35,
-            gender: "Other",
-            bloodGroup: p.bloodGroup || "O+",
+            age: p.age ?? undefined,
+            gender: p.gender || "Not specified",
+            bloodGroup: p.bloodGroup || "",
             registrationDate: new Date().toLocaleDateString(),
             status: "Active",
-            insuranceNo: "INS-12345",
+            insuranceNo: "",
             lastVisit: new Date().toLocaleDateString(),
           }));
           setPatients(transformedPatients);
@@ -147,29 +149,25 @@ export function ReceptionistLayout() {
 
         // Fetch beds
         const bedsData = await fetchSupabaseBeds();
+        setLiveBeds(bedsData || []);
         if (bedsData && bedsData.length > 0) {
-          const transformedBeds = bedsData.map((b: any) => ({
-            id: b.id,
-            bedNumber: b.bedNumber,
-            wardType: b.wardType,
-            status: b.status,
+          // Group beds by ward type with accurate live counts
+          const wardMap: Record<string, { total: number; occupied: number }> = {};
+          bedsData.forEach((b: any) => {
+            const ward = b.wardType || "General";
+            if (!wardMap[ward]) wardMap[ward] = { total: 0, occupied: 0 };
+            wardMap[ward].total++;
+            if (b.status === "Occupied") wardMap[ward].occupied++;
+          });
+          const groupedBeds = Object.entries(wardMap).map(([category, stats]) => ({
+            category: category as BedCategoryAvailability["category"],
+            totalBeds: stats.total,
+            occupied: stats.occupied,
+            available: stats.total - stats.occupied,
           }));
-          // Group beds by ward type
-          const groupedBeds = transformedBeds.reduce((acc: any, bed: any) => {
-            const existing = acc.find((c: any) => c.category === bed.wardType);
-            if (existing) {
-              existing.available = existing.total - existing.occupied;
-            } else {
-              acc.push({
-                category: bed.wardType,
-                total: 10,
-                occupied: 5,
-                available: 5,
-              });
-            }
-            return acc;
-          }, []);
           setBedCategories(groupedBeds);
+        } else {
+          setBedCategories([]);
         }
       } catch (error) {
         console.error("Error loading receptionist data:", error);
@@ -212,8 +210,31 @@ export function ReceptionistLayout() {
     setAppointments((prev) => [apt, ...prev]);
   };
 
-  const handleRegisterAdmission = (adm: HospitalAdmission) => {
+  const handleRegisterAdmission = async (adm: HospitalAdmission, bedId?: string) => {
     setAdmissions((prev) => [adm, ...prev]);
+
+    if (bedId) {
+      const { error } = await updateSupabaseBedStatus(bedId, "Occupied", adm.patientName);
+      if (!error) {
+        const bedsData = await fetchSupabaseBeds();
+        setLiveBeds(bedsData || []);
+        const wardMap: Record<string, { total: number; occupied: number }> = {};
+        (bedsData || []).forEach((b: any) => {
+          const ward = b.wardType || "General";
+          if (!wardMap[ward]) wardMap[ward] = { total: 0, occupied: 0 };
+          wardMap[ward].total++;
+          if (b.status === "Occupied") wardMap[ward].occupied++;
+        });
+        setBedCategories(
+          Object.entries(wardMap).map(([category, stats]) => ({
+            category: category as BedCategoryAvailability["category"],
+            totalBeds: stats.total,
+            occupied: stats.occupied,
+            available: stats.total - stats.occupied,
+          }))
+        );
+      }
+    }
   };
 
   const handleMarkBillPaid = (id: string) => {
@@ -436,6 +457,7 @@ export function ReceptionistLayout() {
             <AdmissionsAndBedsModule
               admissions={admissions}
               bedCategories={bedCategories}
+              liveBeds={liveBeds}
               onRegisterAdmission={handleRegisterAdmission}
             />
           )}

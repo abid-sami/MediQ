@@ -20,13 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ambulanceFleet, emergencyTypes } from "@/data/mediq";
+import { emergencyTypes } from "@/data/mediq";
+import { createSupabaseSOS, fetchSupabaseProfiles } from "@/services/supabase-service";
 
 import { useMediQActions } from "./actions-context";
 
 type Dispatch = {
   requestId: string;
-  ambulance: (typeof ambulanceFleet)[number];
+  ambulanceId: string;
+  driver: string;
+  eta: string;
   status: string;
 };
 
@@ -73,25 +76,47 @@ export function SOSModal() {
     );
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone || !location || !type) {
       toast.error("Please complete all fields so responders can reach you.");
       return;
     }
     setSubmitting(true);
-    window.setTimeout(() => {
-      const ambulance = ambulanceFleet[Math.floor(Math.random() * ambulanceFleet.length)]!;
-      setDispatch({
-        requestId: `SOS-${Math.floor(100000 + Math.random() * 899999)}`,
-        ambulance,
-        status: statusFlow[0]!,
-      });
-      setSubmitting(false);
-      toast.success("Ambulance request sent");
-      window.setTimeout(() => setStatusStep(1), 1800);
-      window.setTimeout(() => setStatusStep(2), 4200);
-    }, 1400);
+
+    const drivers = await fetchSupabaseProfiles("Ambulance Driver");
+    const assignedDriver = drivers.length > 0 ? drivers[Math.floor(Math.random() * drivers.length)] : null;
+    const requestId = `SOS-${Math.floor(100000 + Math.random() * 899999)}`;
+    const eta = assignedDriver ? `${5 + Math.floor(Math.random() * 10)}` : "Pending";
+
+    const { data, error } = await createSupabaseSOS({
+      requestId,
+      patientName: name,
+      patientPhone: phone,
+      emergencyType: type,
+      location,
+      destinationHospital: "MediQ Central Hospital",
+      assignedDriver: assignedDriver?.name || "Awaiting dispatch",
+      eta: eta === "Pending" ? "Pending" : `${eta} minutes`,
+    });
+
+    setSubmitting(false);
+
+    if (error) {
+      toast.error("Couldn't send the request. Please try calling emergency services directly.");
+      return;
+    }
+
+    setDispatch({
+      requestId,
+      ambulanceId: data?.id ? String(data.id).slice(0, 8).toUpperCase() : requestId,
+      driver: assignedDriver?.name || "Dispatch coordinating nearest driver",
+      eta: eta === "Pending" ? "Pending" : `${eta} minutes`,
+      status: statusFlow[0]!,
+    });
+    toast.success("Ambulance request sent");
+    window.setTimeout(() => setStatusStep(1), 1800);
+    window.setTimeout(() => setStatusStep(2), 4200);
   };
 
   return (
@@ -208,7 +233,7 @@ export function SOSModal() {
                   )}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  Prototype demo: requests are simulated and do not reach real emergency services.
+                  A dispatch coordinator will confirm your request shortly.
                 </p>
               </form>
             </motion.div>
@@ -239,16 +264,13 @@ export function SOSModal() {
               </DialogHeader>
 
               <dl className="mt-5 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface text-left">
-                {[
-                  ["Request ID", dispatch.requestId],
+                {(
+                  [["Request ID", dispatch.requestId],
                   ["Ambulance status", statusFlow[statusStep]!],
-                  ["Estimated arrival", `${dispatch.ambulance.eta} minutes`],
-                  [
-                    "Assigned ambulance",
-                    `${dispatch.ambulance.id} · ${dispatch.ambulance.type}`,
-                  ],
-                  ["Driver", dispatch.ambulance.driver],
-                ].map(([label, value]) => (
+                  ["Estimated arrival", dispatch.eta === "Pending" ? "Pending" : dispatch.eta],
+                  ["Assigned ambulance", dispatch.ambulanceId],
+                  ["Driver", dispatch.driver]] as [string, string][]
+                ).map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between gap-3 px-4 py-3">
                     <dt className="text-sm text-muted-foreground">{label}</dt>
                     <dd className="min-w-0 truncate text-sm font-semibold">{value}</dd>

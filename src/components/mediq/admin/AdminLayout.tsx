@@ -36,10 +36,6 @@ import {
 } from "lucide-react";
 import {
   initialAdminProfile,
-  initialSystemUsers,
-  initialNetworkHospitals,
-  initialAdminSOS,
-  initialAdminAuditLogs,
   AdminProfile,
   SystemUser,
   NetworkHospital,
@@ -50,6 +46,7 @@ import { toast } from "sonner";
 import {
   fetchSupabaseProfiles,
   fetchSupabaseHospitals,
+  createSupabaseHospital,
   fetchSupabaseSOS,
   fetchSupabaseAuditLogs,
   updateSupabaseProfile,
@@ -108,10 +105,10 @@ export function AdminLayout() {
 
   // Global State
   const [profile, setProfile] = useState<AdminProfile>(initialAdminProfile);
-  const [users, setUsers] = useState<SystemUser[]>(initialSystemUsers);
-  const [hospitals, setHospitals] = useState<NetworkHospital[]>(initialNetworkHospitals);
-  const [sosItems, setSosItems] = useState<AdminSOSItem[]>(initialAdminSOS);
-  const [logs, setLogs] = useState<AdminAuditLog[]>(initialAdminAuditLogs);
+  const [users, setUsers] = useState<SystemUser[]>([]);
+  const [hospitals, setHospitals] = useState<NetworkHospital[]>([]);
+  const [sosItems, setSosItems] = useState<AdminSOSItem[]>([]);
+  const [logs, setLogs] = useState<AdminAuditLog[]>([]);
 
   useEffect(() => {
     if (authProfile) {
@@ -134,61 +131,40 @@ export function AdminLayout() {
         
         // Fetch profiles (users)
         const profilesData = await fetchSupabaseProfiles();
-        if (profilesData && Array.isArray(profilesData) && profilesData.length > 0) {
-          // Transform to SystemUser format
-          const fetchedUsers: SystemUser[] = profilesData.map((p: any, idx: number) => {
-            const safeId = String(p.id || `usr-${idx}-${Date.now()}`);
-            const safeRole = String(p.role || "Patient");
-            const roleCode = safeRole.replace(/[^a-zA-Z]/g, "").substring(0, 3).toUpperCase() || "USR";
-            const idCode = safeId.substring(0, 4).toUpperCase();
+        const fetchedUsers: SystemUser[] = (profilesData || []).map((p: any, idx: number) => {
+          const safeId = String(p.id || `usr-${idx}-${Date.now()}`);
+          const safeRole = String(p.role || "Patient");
+          const roleCode = safeRole.replace(/[^a-zA-Z]/g, "").substring(0, 3).toUpperCase() || "USR";
+          const idCode = safeId.substring(0, 4).toUpperCase();
 
-            return {
-              id: safeId,
-              userId: p.badgeId || `USR-${roleCode}-${idCode}`,
-              name: p.name || (p.email ? p.email.split("@")[0] : "User Account"),
-              email: p.email || "",
-              phone: p.phone || "+1 (555) 000-0000",
-              role: (p.role as any) || "Patient",
-              status: "Active",
-              registeredDate: new Date().toISOString().split("T")[0],
-              lastActive: "Just now",
-              avatar: p.avatarUrl || "https://ibb.co.com/39NqwQCP0",
-            };
-          });
-
-          // Merge fetched Supabase users with seed users
-          const mergedUsers = [...fetchedUsers];
-          for (const seed of initialSystemUsers) {
-            if (
-              !mergedUsers.some(
-                (u) =>
-                  u.id === seed.id ||
-                  (u.email && seed.email && u.email.toLowerCase() === seed.email.toLowerCase())
-              )
-            ) {
-              mergedUsers.push(seed);
-            }
-          }
-          setUsers(mergedUsers);
-        }
+          return {
+            id: safeId,
+            userId: p.badgeId || `USR-${roleCode}-${idCode}`,
+            name: p.name || (p.email ? p.email.split("@")[0] : "User Account"),
+            email: p.email || "",
+            phone: p.phone || "",
+            role: (p.role as any) || "Patient",
+            status: "Active",
+            registeredDate: new Date().toISOString().split("T")[0],
+            lastActive: "Just now",
+            avatar: p.avatarUrl || "",
+            specialty: p.specialty || "",
+            isFeatured: p.isFeatured || false,
+          };
+        });
+        setUsers(fetchedUsers);
 
         // Fetch hospitals
         const hospitalsData = await fetchSupabaseHospitals();
-        if (hospitalsData && hospitalsData.length > 0) {
-          setHospitals(hospitalsData);
-        }
+        setHospitals(hospitalsData || []);
 
         // Fetch SOS requests
         const sosData = await fetchSupabaseSOS();
-        if (sosData && sosData.length > 0) {
-          setSosItems(sosData);
-        }
+        setSosItems(sosData || []);
 
         // Fetch audit logs
         const logsData = await fetchSupabaseAuditLogs();
-        if (logsData && logsData.length > 0) {
-          setLogs(logsData);
-        }
+        setLogs(logsData || []);
       } catch (error) {
         console.error("Error loading admin data:", error);
       } finally {
@@ -212,6 +188,7 @@ export function AdminLayout() {
       email: updated.email,
       phone: updated.phone,
       role: updated.role,
+      is_featured: updated.isFeatured ?? false,
     });
   };
 
@@ -225,8 +202,21 @@ export function AdminLayout() {
     toast.success("User account deleted successfully.");
   };
 
-  const handleAddHospital = (hosp: NetworkHospital) => {
+  const handleAddHospital = async (hosp: NetworkHospital) => {
     setHospitals((prev) => [hosp, ...prev]);
+    const { error } = await createSupabaseHospital({
+      name: hosp.name,
+      location: hosp.location,
+      totalBeds: hosp.totalBeds,
+      availableBeds: hosp.availableBeds,
+      doctorCount: hosp.doctorCount,
+    });
+    if (error) {
+      toast.error("Hospital saved locally but couldn't be synced to the database.");
+      return;
+    }
+    const refreshed = await fetchSupabaseHospitals();
+    setHospitals(refreshed || []);
   };
 
   const handleAddSOS = (sos: AdminSOSItem) => {

@@ -69,15 +69,8 @@ export type BedUnit = {
   status: StatusLevel;
 };
 
-export const bedAvailability: BedUnit[] = [
-  { id: "general", name: "General Ward", available: 18, total: 60, status: "available" },
-  { id: "icu", name: "ICU", available: 4, total: 16, status: "available" },
-  { id: "ccu", name: "CCU", available: 2, total: 12, status: "limited" },
-  { id: "cabin", name: "Private Cabin", available: 6, total: 20, status: "available" },
-  { id: "emergency", name: "Emergency", available: 2, total: 12, status: "available" },
-];
-
-export const occupancyRate = 74;
+// Live counts (beds, occupancy) are fetched from Supabase in BedAvailability —
+// see fetchSupabaseBeds() in src/services/supabase-service.ts.
 
 export type Building = { id: string; name: string; floors: string[] };
 
@@ -222,16 +215,8 @@ export const wardMap: MapRoom[] = [
 
 export type BloodGroup = { group: string; units: number; capacity: number; status: StatusLevel };
 
-export const bloodGroups: BloodGroup[] = [
-  { group: "A+", units: 18, capacity: 30, status: "available" },
-  { group: "A-", units: 5, capacity: 30, status: "limited" },
-  { group: "B+", units: 22, capacity: 30, status: "available" },
-  { group: "B-", units: 3, capacity: 30, status: "limited" },
-  { group: "AB+", units: 11, capacity: 30, status: "available" },
-  { group: "AB-", units: 1, capacity: 30, status: "full" },
-  { group: "O+", units: 26, capacity: 30, status: "available" },
-  { group: "O-", units: 0, capacity: 30, status: "full" },
-];
+// Live blood stock is fetched from Supabase in BloodBank —
+// see fetchSupabaseBloodInventory() in src/services/supabase-service.ts.
 
 export const pharmacyCategories = [
   { id: "rx", name: "Prescription Medicines", icon: "receipt" },
@@ -301,20 +286,9 @@ export const doctorCategories = [
 
 export type Doctor = { id: string; name: string; category: string; title: string };
 
-export const doctors: Doctor[] = [
-  { id: "d1", name: "Dr. Ayesha Rahman", category: "Cardiology", title: "Interventional Cardiologist" },
-  { id: "d2", name: "Dr. Imran Hossain", category: "Cardiology", title: "Cardiac Electrophysiologist" },
-  { id: "d3", name: "Dr. Nabila Karim", category: "Neurology", title: "Consultant Neurologist" },
-  { id: "d4", name: "Dr. Tanvir Ahmed", category: "Neurology", title: "Stroke Specialist" },
-  { id: "d5", name: "Dr. Sabbir Chowdhury", category: "Orthopedics", title: "Joint Replacement Surgeon" },
-  { id: "d6", name: "Dr. Farhana Islam", category: "Dermatology", title: "Clinical Dermatologist" },
-  { id: "d7", name: "Dr. Mahmudul Hasan", category: "Pediatrics", title: "Consultant Pediatrician" },
-  { id: "d8", name: "Dr. Rezaul Karim", category: "General Medicine", title: "Internal Medicine" },
-  { id: "d9", name: "Dr. Shirin Akter", category: "Dentistry", title: "Oral & Dental Surgeon" },
-  { id: "d10", name: "Dr. Momena Begum", category: "Gynecology", title: "Obstetrics & Gynecology" },
-  { id: "d11", name: "Dr. Asif Mahmood", category: "ENT", title: "ENT & Head-Neck Surgeon" },
-  { id: "d12", name: "Dr. Care Team", category: "Other", title: "General Consultation" },
-];
+// Live doctor roster comes from the `profiles` table (role = "Doctor") —
+// see getPatientDoctorCards() in src/data/patient-data.ts, which reads from
+// the synced doctor-schedule-store.
 
 export const emergencyTypes = [
   "Accident",
@@ -338,11 +312,9 @@ export const timeSlots = [
   "05:30 PM",
 ] as const;
 
-export const ambulanceFleet = [
-  { id: "AMB-104", type: "Advanced Life Support", eta: 7, driver: "Rashed Mia" },
-  { id: "AMB-217", type: "Basic Life Support", eta: 9, driver: "Kamal Uddin" },
-  { id: "AMB-331", type: "Cardiac Ambulance", eta: 11, driver: "Sohel Rana" },
-];
+// Ambulance dispatch now assigns a real driver from `profiles`
+// (role = "Ambulance Driver") — see SOSModal.tsx and createSupabaseSOS()
+// in src/services/supabase-service.ts.
 
 export const statusStyles: Record<StatusLevel, { label: string; dot: string; text: string; bg: string }> = {
   available: {
