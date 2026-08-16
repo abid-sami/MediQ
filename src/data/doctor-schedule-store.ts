@@ -3,6 +3,8 @@
  * Allows doctors to set consultation hours, patient limits, vacation mode, and enables visitor booking with serial numbers.
  */
 
+import { fetchSupabaseProfiles } from "@/services/supabase-service";
+
 export interface DoctorScheduleConfig {
   doctorId: string;
   doctorName: string;
@@ -27,245 +29,9 @@ export interface DepartmentItem {
   doctorCount: number;
 }
 
-export const defaultDepartments: DepartmentItem[] = [
-  { id: "dep-1", name: "Cardiology", code: "CARD", headOfDepartment: "Dr. Sarah Rahman", description: "Comprehensive cardiovascular care and heart surgery", doctorCount: 4 },
-  { id: "dep-2", name: "Neurology", code: "NEURO", headOfDepartment: "Dr. Alex Chen", description: "Advanced brain, spine and neurological disorders care", doctorCount: 3 },
-  { id: "dep-3", name: "Pediatrics", code: "PEDI", headOfDepartment: "Dr. Elena Rostova", description: "Child healthcare, neonatology and pediatric surgery", doctorCount: 5 },
-  { id: "dep-4", name: "Orthopedics", code: "ORTHO", headOfDepartment: "Dr. Sabbir Chowdhury", description: "Bone, joint replacement and sports medicine", doctorCount: 3 },
-  { id: "dep-5", name: "Dermatology", code: "DERM", headOfDepartment: "Dr. Farhana Islam", description: "Skin, hair and cosmetic clinical treatments", doctorCount: 2 },
-  { id: "dep-6", name: "General Surgery", code: "SURG", headOfDepartment: "Dr. Rezaul Karim", description: "General, laparoscopic and emergency surgical procedures", doctorCount: 6 },
-  { id: "dep-7", name: "Gynecology", code: "GYNE", headOfDepartment: "Dr. Momena Begum", description: "Obstetrics, women health and maternal care", doctorCount: 4 },
-  { id: "dep-8", name: "ENT", code: "ENT", headOfDepartment: "Dr. Asif Mahmood", description: "Ear, nose, throat and head-neck surgery", doctorCount: 2 },
-  { id: "dep-9", name: "Oncology", code: "ONCO", headOfDepartment: "Dr. Imran Hossain", description: "Cancer care, chemotherapy and radiation oncology", doctorCount: 3 },
-  { id: "dep-10", name: "Emergency Medicine", code: "EMER", headOfDepartment: "Dr. Mahmudul Hasan", description: "Trauma center and 24/7 critical emergency response", doctorCount: 8 },
-];
+export const defaultDepartments: DepartmentItem[] = [];
 
-export const defaultDoctorSchedules: Record<string, DoctorScheduleConfig> = {
-  "doc-101": {
-    doctorId: "doc-101",
-    doctorName: "Dr. Sarah Rahman",
-    specialization: "Senior Consultant Cardiologist",
-    department: "Cardiology",
-    startTime: "09:00 AM",
-    endTime: "05:00 PM",
-    dailyPatientLimit: 20,
-    currentBookedCount: 6,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Saturday"],
-    consultationFee: 50,
-    onVacation: false,
-  },
-  "doc-1": {
-    doctorId: "doc-1",
-    doctorName: "Dr. Sarah Rahman",
-    specialization: "Senior Consultant Cardiologist",
-    department: "Cardiology",
-    startTime: "09:00 AM",
-    endTime: "05:00 PM",
-    dailyPatientLimit: 20,
-    currentBookedCount: 6,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Saturday"],
-    consultationFee: 50,
-    onVacation: false,
-  },
-  "doc-2": {
-    doctorId: "doc-2",
-    doctorName: "Dr. Alex Chen",
-    specialization: "Neurologist",
-    department: "Neurology",
-    startTime: "10:00 AM",
-    endTime: "04:00 PM",
-    dailyPatientLimit: 15,
-    currentBookedCount: 4,
-    isAcceptingBookings: true,
-    workingDays: ["Sunday", "Monday", "Wednesday", "Friday"],
-    consultationFee: 65,
-    onVacation: false,
-  },
-  "doc-3": {
-    doctorId: "doc-3",
-    doctorName: "Dr. Elena Rostova",
-    specialization: "Pediatrician",
-    department: "Pediatrics",
-    startTime: "08:30 AM",
-    endTime: "02:30 PM",
-    dailyPatientLimit: 25,
-    currentBookedCount: 12,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    consultationFee: 40,
-    onVacation: false,
-  },
-  "d1": {
-    doctorId: "d1",
-    doctorName: "Dr. Ayesha Rahman",
-    specialization: "Interventional Cardiologist",
-    department: "Cardiology",
-    startTime: "09:00 AM",
-    endTime: "04:00 PM",
-    dailyPatientLimit: 20,
-    currentBookedCount: 5,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Saturday"],
-    consultationFee: 60,
-    onVacation: false,
-  },
-  "d2": {
-    doctorId: "d2",
-    doctorName: "Dr. Imran Hossain",
-    specialization: "Cardiac Electrophysiologist",
-    department: "Cardiology",
-    startTime: "10:00 AM",
-    endTime: "05:00 PM",
-    dailyPatientLimit: 18,
-    currentBookedCount: 3,
-    isAcceptingBookings: true,
-    workingDays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
-    consultationFee: 55,
-    onVacation: false,
-  },
-  "d3": {
-    doctorId: "d3",
-    doctorName: "Dr. Nabila Karim",
-    specialization: "Consultant Neurologist",
-    department: "Neurology",
-    startTime: "09:30 AM",
-    endTime: "03:30 PM",
-    dailyPatientLimit: 15,
-    currentBookedCount: 4,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Wednesday", "Thursday", "Saturday"],
-    consultationFee: 70,
-    onVacation: false,
-  },
-  "d4": {
-    doctorId: "d4",
-    doctorName: "Dr. Tanvir Ahmed",
-    specialization: "Stroke Specialist",
-    department: "Neurology",
-    startTime: "11:00 AM",
-    endTime: "06:00 PM",
-    dailyPatientLimit: 16,
-    currentBookedCount: 7,
-    isAcceptingBookings: true,
-    workingDays: ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-    consultationFee: 65,
-    onVacation: false,
-  },
-  "d5": {
-    doctorId: "d5",
-    doctorName: "Dr. Sabbir Chowdhury",
-    specialization: "Joint Replacement Surgeon",
-    department: "Orthopedics",
-    startTime: "08:00 AM",
-    endTime: "02:00 PM",
-    dailyPatientLimit: 20,
-    currentBookedCount: 8,
-    isAcceptingBookings: true,
-    workingDays: ["Sunday", "Monday", "Tuesday", "Thursday", "Saturday"],
-    consultationFee: 50,
-    onVacation: false,
-  },
-  "d6": {
-    doctorId: "d6",
-    doctorName: "Dr. Farhana Islam",
-    specialization: "Clinical Dermatologist",
-    department: "Dermatology",
-    startTime: "10:00 AM",
-    endTime: "04:30 PM",
-    dailyPatientLimit: 22,
-    currentBookedCount: 9,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-    consultationFee: 45,
-    onVacation: false,
-  },
-  "d7": {
-    doctorId: "d7",
-    doctorName: "Dr. Mahmudul Hasan",
-    specialization: "Consultant Pediatrician",
-    department: "Pediatrics",
-    startTime: "09:00 AM",
-    endTime: "03:00 PM",
-    dailyPatientLimit: 25,
-    currentBookedCount: 10,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Wednesday", "Thursday", "Friday", "Saturday"],
-    consultationFee: 40,
-    onVacation: false,
-  },
-  "d8": {
-    doctorId: "d8",
-    doctorName: "Dr. Rezaul Karim",
-    specialization: "Internal Medicine",
-    department: "General Medicine",
-    startTime: "08:30 AM",
-    endTime: "04:30 PM",
-    dailyPatientLimit: 30,
-    currentBookedCount: 14,
-    isAcceptingBookings: true,
-    workingDays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
-    consultationFee: 35,
-    onVacation: false,
-  },
-  "d9": {
-    doctorId: "d9",
-    doctorName: "Dr. Shirin Akter",
-    specialization: "Oral & Dental Surgeon",
-    department: "Dentistry",
-    startTime: "10:30 AM",
-    endTime: "05:30 PM",
-    dailyPatientLimit: 18,
-    currentBookedCount: 6,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Tuesday", "Wednesday", "Saturday", "Sunday"],
-    consultationFee: 45,
-    onVacation: false,
-  },
-  "d10": {
-    doctorId: "d10",
-    doctorName: "Dr. Momena Begum",
-    specialization: "Obstetrics & Gynecology",
-    department: "Gynecology",
-    startTime: "09:00 AM",
-    endTime: "04:00 PM",
-    dailyPatientLimit: 20,
-    currentBookedCount: 7,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Tuesday", "Thursday", "Friday", "Saturday"],
-    consultationFee: 55,
-    onVacation: false,
-  },
-  "d11": {
-    doctorId: "d11",
-    doctorName: "Dr. Asif Mahmood",
-    specialization: "ENT & Head-Neck Surgeon",
-    department: "ENT",
-    startTime: "09:30 AM",
-    endTime: "03:30 PM",
-    dailyPatientLimit: 16,
-    currentBookedCount: 5,
-    isAcceptingBookings: true,
-    workingDays: ["Sunday", "Monday", "Wednesday", "Thursday", "Saturday"],
-    consultationFee: 50,
-    onVacation: false,
-  },
-  "d12": {
-    doctorId: "d12",
-    doctorName: "Dr. Care Team",
-    specialization: "General Consultation",
-    department: "Other",
-    startTime: "08:00 AM",
-    endTime: "08:00 PM",
-    dailyPatientLimit: 40,
-    currentBookedCount: 15,
-    isAcceptingBookings: true,
-    workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    consultationFee: 25,
-    onVacation: false,
-  },
-};
+export const defaultDoctorSchedules: Record<string, DoctorScheduleConfig> = {};
 
 const STORAGE_KEY = "mediq_doctor_schedules_v1";
 const DEPARTMENTS_STORAGE_KEY = "mediq_departments_v2";
@@ -288,10 +54,6 @@ export function getDoctorSchedules(): Record<string, DoctorScheduleConfig> {
 export function updateDoctorSchedule(config: DoctorScheduleConfig): Record<string, DoctorScheduleConfig> {
   const current = getDoctorSchedules();
   current[config.doctorId] = config;
-  if (config.doctorName === "Dr. Sarah Rahman") {
-    current["doc-101"] = config;
-    current["doc-1"] = config;
-  }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
     window.dispatchEvent(new Event("mediq_schedule_updated"));
@@ -303,8 +65,7 @@ export function updateDoctorSchedule(config: DoctorScheduleConfig): Record<strin
 
 export function toggleDoctorVacation(doctorId: string, onVacation: boolean): Record<string, DoctorScheduleConfig> {
   const schedules = getDoctorSchedules();
-  const targetId = schedules[doctorId] ? doctorId : "doc-101";
-  const doc = schedules[targetId];
+  const doc = schedules[doctorId];
   if (doc) {
     doc.onVacation = onVacation;
     doc.isAcceptingBookings = !onVacation;
@@ -315,7 +76,11 @@ export function toggleDoctorVacation(doctorId: string, onVacation: boolean): Rec
 
 export function incrementDoctorBookings(doctorId: string): number {
   const schedules = getDoctorSchedules();
-  const doc = schedules[doctorId] || schedules["doc-101"];
+  const doc = schedules[doctorId];
+  if (!doc) {
+    console.warn(`incrementDoctorBookings: no schedule found for doctor ${doctorId}`);
+    return 0;
+  }
   const newCount = (doc.currentBookedCount || 0) + 1;
   doc.currentBookedCount = newCount;
   updateDoctorSchedule(doc);
@@ -421,4 +186,95 @@ export function markSlotBooked(doctorId: string, dateStr: string, slot: string):
       window.dispatchEvent(new Event("mediq_slots_updated"));
     }
   } catch (e) {}
+}
+
+// ============================================================================
+// Live sync: pull real doctors from the `profiles` table (role = "Doctor")
+// and merge them into the local schedule cache used by the booking UI.
+// This is what replaces the old hardcoded doctor roster — once a doctor
+// account exists in the database, they show up here automatically.
+// ============================================================================
+
+function parseWorkingHours(workingHours?: string): { startTime: string; endTime: string } {
+  if (workingHours && workingHours.includes("-")) {
+    const [start, end] = workingHours.split("-").map((s) => s.trim());
+    if (start && end) return { startTime: start, endTime: end };
+  }
+  return { startTime: "09:00 AM", endTime: "05:00 PM" };
+}
+
+export async function syncDoctorSchedulesFromProfiles(): Promise<Record<string, DoctorScheduleConfig>> {
+  if (typeof window === "undefined") return getDoctorSchedules();
+
+  try {
+    const doctorProfiles = await fetchSupabaseProfiles("Doctor");
+    const current = getDoctorSchedules();
+
+    for (const doc of doctorProfiles) {
+      // Don't clobber hours/limits a doctor has already configured locally.
+      if (current[doc.id]) continue;
+
+      const { startTime, endTime } = parseWorkingHours(doc.workingHours);
+      current[doc.id] = {
+        doctorId: doc.id,
+        doctorName: doc.name || "Doctor",
+        specialization: doc.specialty || "General Physician",
+        department: doc.specialty || "General Medicine",
+        startTime,
+        endTime,
+        dailyPatientLimit: doc.patientCapacity || 20,
+        currentBookedCount: 0,
+        isAcceptingBookings: doc.onlineBookingEnabled !== false,
+        workingDays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
+        consultationFee: 0,
+        onVacation: false,
+      };
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+    window.dispatchEvent(new Event("mediq_slots_updated"));
+    return current;
+  } catch (e) {
+    console.warn("syncDoctorSchedulesFromProfiles error:", e);
+    return getDoctorSchedules();
+  }
+}
+
+export async function syncDepartmentsFromSchedules(): Promise<DepartmentItem[]> {
+  if (typeof window === "undefined") return getDepartments();
+
+  try {
+    const schedules = await syncDoctorSchedulesFromProfiles();
+    const existingByName = new Map(getDepartments().map((d) => [d.name, d]));
+    const countByDept = new Map<string, number>();
+
+    for (const doc of Object.values(schedules)) {
+      const deptName = doc.department || "General Medicine";
+      countByDept.set(deptName, (countByDept.get(deptName) || 0) + 1);
+    }
+
+    const merged: DepartmentItem[] = Array.from(countByDept.entries()).map(([deptName, count]) => {
+      const existing = existingByName.get(deptName);
+      const headDoctor = Object.values(schedules).find((d) => d.department === deptName)?.doctorName || "";
+      return {
+        id: existing?.id || `dep-${deptName.toLowerCase().replace(/\s+/g, "-")}`,
+        name: deptName,
+        code: existing?.code || deptName.substring(0, 4).toUpperCase(),
+        headOfDepartment: existing?.headOfDepartment || headDoctor,
+        description: existing?.description || `${deptName} department`,
+        doctorCount: count,
+      };
+    });
+
+    // Keep any manually-created departments that currently have no doctors yet.
+    for (const [name, dept] of existingByName) {
+      if (!countByDept.has(name)) merged.push({ ...dept, doctorCount: 0 });
+    }
+
+    saveDepartments(merged);
+    return merged;
+  } catch (e) {
+    console.warn("syncDepartmentsFromSchedules error:", e);
+    return getDepartments();
+  }
 }

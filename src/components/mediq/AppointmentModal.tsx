@@ -34,6 +34,7 @@ import {
   generateDoctorTimeSlots,
   getBookedSlotsForDoctorAndDate,
   markSlotBooked,
+  syncDoctorSchedulesFromProfiles,
 } from "@/data/doctor-schedule-store";
 
 import { useMediQActions } from "./actions-context";
@@ -52,7 +53,7 @@ type Booking = {
 };
 
 export function AppointmentModal() {
-  const { appointmentOpen, closeAppointment } = useMediQActions();
+  const { appointmentOpen, closeAppointment, preselectedDoctorId } = useMediQActions();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [category, setCategory] = useState("");
@@ -65,6 +66,27 @@ export function AppointmentModal() {
   const [schedules, setSchedules] = useState<Record<string, DoctorScheduleConfig>>(() =>
     getDoctorSchedules()
   );
+  const [doctorsLoading, setDoctorsLoading] = useState(true);
+  const [doctorsSyncFailed, setDoctorsSyncFailed] = useState(false);
+
+  const syncDoctors = () => {
+    setDoctorsLoading(true);
+    setDoctorsSyncFailed(false);
+    syncDoctorSchedulesFromProfiles()
+      .then((merged) => setSchedules(merged))
+      .catch(() => setDoctorsSyncFailed(true))
+      .finally(() => setDoctorsLoading(false));
+  };
+
+  // Refresh directly from Supabase every time the modal is opened, rather
+  // than relying only on the one-time sync at app startup — this closes the
+  // gap where doctors added after the page first loaded (or a sync that
+  // failed silently on first load) wouldn't show up without a hard refresh.
+  useEffect(() => {
+    if (appointmentOpen) {
+      syncDoctors();
+    }
+  }, [appointmentOpen]);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -78,10 +100,31 @@ export function AppointmentModal() {
     };
   }, []);
 
+  // When opened from a doctor card ("Book Appointment" on a specific
+  // doctor), prefill their department + selection instead of starting blank.
+  useEffect(() => {
+    if (appointmentOpen && preselectedDoctorId) {
+      const doctor = getPatientDoctorCards().find((d) => d.id === preselectedDoctorId);
+      if (doctor) {
+        setCategory(doctor.category);
+        setDoctorId(doctor.id);
+      }
+    }
+  }, [appointmentOpen, preselectedDoctorId]);
+
+  const availableCategories = useMemo(() => {
+    const fromDoctors = Array.from(
+      new Set(Object.values(schedules).map((s) => s.department).filter(Boolean))
+    ).sort();
+    // Fall back to the generic list only if no real doctors are synced yet,
+    // so the dropdown is never completely empty on first render.
+    return fromDoctors.length > 0 ? fromDoctors : [...doctorCategories];
+  }, [schedules]);
+
   const availableDoctors = useMemo(() => {
     return getPatientDoctorCards().filter((d) => {
       const matchesCat = category ? d.category === category : true;
-      const sched = schedules[d.id] || schedules["doc-101"];
+      const sched = schedules[d.id];
       const isVacation = sched?.onVacation;
       return matchesCat && !isVacation;
     });
@@ -93,7 +136,7 @@ export function AppointmentModal() {
 
   const activeDoctorSchedule = useMemo(() => {
     if (!doctorId) return null;
-    return schedules[doctorId] || schedules["doc-101"] || null;
+    return schedules[doctorId] || null;
   }, [doctorId, schedules]);
 
   // Dynamic time slots for the selected doctor
@@ -317,7 +360,7 @@ export function AppointmentModal() {
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
-                  {doctorCategories.map((c) => (
+                  {availableCategories.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>
@@ -335,11 +378,19 @@ export function AppointmentModal() {
                   setDate(undefined);
                   setTime("");
                 }}
-                disabled={!category}
+                disabled={!category || doctorsLoading}
               >
                 <SelectTrigger id="apt-doctor">
                   <SelectValue
-                    placeholder={category ? "Select doctor" : "Select a category first"}
+                    placeholder={
+                      doctorsLoading
+                        ? "Loading doctors..."
+                        : !category
+                        ? "Select a category first"
+                        : availableDoctors.length === 0
+                        ? "No doctors in this department yet"
+                        : "Select doctor"
+                    }
                   />
                 </SelectTrigger>
                 <SelectContent>
@@ -350,6 +401,20 @@ export function AppointmentModal() {
                   ))}
                 </SelectContent>
               </Select>
+              {doctorsSyncFailed && (
+                <p className="flex items-center gap-1.5 text-xs text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Couldn't load doctors right now.{" "}
+                  <button type="button" onClick={syncDoctors} className="underline">
+                    Retry
+                  </button>
+                </p>
+              )}
+              {!doctorsLoading && !doctorsSyncFailed && category && availableDoctors.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No doctors are available in this department yet. Please check back soon.
+                </p>
+              )}
             </div>
 
             {/* Prominently Highlighted Doctor Information Card */}

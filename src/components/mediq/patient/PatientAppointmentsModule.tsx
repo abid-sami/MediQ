@@ -43,7 +43,7 @@ export function PatientAppointmentsModule({
   const [newTime, setNewTime] = useState("11:00 AM");
 
   const schedules = getDoctorSchedules();
-  const activeSched = rescheduleApt ? (schedules[rescheduleApt.doctorId] || schedules["doc-101"]) : null;
+  const activeSched = rescheduleApt ? schedules[rescheduleApt.doctorId] : null;
   const dynamicSlots = activeSched ? generateDoctorTimeSlots(activeSched.startTime, activeSched.endTime) : ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
 
   const bookedSlots = rescheduleApt && rescheduleDate

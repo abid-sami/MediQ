@@ -1,6 +1,12 @@
+import { useEffect, useState } from "react";
 import { Bed, Clock, LayoutGrid, Microscope, Siren, Users } from "lucide-react";
 
-import { infrastructureStats } from "@/data/mediq";
+import {
+  fetchSupabaseBeds,
+  fetchSupabaseHospitals,
+  fetchSupabaseLabCatalog,
+  fetchSupabaseProfiles,
+} from "@/services/supabase-service";
 
 import { Counter, Reveal, Section, SectionHeading } from "./primitives";
 
@@ -13,7 +19,50 @@ const icons = {
   clock: Clock,
 } as const;
 
+type InfraStat = {
+  id: string;
+  value: number;
+  suffix?: string;
+  label: string;
+  icon: keyof typeof icons;
+};
+
 export function HospitalStats() {
+  const [stats, setStats] = useState<InfraStat[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const [beds, labCatalog, staff, hospitals] = await Promise.all([
+        fetchSupabaseBeds(),
+        fetchSupabaseLabCatalog(),
+        fetchSupabaseProfiles(),
+        fetchSupabaseHospitals(),
+      ]);
+
+      const wardTypes = new Set(beds.map((b: any) => b.wardType).filter(Boolean));
+      const emergencyBeds = beds.filter((b: any) =>
+        (b.wardType || "").toLowerCase().includes("emergency")
+      ).length;
+      const staffCount = staff.filter((p: any) => p.role !== "Patient").length;
+      // Admin-set directly (see AdminLayout > Beds & Wards > Infrastructure Settings);
+      // everything else here is calculated live from real records.
+      const supportHours = hospitals[0]?.supportHours || "24/7";
+      const [supportValue, supportSuffix] = supportHours.includes("/")
+        ? [Number(supportHours.split("/")[0]) || 24, `/${supportHours.split("/")[1]}`]
+        : [24, "/7"];
+
+      setStats([
+        { id: "beds", value: beds.length, label: "Beds", icon: "bed" },
+        { id: "wards", value: wardTypes.size, label: "Wards", icon: "layout" },
+        { id: "diagnostics", value: labCatalog.length, label: "Diagnostic Services", icon: "microscope" },
+        { id: "emergency-beds", value: emergencyBeds, label: "Emergency Beds", icon: "siren" },
+        { id: "staff", value: staffCount, label: "Healthcare Professionals", icon: "users" },
+        { id: "support", value: supportValue, suffix: supportSuffix, label: "Emergency Support", icon: "clock" },
+      ]);
+    };
+    load();
+  }, []);
+
   return (
     <Section id="hospitals">
       <SectionHeading
@@ -22,7 +71,7 @@ export function HospitalStats() {
         subtitle="Explore hospital capacity, facilities, wards, and diagnostic services."
       />
       <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-3">
-        {infrastructureStats.map((stat, i) => {
+        {stats.map((stat, i) => {
           const Icon = icons[stat.icon];
           return (
             <Reveal key={stat.id} delay={i * 0.05}>
@@ -32,7 +81,7 @@ export function HospitalStats() {
                   <Icon className="h-5 w-5" />
                 </span>
                 <p className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-                  <Counter value={stat.value} suffix={"suffix" in stat ? stat.suffix : ""} />
+                  <Counter value={stat.value} suffix={stat.suffix || ""} />
                 </p>
                 <p className="mt-1 text-sm font-medium text-muted-foreground">{stat.label}</p>
               </div>
@@ -40,10 +89,6 @@ export function HospitalStats() {
           );
         })}
       </div>
-      <p className="mt-6 text-center text-xs text-muted-foreground">
-        Figures shown are prototype values, structured to be served from the hospital management
-        backend.
-      </p>
     </Section>
   );
 }

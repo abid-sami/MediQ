@@ -83,7 +83,7 @@ export function FindDoctorModule({
 
   const activeDocSchedule = useMemo(() => {
     if (!selectedDoctor) return null;
-    return schedules[selectedDoctor.id] || schedules["doc-101"] || null;
+    return schedules[selectedDoctor.id] || null;
   }, [selectedDoctor, schedules]);
 
   const dynamicSlots = useMemo(() => {
@@ -96,12 +96,15 @@ export function FindDoctorModule({
     return getBookedSlotsForDoctorAndDate(selectedDoctor.id, dateStr);
   }, [selectedDoctor, bookingDate]);
 
-  const categories = ["All", "Cardiology", "Neurology", "Orthopedics", "Dermatology"];
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(doctors.map((d) => d.category).filter(Boolean))).sort()],
+    [doctors]
+  );
   const hospitals = ["All", "MediQ Heart & Vascular Institute", "MediQ Central Neuroscience Unit", "MediQ Orthopedic Hospital", "MediQ Skin & Wellness Clinic"];
 
   const filteredDoctors = useMemo(() => {
     return doctors.filter((doc) => {
-      const docSched = schedules[doc.id] || schedules["doc-101"];
+      const docSched = schedules[doc.id];
       const isOnVacation = docSched?.onVacation;
       if (isOnVacation) return false;
 
@@ -230,7 +233,7 @@ export function FindDoctorModule({
       {/* Doctor Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredDoctors.map((doc) => {
-          const docSched = schedules[doc.id] || schedules["doc-101"];
+          const docSched = schedules[doc.id];
           const fee = docSched?.consultationFee || doc.consultationFee || 50;
           const workingDays = docSched?.workingDays || doc.availableDays;
           const workingHours = docSched ? `${docSched.startTime} - ${docSched.endTime}` : doc.availableTime;

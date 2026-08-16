@@ -70,6 +70,7 @@ export function UserManagementModule({
   const [editStatus, setEditStatus] = useState<UserStatus>("Active");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editIsFeatured, setEditIsFeatured] = useState(false);
 
   // Create User Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -138,6 +139,7 @@ export function UserManagementModule({
     setEditStatus(u.status);
     setEditPhone(u.phone);
     setEditEmail(u.email);
+    setEditIsFeatured(u.isFeatured || false);
   };
 
   const handleSaveUser = (e: React.FormEvent) => {
@@ -153,6 +155,7 @@ export function UserManagementModule({
       status: editStatus,
       phone: editPhone,
       email: editEmail,
+      isFeatured: editIsFeatured,
     };
 
     onUpdateUser(updated);
@@ -733,6 +736,23 @@ export function UserManagementModule({
                 <Label className="text-xs font-bold text-muted-foreground">Phone</Label>
                 <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} required className="mt-1 rounded-xl text-xs" />
               </div>
+
+              {editRole === "Doctor" && (
+                <label className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/20 px-3 py-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editIsFeatured}
+                    onChange={(e) => setEditIsFeatured(e.target.checked)}
+                    className="h-4 w-4 rounded accent-primary"
+                  />
+                  <span className="text-xs font-bold text-foreground">
+                    Featured on Home Page
+                    <span className="block text-[10px] font-normal text-muted-foreground">
+                      Show this doctor in the "Meet Our Doctors" section (max 4 recommended)
+                    </span>
+                  </span>
+                </label>
+              )}
 
               <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md">
                 Save User Governance Changes

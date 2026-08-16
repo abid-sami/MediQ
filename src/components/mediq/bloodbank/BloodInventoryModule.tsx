@@ -40,11 +40,7 @@ export function BloodInventoryModule({
 }: BloodInventoryModuleProps) {
   const [selectedGroup, setSelectedGroup] = useState<BloodGroupType>("O-");
   const [unitCount, setUnitCount] = useState(1);
-  const [historyLogs, setHistoryLogs] = useState<string[]>([
-    "Added +2 units of O- to Central Storage at 08:30 AM",
-    "Reserved 1 unit of O+ for Elective Surgery at 07:15 AM",
-    "Marked 1 expired unit of AB- for disposal at 06:00 AM",
-  ]);
+  const [historyLogs, setHistoryLogs] = useState<string[]>([]);
 
   const addLog = (msg: string) => {
     setHistoryLogs((prev) => [`${msg} at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`, ...prev]);
@@ -220,6 +216,9 @@ export function BloodInventoryModule({
           </h3>
 
           <div className="space-y-2.5">
+            {historyLogs.length === 0 && (
+              <p className="text-xs text-muted-foreground">No adjustments logged yet this session.</p>
+            )}
             {historyLogs.map((log, idx) => (
               <div key={idx} className="p-3 rounded-xl border border-border bg-muted/20 text-xs font-medium text-foreground flex items-center justify-between">
                 <span>{log}</span>

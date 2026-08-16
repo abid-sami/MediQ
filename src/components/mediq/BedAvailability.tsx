@@ -1,13 +1,30 @@
 import { motion, useInView, useReducedMotion } from "motion/react";
 import { ArrowRight, BedDouble } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { bedAvailability, occupancyRate, statusStyles } from "@/data/mediq";
+import { statusStyles, type StatusLevel } from "@/data/mediq";
+import { fetchSupabaseBeds } from "@/services/supabase-service";
 
 import { Counter, LivePill, Reveal, Section, SectionHeading } from "./primitives";
 
-function OccupancyRing() {
+type BedUnit = {
+  id: string;
+  name: string;
+  available: number;
+  total: number;
+  status: StatusLevel;
+};
+
+function statusForOccupancy(available: number, total: number): StatusLevel {
+  if (total === 0 || available === 0) return "full";
+  const freePct = (available / total) * 100;
+  if (freePct <= 15) return "full";
+  if (freePct <= 40) return "limited";
+  return "available";
+}
+
+function OccupancyRing({ occupancyRate }: { occupancyRate: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
   const reduce = useReducedMotion();
@@ -54,6 +71,43 @@ function OccupancyRing() {
 }
 
 export function BedAvailability() {
+  const [units, setUnits] = useState<BedUnit[]>([]);
+  const [occupancyRate, setOccupancyRate] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const beds = await fetchSupabaseBeds();
+
+      const byWard = new Map<string, { total: number; available: number }>();
+      for (const bed of beds) {
+        const key = bed.wardType || "General";
+        const entry = byWard.get(key) || { total: 0, available: 0 };
+        entry.total += 1;
+        if (bed.status === "Available") entry.available += 1;
+        byWard.set(key, entry);
+      }
+
+      const grouped: BedUnit[] = Array.from(byWard.entries()).map(([name, v]) => ({
+        id: name.toLowerCase().replace(/\s+/g, "-"),
+        name,
+        available: v.available,
+        total: v.total,
+        status: statusForOccupancy(v.available, v.total),
+      }));
+
+      setUnits(grouped);
+      setOccupancyRate(
+        beds.length > 0
+          ? Math.round(((beds.length - beds.filter((b) => b.status === "Available").length) / beds.length) * 100)
+          : 0
+      );
+      setLoading(false);
+    };
+    load();
+  }, []);
+
   return (
     <Section id="beds" className="border-y border-border bg-surface">
       <div className="flex flex-col items-center gap-3">
@@ -66,9 +120,14 @@ export function BedAvailability() {
 
       <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="grid gap-3 sm:grid-cols-2">
-          {bedAvailability.map((unit, i) => {
+          {!loading && units.length === 0 && (
+            <p className="col-span-full text-sm text-muted-foreground">
+              Bed data will appear here once wards are set up in the system.
+            </p>
+          )}
+          {units.map((unit, i) => {
             const status = statusStyles[unit.status];
-            const pct = Math.round((unit.available / unit.total) * 100);
+            const pct = unit.total > 0 ? Math.round((unit.available / unit.total) * 100) : 0;
             return (
               <Reveal key={unit.id} delay={i * 0.05}>
                 <div className="card-lift h-full rounded-3xl border border-border bg-card p-5 shadow-soft">
@@ -110,7 +169,7 @@ export function BedAvailability() {
 
         <Reveal delay={0.15}>
           <div className="flex h-full flex-col justify-center rounded-3xl border border-border bg-card p-6 shadow-soft">
-            <OccupancyRing />
+            <OccupancyRing occupancyRate={occupancyRate} />
             <ul className="mt-6 space-y-2 text-sm">
               {(["available", "limited", "full"] as const).map((key) => (
                 <li key={key} className="flex items-center gap-2 text-muted-foreground">

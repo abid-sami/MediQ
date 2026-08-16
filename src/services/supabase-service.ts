@@ -16,6 +16,11 @@ const nonPersistSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
+// All data here comes from and goes straight to Supabase. There is no
+// localStorage cache and no bundled fallback data — if a query fails or a
+// table is empty, callers get an empty array/null and should render an
+// empty state rather than a stand-in record.
+
 // ============================================================================
 // 1. AUTH & USER PROFILES SERVICE
 // ============================================================================
@@ -114,50 +119,34 @@ export async function registerWithSupabase(params: {
       console.warn("Supabase Auth signUp note:", authError.message);
     }
 
-    const userId = authData?.user?.id || `usr-${Date.now()}`;
-    const newProfile = {
-      id: userId,
-      name: params.name,
-      email,
-      phone: params.phone,
-      role: params.role,
-      age: params.age,
-      gender: params.gender || "Not specified",
-      blood_group: params.bloodGroup || "O+",
-      address: params.address || "",
-      avatar_url: "https://ibb.co.com/39NqwQCP",
-      created_at: new Date().toISOString(),
-    };
-
-    // 1. Sync to localStorage for instant local persistence
-    try {
-      if (typeof window !== "undefined") {
-        const stored = localStorage.getItem("mediq_registered_users");
-        const list = stored ? JSON.parse(stored) : [];
-        const filtered = list.filter((u: any) => u.id !== userId && u.email !== email);
-        filtered.unshift(newProfile);
-        localStorage.setItem("mediq_registered_users", JSON.stringify(filtered));
-      }
-    } catch (e) {
-      console.warn("Local storage cache write error:", e);
-    }
-
-    // 2. Upsert into public.profiles table in Supabase
+    // The `on_auth_user_created` DB trigger creates the profiles row from
+    // this same metadata, so we don't insert/upsert it again from the
+    // client. We still upsert here as a safety net in case the trigger is
+    // missing (e.g. schema not yet migrated), using whatever id Auth gave us.
     let profileError: any = null;
-    try {
-      const { error: upsertError } = await supabase.from("profiles").upsert(newProfile);
-      if (upsertError) {
-        console.error("Supabase profiles table upsert failed:", upsertError);
-        profileError = upsertError;
+    if (authData?.user?.id) {
+      try {
+        const { error: upsertError } = await supabase.from("profiles").upsert({
+          id: authData.user.id,
+          name: params.name,
+          email,
+          phone: params.phone,
+          role: params.role,
+          age: params.age,
+          gender: params.gender || "Not specified",
+          blood_group: params.bloodGroup || "O+",
+          address: params.address || "",
+        });
+        if (upsertError) {
+          console.error("Supabase profiles table upsert failed:", upsertError);
+          profileError = upsertError;
+        }
+      } catch (e) {
+        console.error("Supabase profiles table upsert threw:", e);
+        profileError = e;
       }
-    } catch (e) {
-      console.error("Supabase profiles table upsert threw:", e);
-      profileError = e;
     }
 
-    // Surface the profile-write failure even if Auth signUp itself succeeded,
-    // so the caller (and the admin UI) knows the account won't show up in
-    // User Management until this is fixed.
     return { data: authData, error: authError || profileError };
   } catch (err: any) {
     return { data: null, error: err };
@@ -168,63 +157,44 @@ export async function registerWithSupabase(params: {
 // 2. APPOINTMENTS SERVICE
 // ============================================================================
 
-export async function fetchSupabaseAppointments() {
-  let localAppointments: any[] = [];
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_appointments_v2");
-      if (stored) {
-        localAppointments = JSON.parse(stored);
-      }
-    }
-  } catch (e) {}
+function mapAppointment(a: any) {
+  return {
+    id: a.id,
+    appointmentId: a.appointment_id || a.id,
+    patientId: a.patient_id,
+    patientName: a.patient_name,
+    patientPhone: a.patient_phone,
+    doctorName: a.doctor_name,
+    doctorId: a.doctor_id,
+    patientAge: a.patient_age,
+    patientGender: a.patient_gender || "Other",
+    patientBloodGroup: a.patient_blood_group || "",
+    appointmentTime: a.appointment_time,
+    appointmentDate: a.appointment_date,
+    appointmentType: a.appointment_type || "In-Person",
+    department: a.department || a.specialty,
+    specialty: a.specialty,
+    status: a.status || "Scheduled",
+    serialNumber: a.serial_number,
+    serialToken: a.serial_token || (a.serial_number ? `Serial #${a.serial_number}` : ""),
+    reason: a.reason || "",
+    fee: a.fee != null ? Number(a.fee) : 0,
+    patientAvatar: a.patient_avatar || "",
+  };
+}
 
+export async function fetchSupabaseAppointments() {
   try {
     const { data, error } = await supabase
       .from("appointments")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return localAppointments;
-    }
-
-    const fetched = data.map((a: any) => ({
-      id: a.id,
-      appointmentId: a.appointment_id || a.id,
-      patientId: a.patient_id || a.appointment_id,
-      patientName: a.patient_name,
-      patientPhone: a.patient_phone,
-      doctorName: a.doctor_name,
-      doctorId: a.doctor_id || "doc-101",
-      patientAge: a.patient_age || 30,
-      patientGender: "Other",
-      patientBloodGroup: "O+",
-      appointmentTime: a.appointment_time,
-      appointmentDate: a.appointment_date,
-      appointmentType: "In-Person",
-      department: a.department || a.specialty,
-      specialty: a.specialty,
-      status: a.status || "Scheduled",
-      serialNumber: a.serial_number || 1,
-      serialToken: a.serial_token || `Serial #${a.serial_number}`,
-      reason: "General consultation and checkup",
-      fee: a.fee || 50,
-      patientAvatar: "https://ibb.co.com/39NqwQCP",
-    }));
-
-    // Merge with local appointments
-    const merged = [...localAppointments];
-    fetched.forEach((f: any) => {
-      if (!merged.some((m: any) => m.id === f.id || m.appointmentId === f.appointmentId)) {
-        merged.push(f);
-      }
-    });
-
-    return merged;
+    if (error || !data) return [];
+    return data.map(mapAppointment);
   } catch (e) {
-    console.warn("Using local appointments store:", e);
-    return localAppointments;
+    console.warn("fetchSupabaseAppointments error:", e);
+    return [];
   }
 }
 
@@ -241,56 +211,42 @@ export async function createSupabaseAppointment(payload: {
   serialToken: string;
   fee?: number;
 }) {
-  const newApt = {
-    id: payload.appointmentId,
-    appointmentId: payload.appointmentId,
-    patientId: `pat-${Date.now()}`,
-    patientName: payload.patientName,
-    patientPhone: payload.patientPhone,
-    doctorName: payload.doctorName,
-    doctorId: payload.doctorId || "doc-101",
-    patientAge: 30,
-    patientGender: "Other",
-    patientBloodGroup: "O+",
-    appointmentDate: payload.appointmentDate,
-    appointmentTime: payload.appointmentTime,
-    appointmentType: "In-Person",
-    department: payload.specialty,
-    specialty: payload.specialty,
-    status: "Scheduled",
-    serialNumber: payload.serialNumber,
-    serialToken: payload.serialToken,
-    fee: payload.fee || 50,
-    reason: "General consultation and checkup",
-    patientAvatar: "https://ibb.co.com/39NqwQCP",
-  };
-
   try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_appointments_v2");
-      const list = stored ? JSON.parse(stored) : [];
-      list.unshift(newApt);
-      localStorage.setItem("mediq_appointments_v2", JSON.stringify(list));
-      window.dispatchEvent(new Event("mediq_appointments_updated"));
-    }
-  } catch (e) {}
+    const { data, error } = await supabase
+      .from("appointments")
+      .insert({
+        appointment_id: payload.appointmentId,
+        patient_name: payload.patientName,
+        patient_phone: payload.patientPhone,
+        doctor_name: payload.doctorName,
+        doctor_id: payload.doctorId || null,
+        specialty: payload.specialty,
+        department: payload.specialty,
+        appointment_date: payload.appointmentDate,
+        appointment_time: payload.appointmentTime,
+        serial_number: payload.serialNumber,
+        serial_token: payload.serialToken,
+        fee: payload.fee || 0,
+        status: "Scheduled",
+      })
+      .select()
+      .single();
 
-  try {
-    const { data, error } = await supabase.from("appointments").insert({
-      appointment_id: payload.appointmentId,
-      patient_name: payload.patientName,
-      patient_phone: payload.patientPhone,
-      doctor_name: payload.doctorName,
-      specialty: payload.specialty,
-      appointment_date: payload.appointmentDate,
-      appointment_time: payload.appointmentTime,
-      serial_number: payload.serialNumber,
-      serial_token: payload.serialToken,
-      status: "Scheduled",
-    });
-    return { data: data || newApt, error };
+    return { data: data ? mapAppointment(data) : null, error };
   } catch (err: any) {
-    return { data: newApt, error: err };
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseAppointmentStatus(appointmentId: string, status: string) {
+  try {
+    const { data, error } = await supabase
+      .from("appointments")
+      .update({ status })
+      .eq("id", appointmentId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
   }
 }
 
@@ -301,9 +257,7 @@ export async function createSupabaseAppointment(payload: {
 export async function fetchSupabaseHospitals() {
   try {
     const { data, error } = await supabase.from("hospitals").select("*");
-    if (error || !data || data.length === 0) {
-      return [];
-    }
+    if (error || !data) return [];
     return data.map((h: any) => ({
       id: h.id,
       name: h.name,
@@ -313,8 +267,10 @@ export async function fetchSupabaseHospitals() {
       doctorCount: h.doctor_count,
       emergencyStatus: h.emergency_status,
       occupancyPercent: h.occupancy_percent,
+      supportHours: h.support_hours || "24/7",
     }));
   } catch (e) {
+    console.warn("fetchSupabaseHospitals error:", e);
     return [];
   }
 }
@@ -334,8 +290,22 @@ export async function createSupabaseHospital(payload: {
       available_beds: payload.availableBeds,
       doctor_count: payload.doctorCount,
       emergency_status: "Active",
-      occupancy_percent: Math.round(((payload.totalBeds - payload.availableBeds) / payload.totalBeds) * 100),
+      occupancy_percent:
+        payload.totalBeds > 0
+          ? Math.round(((payload.totalBeds - payload.availableBeds) / payload.totalBeds) * 100)
+          : 0,
     });
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// Lets Admin edit hospital-level settings that aren't derived from another
+// table — e.g. emergency support hours shown on the public landing page.
+export async function updateSupabaseHospital(hospitalId: string, payload: Record<string, any>) {
+  try {
+    const { data, error } = await supabase.from("hospitals").update(payload).eq("id", hospitalId);
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };
@@ -345,9 +315,7 @@ export async function createSupabaseHospital(payload: {
 export async function fetchSupabaseBeds() {
   try {
     const { data, error } = await supabase.from("beds").select("*");
-    if (error || !data || data.length === 0) {
-      return [];
-    }
+    if (error || !data) return [];
     return data.map((b: any) => ({
       id: b.id,
       bedNumber: b.bed_number,
@@ -360,7 +328,84 @@ export async function fetchSupabaseBeds() {
       admissionDate: b.admission_date,
     }));
   } catch (e) {
+    console.warn("fetchSupabaseBeds error:", e);
     return [];
+  }
+}
+
+export async function updateSupabaseBedStatus(bedId: string, status: string, admittedPatientName?: string) {
+  try {
+    const updateData: any = { status };
+    if (admittedPatientName) {
+      updateData.admitted_patient_name = admittedPatientName;
+      updateData.admission_date = new Date().toISOString().split("T")[0];
+    }
+    const { data, error } = await supabase.from("beds").update(updateData).eq("id", bedId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function createSupabaseBed(payload: {
+  bedNumber: string;
+  wardType: string;
+  floorNumber?: number;
+  dailyRate?: number;
+  hospitalId?: string;
+}) {
+  try {
+    const { data, error } = await supabase
+      .from("beds")
+      .insert({
+        bed_number: payload.bedNumber,
+        ward_type: payload.wardType,
+        floor_number: payload.floorNumber || 1,
+        daily_rate: payload.dailyRate || 0,
+        hospital_id: payload.hospitalId || null,
+        status: "Available",
+      })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// Creates several beds of the same ward type at once — used by the Admin
+// "Add Ward / Beds" form so an admin can stand up a new ward in one action.
+export async function createSupabaseBedsBulk(payload: {
+  wardType: string;
+  count: number;
+  floorNumber?: number;
+  dailyRate?: number;
+  hospitalId?: string;
+}) {
+  try {
+    const prefix = payload.wardType.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "") || "WRD";
+    const rows = Array.from({ length: payload.count }, (_, i) => ({
+      bed_number: `${prefix}-${Date.now().toString().slice(-4)}-${String(i + 1).padStart(2, "0")}`,
+      ward_type: payload.wardType,
+      floor_number: payload.floorNumber || 1,
+      daily_rate: payload.dailyRate || 0,
+      hospital_id: payload.hospitalId || null,
+      status: "Available",
+    }));
+
+    const { data, error } = await supabase.from("beds").insert(rows).select();
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteSupabaseBed(bedId: string) {
+  try {
+    const { data, error } = await supabase.from("beds").delete().eq("id", bedId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
   }
 }
 
@@ -371,9 +416,7 @@ export async function fetchSupabaseBeds() {
 export async function fetchSupabaseLabOrders() {
   try {
     const { data, error } = await supabase.from("lab_test_orders").select("*").order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) {
-      return [];
-    }
+    if (error || !data) return [];
     return data.map((o: any) => ({
       id: o.id,
       testId: o.test_id,
@@ -384,11 +427,12 @@ export async function fetchSupabaseLabOrders() {
       category: o.category,
       priority: o.priority,
       status: o.status,
-      date: o.created_at ? new Date(o.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      date: o.created_at ? new Date(o.created_at).toISOString().split("T")[0] : "",
       containerId: o.container_id,
       collectionTime: o.collection_time,
     }));
   } catch (e) {
+    console.warn("fetchSupabaseLabOrders error:", e);
     return [];
   }
 }
@@ -419,16 +463,72 @@ export async function createSupabaseLabOrder(payload: {
   }
 }
 
+export async function updateSupabaseLabOrderStatus(testId: string, status: string) {
+  try {
+    const { data, error } = await supabase.from("lab_test_orders").update({ status }).eq("test_id", testId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
 // ============================================================================
-// 5. PHARMACY ORDERS & MEDICINES SERVICE
+// 5. LABORATORY CATALOG SERVICE
+// ============================================================================
+
+export async function fetchSupabaseLabCatalog() {
+  try {
+    const { data, error } = await supabase.from("lab_catalog").select("*").order("test_name", { ascending: true });
+    if (error || !data) return [];
+    return data.map((t: any) => ({
+      id: t.id,
+      testCode: t.test_code,
+      testName: t.test_name,
+      department: t.department,
+      specimenType: t.specimen_type,
+      price: Number(t.price),
+      tatHours: t.tat_hours,
+      referenceRange: t.reference_range,
+    }));
+  } catch (e) {
+    console.warn("fetchSupabaseLabCatalog error:", e);
+    return [];
+  }
+}
+
+export async function createSupabaseLabTest(payload: {
+  testCode: string;
+  testName: string;
+  department: string;
+  specimenType: string;
+  price: number;
+  tatHours: number;
+  referenceRange: string;
+}) {
+  try {
+    const { data, error } = await supabase.from("lab_catalog").insert({
+      test_code: payload.testCode,
+      test_name: payload.testName,
+      department: payload.department,
+      specimen_type: payload.specimenType,
+      price: payload.price,
+      tat_hours: payload.tatHours,
+      reference_range: payload.referenceRange,
+    });
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// ============================================================================
+// 6. PHARMACY ORDERS SERVICE
 // ============================================================================
 
 export async function fetchSupabasePharmacyOrders() {
   try {
     const { data, error } = await supabase.from("pharmacy_orders").select("*").order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) {
-      return [];
-    }
+    if (error || !data) return [];
     return data.map((p: any) => ({
       id: p.id,
       orderId: p.order_id,
@@ -438,9 +538,10 @@ export async function fetchSupabasePharmacyOrders() {
       totalAmount: Number(p.total_amount),
       prescriptionStatus: p.prescription_status,
       orderStatus: p.order_status,
-      orderTime: p.created_at ? new Date(p.created_at).toLocaleTimeString() : "Just now",
+      orderTime: p.created_at ? new Date(p.created_at).toLocaleTimeString() : "",
     }));
   } catch (e) {
+    console.warn("fetchSupabasePharmacyOrders error:", e);
     return [];
   }
 }
@@ -468,182 +569,9 @@ export async function createSupabasePharmacyOrder(payload: {
   }
 }
 
-// ============================================================================
-// 6. BLOOD BANK REPOSITORY SERVICE
-// ============================================================================
-
-export async function fetchSupabaseBloodInventory() {
+export async function updateSupabasePharmacyOrderStatus(orderId: string, status: string) {
   try {
-    const { data, error } = await supabase.from("blood_inventory").select("*");
-    if (error || !data || data.length === 0) {
-      return [];
-    }
-    return data.map((b: any) => ({
-      group: b.blood_group,
-      availableUnits: b.available_units,
-      reservedUnits: b.reserved_units,
-      criticalThreshold: b.critical_threshold,
-      status: b.status,
-    }));
-  } catch (e) {
-    return [];
-  }
-}
-
-export async function fetchSupabaseBloodRequests() {
-  let dbRequests: any[] = [];
-  try {
-    const { data, error } = await supabase.from("blood_requests").select("*").order("created_at", { ascending: false });
-    if (!error && data) {
-      dbRequests = data.map((r: any) => ({
-        id: r.id || `br-${r.request_id}`,
-        requestId: r.request_id,
-        patientName: r.patient_name,
-        patientAge: r.patient_age || 35,
-        bloodGroup: r.blood_group,
-        unitsNeeded: r.units_needed,
-        hospitalName: r.hospital_name || "MediQ Central Hospital",
-        doctorName: r.doctor_name || "Staff Physician",
-        requiredDate: r.required_date || new Date().toISOString().split("T")[0],
-        urgency: r.urgency || "Urgent",
-        status: r.status || "Pending",
-      }));
-    }
-  } catch (e) {
-    console.warn("fetchSupabaseBloodRequests DB fetch:", e);
-  }
-
-  let localRequests: any[] = [];
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_blood_requests");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          localRequests = parsed;
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("fetchSupabaseBloodRequests local storage read:", e);
-  }
-
-  const merged = [...dbRequests];
-  for (const lr of localRequests) {
-    const existingIndex = merged.findIndex(
-      (mr) => mr.requestId === lr.requestId || mr.id === lr.id
-    );
-    if (existingIndex >= 0) {
-      merged[existingIndex] = { ...merged[existingIndex], status: lr.status || merged[existingIndex].status };
-    } else {
-      merged.push(lr);
-    }
-  }
-
-  return merged;
-}
-
-export async function createSupabaseBloodRequest(payload: {
-  requestId: string;
-  patientName: string;
-  patientAge: number;
-  bloodGroup: string;
-  unitsNeeded: number;
-  hospitalName: string;
-  doctorName: string;
-  urgency: string;
-}) {
-  const newReq = {
-    id: `br-${Date.now()}`,
-    requestId: payload.requestId,
-    patientName: payload.patientName,
-    patientAge: payload.patientAge || 35,
-    bloodGroup: payload.bloodGroup,
-    unitsNeeded: payload.unitsNeeded,
-    hospitalName: payload.hospitalName || "MediQ Central Hospital",
-    doctorName: payload.doctorName || "Staff Physician",
-    requiredDate: new Date().toISOString().split("T")[0],
-    urgency: payload.urgency,
-    status: "Pending",
-  };
-
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_blood_requests");
-      const existing = stored ? JSON.parse(stored) : [];
-      localStorage.setItem("mediq_blood_requests", JSON.stringify([newReq, ...existing]));
-    }
-  } catch (e) {
-    console.warn("LocalStorage save error:", e);
-  }
-
-  try {
-    const { data, error } = await supabase.from("blood_requests").insert({
-      request_id: payload.requestId,
-      patient_name: payload.patientName,
-      patient_age: payload.patientAge,
-      blood_group: payload.bloodGroup,
-      units_needed: payload.unitsNeeded,
-      hospital_name: payload.hospitalName,
-      doctor_name: payload.doctorName,
-      urgency: payload.urgency,
-      status: "Pending",
-    });
-    return { data: newReq, error };
-  } catch (err: any) {
-    return { data: newReq, error: err };
-  }
-}
-
-// ============================================================================
-// 7. EMERGENCY SOS DISPATCHES SERVICE
-// ============================================================================
-
-export async function fetchSupabaseSOS() {
-  try {
-    const { data, error } = await supabase.from("sos_requests").select("*").order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) {
-      return [];
-    }
-    return data.map((s: any) => ({
-      id: s.id,
-      requestId: s.request_id,
-      patientName: s.patient_name,
-      patientPhone: s.patient_phone,
-      emergencyType: s.emergency_type,
-      location: s.location,
-      destinationHospital: s.destination_hospital,
-      assignedDriver: s.assigned_driver,
-      eta: s.eta,
-      ambulanceStatus: s.ambulance_status,
-    }));
-  } catch (e) {
-    return [];
-  }
-}
-
-export async function createSupabaseSOS(payload: {
-  requestId: string;
-  patientName: string;
-  patientPhone: string;
-  emergencyType: string;
-  location: string;
-  destinationHospital: string;
-  assignedDriver: string;
-  eta: string;
-}) {
-  try {
-    const { data, error } = await supabase.from("sos_requests").insert({
-      request_id: payload.requestId,
-      patient_name: payload.patientName,
-      patient_phone: payload.patientPhone,
-      emergency_type: payload.emergencyType,
-      location: payload.location,
-      destination_hospital: payload.destinationHospital,
-      assigned_driver: payload.assignedDriver,
-      eta: payload.eta,
-      ambulance_status: "Going to Pickup",
-    });
+    const { data, error } = await supabase.from("pharmacy_orders").update({ order_status: status }).eq("order_id", orderId);
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };
@@ -651,15 +579,13 @@ export async function createSupabaseSOS(payload: {
 }
 
 // ============================================================================
-// 8. PHARMACY MEDICINES & INVENTORY SERVICE
+// 7. PHARMACY MEDICINES & INVENTORY SERVICE
 // ============================================================================
 
 export async function fetchSupabasePharmacyMedicines() {
   try {
     const { data, error } = await supabase.from("pharmacy_inventory").select("*").order("medicine_name", { ascending: true });
-    if (error || !data || data.length === 0) {
-      return [];
-    }
+    if (error || !data) return [];
     return data.map((m: any) => ({
       id: m.id,
       medicineCode: m.medicine_code,
@@ -674,6 +600,7 @@ export async function fetchSupabasePharmacyMedicines() {
       stockStatus: m.stock_status,
     }));
   } catch (e) {
+    console.warn("fetchSupabasePharmacyMedicines error:", e);
     return [];
   }
 }
@@ -721,264 +648,97 @@ export async function updateSupabasePharmacyMedicineStock(medicineId: string, ne
 }
 
 // ============================================================================
-// 9. LABORATORY CATALOG SERVICE
+// 8. BLOOD BANK REPOSITORY SERVICE
 // ============================================================================
 
-export async function fetchSupabaseLabCatalog() {
+export async function fetchSupabaseBloodInventory() {
   try {
-    const { data, error } = await supabase.from("lab_catalog").select("*").order("test_name", { ascending: true });
-    if (error || !data || data.length === 0) {
-      return [];
-    }
-    return data.map((t: any) => ({
-      id: t.id,
-      testCode: t.test_code,
-      testName: t.test_name,
-      department: t.department,
-      specimenType: t.specimen_type,
-      price: Number(t.price),
-      tatHours: t.tat_hours,
-      referenceRange: t.reference_range,
+    const { data, error } = await supabase.from("blood_inventory").select("*");
+    if (error || !data) return [];
+    return data.map((b: any) => ({
+      group: b.blood_group,
+      availableUnits: b.available_units,
+      reservedUnits: b.reserved_units,
+      criticalThreshold: b.critical_threshold,
+      status: b.status,
     }));
   } catch (e) {
+    console.warn("fetchSupabaseBloodInventory error:", e);
     return [];
   }
 }
 
-export async function createSupabaseLabTest(payload: {
-  testCode: string;
-  testName: string;
-  department: string;
-  specimenType: string;
-  price: number;
-  tatHours: number;
-  referenceRange: string;
-}) {
+export async function updateSupabaseBloodInventory(bloodGroup: string, availableUnits: number, reservedUnits: number) {
   try {
-    const { data, error } = await supabase.from("lab_catalog").insert({
-      test_code: payload.testCode,
-      test_name: payload.testName,
-      department: payload.department,
-      specimen_type: payload.specimenType,
-      price: payload.price,
-      tat_hours: payload.tatHours,
-      reference_range: payload.referenceRange,
-    });
+    const { data, error } = await supabase
+      .from("blood_inventory")
+      .update({ available_units: availableUnits, reserved_units: reservedUnits })
+      .eq("blood_group", bloodGroup);
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };
   }
 }
 
-// ============================================================================
-// 10. USER PROFILES & SYSTEM USERS SERVICE
-// ============================================================================
-
-export async function fetchSupabaseProfiles(role?: string) {
-  let dbProfiles: any[] = [];
+export async function fetchSupabaseBloodRequests() {
   try {
-    let query = supabase.from("profiles").select("*");
-    if (role) {
-      query = query.eq("role", role);
-    }
-    const { data, error } = await query.order("created_at", { ascending: false });
-    if (error) {
-      console.error("fetchSupabaseProfiles: profiles SELECT failed:", error);
-    }
-    if (!error && data) {
-      dbProfiles = data.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        email: p.email,
-        phone: p.phone,
-        role: p.role,
-        bloodGroup: p.blood_group,
-        address: p.address,
-        avatarUrl: p.avatar_url,
-        badgeId: p.badge_id,
-        specialty: p.specialty,
-        licenseNo: p.license_no,
-        workingHours: p.working_hours,
-        patientCapacity: p.patient_capacity,
-        onlineBookingEnabled: p.online_booking_enabled,
-      }));
-    }
-  } catch (e) {
-    console.warn("fetchSupabaseProfiles DB fetch:", e);
-  }
-
-  // Also read from localStorage cache to ensure zero data loss across refreshes
-  let localProfiles: any[] = [];
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_registered_users");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          localProfiles = parsed.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            phone: p.phone,
-            role: p.role,
-            bloodGroup: p.blood_group || p.bloodGroup,
-            address: p.address,
-            avatarUrl: p.avatar_url || p.avatarUrl,
-            badgeId: p.badge_id || p.badgeId,
-            specialty: p.specialty,
-            licenseNo: p.license_no,
-            workingHours: p.working_hours,
-            patientCapacity: p.patient_capacity,
-            onlineBookingEnabled: p.online_booking_enabled,
-          }));
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("fetchSupabaseProfiles local storage read:", e);
-  }
-
-  // Merge DB profiles and local profiles (DB profiles take priority, local fills in new ones)
-  const merged: any[] = [...dbProfiles];
-  for (const lp of localProfiles) {
-    if (!merged.some((mp) => mp.id === lp.id || (mp.email && lp.email && mp.email.toLowerCase() === lp.email.toLowerCase()))) {
-      merged.push(lp);
-    }
-  }
-
-  if (role) {
-    return merged.filter((p) => p.role?.toLowerCase() === role.toLowerCase());
-  }
-
-  return merged;
-}
-
-export async function fetchSupabaseUserProfile(userId: string) {
-  try {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (!error && data) {
-      return {
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        role: data.role,
-        bloodGroup: data.blood_group,
-        address: data.address,
-        avatarUrl: data.avatar_url,
-        badgeId: data.badge_id,
-        specialty: data.specialty,
-        licenseNo: data.license_no,
-        workingHours: data.working_hours,
-        patientCapacity: data.patient_capacity,
-        onlineBookingEnabled: data.online_booking_enabled,
-      };
-    }
-  } catch (e) {
-    console.warn("fetchSupabaseUserProfile DB query:", e);
-  }
-
-  // Check local cache
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_registered_users");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const match = parsed.find((u: any) => u.id === userId);
-        if (match) return match;
-      }
-    }
-  } catch (e) {}
-
-  return null;
-}
-
-export async function updateSupabaseProfile(userId: string, payload: any) {
-  // Update local cache
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_registered_users");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const updatedList = parsed.map((u: any) => (u.id === userId ? { ...u, ...payload } : u));
-        localStorage.setItem("mediq_registered_users", JSON.stringify(updatedList));
-      }
-    }
-  } catch (e) {
-    console.warn("updateSupabaseProfile local storage update:", e);
-  }
-
-  try {
-    const { data, error } = await supabase.from("profiles").update(payload).eq("id", userId);
-    return { data, error };
-  } catch (err: any) {
-    return { data: null, error: err };
-  }
-}
-
-export async function deleteSupabaseProfile(userId: string) {
-  // Delete from local cache
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_registered_users");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const filtered = parsed.filter((u: any) => u.id !== userId);
-        localStorage.setItem("mediq_registered_users", JSON.stringify(filtered));
-      }
-    }
-  } catch (e) {
-    console.warn("deleteSupabaseProfile local storage update:", e);
-  }
-
-  try {
-    const { data, error } = await supabase.from("profiles").delete().eq("id", userId);
-    return { data, error };
-  } catch (err: any) {
-    return { data: null, error: err };
-  }
-}
-
-// ============================================================================
-// 11. AUDIT LOGS SERVICE
-// ============================================================================
-
-export async function fetchSupabaseAuditLogs() {
-  try {
-    const { data, error } = await supabase.from("audit_logs").select("*").order("timestamp", { ascending: false });
-    if (error || !data || data.length === 0) {
-      return [];
-    }
-    return data.map((log: any) => ({
-      id: log.id,
-      user: log.user_name,
-      role: log.role,
-      action: log.action,
-      module: log.action,
-      timestamp: log.timestamp,
-      ipAddress: log.ip_address,
-      details: log.details,
+    const { data, error } = await supabase.from("blood_requests").select("*").order("created_at", { ascending: false });
+    if (error || !data) return [];
+    return data.map((r: any) => ({
+      id: r.id,
+      requestId: r.request_id,
+      patientName: r.patient_name,
+      patientAge: r.patient_age,
+      bloodGroup: r.blood_group,
+      unitsNeeded: r.units_needed,
+      hospitalName: r.hospital_name,
+      doctorName: r.doctor_name,
+      requiredDate: r.required_date,
+      urgency: r.urgency,
+      status: r.status,
     }));
   } catch (e) {
+    console.warn("fetchSupabaseBloodRequests error:", e);
     return [];
   }
 }
 
-export async function createSupabaseAuditLog(payload: {
-  userName: string;
-  role: string;
-  action: string;
-  ipAddress?: string;
-  details?: string;
+export async function createSupabaseBloodRequest(payload: {
+  requestId: string;
+  patientName: string;
+  patientAge: number;
+  bloodGroup: string;
+  unitsNeeded: number;
+  hospitalName: string;
+  doctorName: string;
+  urgency: string;
 }) {
   try {
-    const { data, error } = await supabase.from("audit_logs").insert({
-      user_name: payload.userName,
-      role: payload.role,
-      action: payload.action,
-      ip_address: payload.ipAddress || "127.0.0.1",
-      details: payload.details || "",
-    });
+    const { data, error } = await supabase
+      .from("blood_requests")
+      .insert({
+        request_id: payload.requestId,
+        patient_name: payload.patientName,
+        patient_age: payload.patientAge,
+        blood_group: payload.bloodGroup,
+        units_needed: payload.unitsNeeded,
+        hospital_name: payload.hospitalName,
+        doctor_name: payload.doctorName,
+        urgency: payload.urgency,
+        status: "Pending",
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseBloodRequestStatus(requestId: string, status: string) {
+  try {
+    const { data, error } = await supabase.from("blood_requests").update({ status }).eq("request_id", requestId);
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };
@@ -986,15 +746,13 @@ export async function createSupabaseAuditLog(payload: {
 }
 
 // ============================================================================
-// 12. BLOOD DONORS SERVICE
+// 9. BLOOD DONORS SERVICE
 // ============================================================================
 
 export async function fetchSupabaseBloodDonors() {
   try {
     const { data, error } = await supabase.from("blood_donors").select("*").order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) {
-      return [];
-    }
+    if (error || !data) return [];
     return data.map((d: any) => ({
       id: d.id,
       donorId: d.donor_id,
@@ -1007,6 +765,7 @@ export async function fetchSupabaseBloodDonors() {
       eligibilityStatus: d.eligibility_status,
     }));
   } catch (e) {
+    console.warn("fetchSupabaseBloodDonors error:", e);
     return [];
   }
 }
@@ -1035,73 +794,58 @@ export async function createSupabaseBloodDonor(payload: {
 }
 
 // ============================================================================
-// 13. UPDATE & DELETE OPERATIONS
+// 10. EMERGENCY SOS DISPATCHES SERVICE
 // ============================================================================
 
-export async function updateSupabaseAppointmentStatus(appointmentId: string, status: string) {
+export async function fetchSupabaseSOS() {
+  try {
+    const { data, error } = await supabase.from("sos_requests").select("*").order("created_at", { ascending: false });
+    if (error || !data) return [];
+    return data.map((s: any) => ({
+      id: s.id,
+      requestId: s.request_id,
+      patientName: s.patient_name,
+      patientPhone: s.patient_phone,
+      emergencyType: s.emergency_type,
+      location: s.location,
+      destinationHospital: s.destination_hospital,
+      assignedDriver: s.assigned_driver,
+      eta: s.eta,
+      ambulanceStatus: s.ambulance_status,
+    }));
+  } catch (e) {
+    console.warn("fetchSupabaseSOS error:", e);
+    return [];
+  }
+}
+
+export async function createSupabaseSOS(payload: {
+  requestId: string;
+  patientName: string;
+  patientPhone: string;
+  emergencyType: string;
+  location: string;
+  destinationHospital: string;
+  assignedDriver: string;
+  eta: string;
+}) {
   try {
     const { data, error } = await supabase
-      .from("appointments")
-      .update({ status })
-      .eq("id", appointmentId);
-    return { data, error };
-  } catch (err: any) {
-    return { data: null, error: err };
-  }
-}
+      .from("sos_requests")
+      .insert({
+        request_id: payload.requestId,
+        patient_name: payload.patientName,
+        patient_phone: payload.patientPhone,
+        emergency_type: payload.emergencyType,
+        location: payload.location,
+        destination_hospital: payload.destinationHospital,
+        assigned_driver: payload.assignedDriver,
+        eta: payload.eta,
+        ambulance_status: "Going to Pickup",
+      })
+      .select()
+      .single();
 
-export async function updateSupabaseBedStatus(bedId: string, status: string, admittedPatientName?: string) {
-  try {
-    const updateData: any = { status };
-    if (admittedPatientName) {
-      updateData.admitted_patient_name = admittedPatientName;
-      updateData.admission_date = new Date().toISOString().split("T")[0];
-    }
-    const { data, error } = await supabase.from("beds").update(updateData).eq("id", bedId);
-    return { data, error };
-  } catch (err: any) {
-    return { data: null, error: err };
-  }
-}
-
-export async function updateSupabaseLabOrderStatus(testId: string, status: string) {
-  try {
-    const { data, error } = await supabase.from("lab_test_orders").update({ status }).eq("test_id", testId);
-    return { data, error };
-  } catch (err: any) {
-    return { data: null, error: err };
-  }
-}
-
-export async function updateSupabasePharmacyOrderStatus(orderId: string, status: string) {
-  try {
-    const { data, error } = await supabase.from("pharmacy_orders").update({ order_status: status }).eq("order_id", orderId);
-    return { data, error };
-  } catch (err: any) {
-    return { data: null, error: err };
-  }
-}
-
-export async function updateSupabaseBloodRequestStatus(requestId: string, status: string) {
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("mediq_blood_requests");
-      if (stored) {
-        const existing = JSON.parse(stored);
-        if (Array.isArray(existing)) {
-          const updated = existing.map((r: any) =>
-            r.requestId === requestId || r.id === requestId ? { ...r, status } : r
-          );
-          localStorage.setItem("mediq_blood_requests", JSON.stringify(updated));
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("LocalStorage status update error:", e);
-  }
-
-  try {
-    const { data, error } = await supabase.from("blood_requests").update({ status }).eq("request_id", requestId);
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };
@@ -1117,12 +861,137 @@ export async function updateSupabaseSOSStatus(requestId: string, status: string)
   }
 }
 
-export async function updateSupabaseBloodInventory(bloodGroup: string, availableUnits: number, reservedUnits: number) {
+// ============================================================================
+// 11. PROFILES SERVICE (staff & patient directory)
+// ============================================================================
+
+function mapProfile(p: any) {
+  return {
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    phone: p.phone,
+    role: p.role,
+    age: p.age,
+    gender: p.gender,
+    bloodGroup: p.blood_group,
+    address: p.address,
+    avatarUrl: p.avatar_url,
+    badgeId: p.badge_id,
+    specialty: p.specialty,
+    licenseNo: p.license_no,
+    workingHours: p.working_hours,
+    patientCapacity: p.patient_capacity,
+    onlineBookingEnabled: p.online_booking_enabled,
+    isFeatured: p.is_featured || false,
+  };
+}
+
+export async function fetchSupabaseProfiles(role?: string) {
+  try {
+    let query = supabase.from("profiles").select("*");
+    if (role) {
+      query = query.eq("role", role);
+    }
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) {
+      console.error("fetchSupabaseProfiles: profiles SELECT failed:", error);
+      return [];
+    }
+    return (data || []).map(mapProfile);
+  } catch (e) {
+    console.warn("fetchSupabaseProfiles error:", e);
+    return [];
+  }
+}
+
+export async function fetchSupabaseUserProfile(userId: string) {
+  try {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    if (error || !data) return null;
+    return mapProfile(data);
+  } catch (e) {
+    console.warn("fetchSupabaseUserProfile error:", e);
+    return null;
+  }
+}
+
+// Home page "Meet Our Doctors" section — Admin curates which doctors show
+// up here (see UserManagementModule "Featured on Home" toggle).
+export async function fetchSupabaseFeaturedDoctors(limit = 4) {
   try {
     const { data, error } = await supabase
-      .from("blood_inventory")
-      .update({ available_units: availableUnits, reserved_units: reservedUnits })
-      .eq("blood_group", bloodGroup);
+      .from("profiles")
+      .select("*")
+      .eq("role", "Doctor")
+      .eq("is_featured", true)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    return data.map(mapProfile);
+  } catch (e) {
+    console.warn("fetchSupabaseFeaturedDoctors error:", e);
+    return [];
+  }
+}
+
+export async function updateSupabaseProfile(userId: string, payload: any) {
+  try {
+    const { data, error } = await supabase.from("profiles").update(payload).eq("id", userId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteSupabaseProfile(userId: string) {
+  try {
+    const { data, error } = await supabase.from("profiles").delete().eq("id", userId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+// ============================================================================
+// 12. AUDIT LOGS SERVICE
+// ============================================================================
+
+export async function fetchSupabaseAuditLogs() {
+  try {
+    const { data, error } = await supabase.from("audit_logs").select("*").order("timestamp", { ascending: false });
+    if (error || !data) return [];
+    return data.map((log: any) => ({
+      id: log.id,
+      user: log.user_name,
+      role: log.role,
+      action: log.action,
+      module: log.action,
+      timestamp: log.timestamp,
+      ipAddress: log.ip_address,
+      details: log.details,
+    }));
+  } catch (e) {
+    console.warn("fetchSupabaseAuditLogs error:", e);
+    return [];
+  }
+}
+
+export async function createSupabaseAuditLog(payload: {
+  userName: string;
+  role: string;
+  action: string;
+  ipAddress?: string;
+  details?: string;
+}) {
+  try {
+    const { data, error } = await supabase.from("audit_logs").insert({
+      user_name: payload.userName,
+      role: payload.role,
+      action: payload.action,
+      ip_address: payload.ipAddress || "127.0.0.1",
+      details: payload.details || "",
+    });
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };

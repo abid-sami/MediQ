@@ -4,183 +4,47 @@ import { supabase } from "@/integrations/supabase/client";
 export const PHARMACY_INVENTORY_KEY = "mediq_pharmacy_inventory_store";
 export const PHARMACY_ORDERS_KEY = "mediq_pharmacy_orders_store";
 
-export const DEFAULT_SEED_MEDICINES: PharmacyMedicine[] = [
-  {
-    id: "med-01",
-    name: "Napa Extra",
-    genericName: "Paracetamol + Caffeine",
-    brand: "Beximco Pharma",
-    strength: "500mg + 65mg",
-    category: "Pain & Fever",
-    price: 2.5,
-    stock: 140,
-    reorderLevel: 30,
-    expiryDate: "2027-10-31",
-    prescriptionRequired: false,
-    stockStatus: "In Stock",
-  },
-  {
-    id: "med-02",
-    name: "Amlopin 5",
-    genericName: "Amlodipine Besylate",
-    brand: "Square Pharmaceuticals",
-    strength: "5mg Tablet",
-    category: "Cardiac & Hypertension",
-    price: 4.8,
-    stock: 85,
-    reorderLevel: 25,
-    expiryDate: "2028-05-15",
-    prescriptionRequired: true,
-    stockStatus: "In Stock",
-  },
-  {
-    id: "med-03",
-    name: "Metformin HCl",
-    genericName: "Metformin Hydrochloride",
-    brand: "Incepta Pharmaceuticals",
-    strength: "500mg XR",
-    category: "Diabetes Care",
-    price: 3.2,
-    stock: 110,
-    reorderLevel: 30,
-    expiryDate: "2027-12-31",
-    prescriptionRequired: true,
-    stockStatus: "In Stock",
-  },
-  {
-    id: "med-04",
-    name: "Azithrocin 500",
-    genericName: "Azithromycin",
-    brand: "Beximco Pharma",
-    strength: "500mg Capsule",
-    category: "Antibiotics",
-    price: 9.5,
-    stock: 45,
-    reorderLevel: 20,
-    expiryDate: "2027-08-20",
-    prescriptionRequired: true,
-    stockStatus: "In Stock",
-  },
-  {
-    id: "med-05",
-    name: "Seclo 20",
-    genericName: "Omeprazole",
-    brand: "Square Pharmaceuticals",
-    strength: "20mg Capsule",
-    category: "Gastrointestinal",
-    price: 3.0,
-    stock: 160,
-    reorderLevel: 40,
-    expiryDate: "2028-01-10",
-    prescriptionRequired: false,
-    stockStatus: "In Stock",
-  },
-  {
-    id: "med-06",
-    name: "Ventolin Inhaler",
-    genericName: "Salbutamol Sulfate",
-    brand: "GSK Health",
-    strength: "100mcg / Dose",
-    category: "Respiratory",
-    price: 12.0,
-    stock: 18,
-    reorderLevel: 20,
-    expiryDate: "2027-11-30",
-    prescriptionRequired: true,
-    stockStatus: "Low Stock",
-  },
-  {
-    id: "med-07",
-    name: "Ceevit 500",
-    genericName: "Ascorbic Acid (Vitamin C)",
-    brand: "Square Pharmaceuticals",
-    strength: "500mg Chewable",
-    category: "Vitamins & Supplements",
-    price: 1.8,
-    stock: 220,
-    reorderLevel: 50,
-    expiryDate: "2028-04-30",
-    prescriptionRequired: false,
-    stockStatus: "In Stock",
-  },
-  {
-    id: "med-08",
-    name: "Fexo 120",
-    genericName: "Fexofenadine Hydrochloride",
-    brand: "Incepta Pharmaceuticals",
-    strength: "120mg Tablet",
-    category: "Allergy & Cold",
-    price: 5.5,
-    stock: 90,
-    reorderLevel: 25,
-    expiryDate: "2027-09-15",
-    prescriptionRequired: false,
-    stockStatus: "In Stock",
-  },
-];
-
-// 1. Fetch Dynamic Medicines
+// 1. Fetch Dynamic Medicines — Supabase is the single source of truth.
 export async function getDynamicMedicines(): Promise<PharmacyMedicine[]> {
   let dbMeds: PharmacyMedicine[] = [];
 
-  // Try Supabase first
   try {
     const { data, error } = await supabase
       .from("pharmacy_inventory")
       .select("*")
       .order("medicine_name", { ascending: true });
 
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       dbMeds = data.map((m: any) => ({
         id: m.id,
         name: m.medicine_name || m.name,
         genericName: m.generic_name || "",
-        brand: m.manufacturer || m.brand || "MediQ Pharma",
-        strength: m.dosage_strength || m.strength || "Standard",
+        brand: m.manufacturer || m.brand || "",
+        strength: m.dosage_strength || m.strength || "",
         category: m.category || "General",
-        price: Number(m.price_per_unit || m.price || 5.0),
+        price: Number(m.price_per_unit || m.price || 0),
         stock: Number(m.stock || 0),
         reorderLevel: Number(m.reorder_level || 20),
-        expiryDate: m.expiry_date || "2028-12-31",
+        expiryDate: m.expiry_date || "",
         prescriptionRequired: m.prescription_required ?? true,
         stockStatus: (m.stock <= 0 ? "Out of Stock" : m.stock < (m.reorder_level || 20) ? "Low Stock" : "In Stock") as StockStatus,
       }));
+    } else if (error) {
+      console.warn("Supabase pharmacy medicines fetch error:", error);
     }
   } catch (e) {
     console.warn("Supabase pharmacy medicines fetch note:", e);
   }
 
-  // Check localStorage store
-  let localMeds: PharmacyMedicine[] = [];
-  try {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(PHARMACY_INVENTORY_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          localMeds = parsed;
-        }
-      } else {
-        // First run seed
-        localStorage.setItem(PHARMACY_INVENTORY_KEY, JSON.stringify(DEFAULT_SEED_MEDICINES));
-        localMeds = DEFAULT_SEED_MEDICINES;
-      }
-    }
-  } catch (e) {
-    console.warn("Local storage medicines read note:", e);
+  // Keep a local mirror purely for offline resilience within this browser —
+  // it always reflects the last known database state, never seed/fake data.
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(PHARMACY_INVENTORY_KEY, JSON.stringify(dbMeds));
+    } catch (e) {}
   }
 
-  if (dbMeds.length > 0) {
-    // Sync to local
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(PHARMACY_INVENTORY_KEY, JSON.stringify(dbMeds));
-      } catch (e) {}
-    }
-    return dbMeds;
-  }
-
-  return localMeds.length > 0 ? localMeds : DEFAULT_SEED_MEDICINES;
+  return dbMeds;
 }
 
 // 2. Add New Medicine (Managed by Pharmacist)

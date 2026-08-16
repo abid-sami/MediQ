@@ -9,6 +9,7 @@ import { QuickServices } from "@/components/mediq/QuickServices";
 import { HospitalStats } from "@/components/mediq/HospitalStats";
 import { BedAvailability } from "@/components/mediq/BedAvailability";
 import { HospitalNavigation } from "@/components/mediq/HospitalNavigation";
+import { OurDoctors } from "@/components/mediq/OurDoctors";
 import { BloodBank } from "@/components/mediq/BloodBank";
 import { Pharmacy } from "@/components/mediq/Pharmacy";
 import { HealthcareNetwork } from "@/components/mediq/HealthcareNetwork";
@@ -16,6 +17,7 @@ import { EmergencyCTA } from "@/components/mediq/EmergencyCTA";
 import { Footer } from "@/components/mediq/Footer";
 import { SOSModal } from "@/components/mediq/SOSModal";
 import { AppointmentModal } from "@/components/mediq/AppointmentModal";
+import { AllDoctorsModal } from "@/components/mediq/AllDoctorsModal";
 import { AuthModal } from "@/components/mediq/AuthModal";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -60,6 +62,7 @@ function Index() {
             <HospitalStats />
             <BedAvailability />
             <HospitalNavigation />
+            <OurDoctors />
             <BloodBank />
             <Pharmacy />
             <HealthcareNetwork />
@@ -68,6 +71,7 @@ function Index() {
           <Footer />
           <SOSModal />
           <AppointmentModal />
+          <AllDoctorsModal />
           <AuthModal />
           <Toaster position="top-center" />
         </div>
