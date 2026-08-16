@@ -326,6 +326,7 @@ export async function fetchSupabaseBeds() {
       admittedPatientName: b.admitted_patient_name,
       attendingDoctor: b.attending_doctor,
       admissionDate: b.admission_date,
+      hospitalId: b.hospital_id,
     }));
   } catch (e) {
     console.warn("fetchSupabaseBeds error:", e);
@@ -336,11 +337,61 @@ export async function fetchSupabaseBeds() {
 export async function updateSupabaseBedStatus(bedId: string, status: string, admittedPatientName?: string) {
   try {
     const updateData: any = { status };
-    if (admittedPatientName) {
-      updateData.admitted_patient_name = admittedPatientName;
+    if (status === "Occupied") {
+      updateData.admitted_patient_name = admittedPatientName?.trim() || null;
       updateData.admission_date = new Date().toISOString().split("T")[0];
+    } else {
+      updateData.admitted_patient_name = null;
+      updateData.admission_date = null;
     }
-    const { data, error } = await supabase.from("beds").update(updateData).eq("id", bedId);
+    const { data, error } = await supabase.from("beds").update(updateData).eq("id", bedId).select().single();
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseBed(
+  bedId: string,
+  payload: {
+    bedNumber: string;
+    wardType: string;
+    floorNumber: number;
+    dailyRate: number;
+  },
+) {
+  try {
+    const { data, error } = await supabase
+      .from("beds")
+      .update({
+        bed_number: payload.bedNumber,
+        ward_type: payload.wardType,
+        floor_number: payload.floorNumber,
+        daily_rate: payload.dailyRate,
+      })
+      .eq("id", bedId)
+      .select()
+      .single();
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseWard(
+  currentWardType: string,
+  payload: { wardType: string; floorNumber: number; dailyRate: number },
+) {
+  try {
+    const { data, error } = await supabase
+      .from("beds")
+      .update({
+        ward_type: payload.wardType,
+        floor_number: payload.floorNumber,
+        daily_rate: payload.dailyRate,
+      })
+      .eq("ward_type", currentWardType)
+      .select();
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };

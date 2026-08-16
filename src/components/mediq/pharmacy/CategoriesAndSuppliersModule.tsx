@@ -21,24 +21,17 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PharmacySupplier } from "@/data/pharmacy-data";
+import { PharmacyCategory, PharmacySupplier } from "@/data/pharmacy-data";
 
 interface CategoriesAndSuppliersModuleProps {
   suppliers: PharmacySupplier[];
+  categories: PharmacyCategory[];
   onAddSupplier?: (newSupplier: PharmacySupplier) => void;
 }
 
-const CATEGORIES = [
-  { name: "Prescription Medicines", count: 142, desc: "Ethical cardiac, neuro, & antibiotic drug regimens." },
-  { name: "OTC Medicines", count: 86, desc: "Over-the-counter pain relief, antacids, & cough syrups." },
-  { name: "First Aid & Wound Care", count: 34, desc: "Sterile bandages, antiseptics, surgical dressings." },
-  { name: "Vitamins & Supplements", count: 52, desc: "Dietary minerals, multivitamins, & calcium." },
-  { name: "Diabetes & Chronic Care", count: 48, desc: "Insulin pens, glucose test strips, & monitors." },
-  { name: "Personal Hygiene & Skin", count: 65, desc: "Clinical skincare, antiseptic cleansers." },
-];
-
 export function CategoriesAndSuppliersModule({
   suppliers,
+  categories,
   onAddSupplier,
 }: CategoriesAndSuppliersModuleProps) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -62,7 +55,7 @@ export function CategoriesAndSuppliersModule({
       phone,
       email,
       leadTimeDays: Number(leadTimeDays) || 2,
-      suppliedCategories: ["Prescription Medicines", "OTC Medicines"],
+      suppliedCategories: categories.slice(0, 2).map((category) => category.name),
     };
 
     if (onAddSupplier) {
@@ -102,15 +95,13 @@ export function CategoriesAndSuppliersModule({
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {CATEGORIES.map((c, i) => (
-            <div key={i} className="p-4 rounded-2xl border border-border bg-card hover:border-teal/40 transition-all space-y-2 shadow-xs">
+          {categories.map((category) => (
+            <div key={category.id} className="p-4 rounded-2xl border border-border bg-card hover:border-teal/40 transition-all space-y-2 shadow-xs">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-sm text-foreground">{c.name}</h4>
-                <Badge variant="outline" className="text-xs font-bold font-mono text-teal">
-                  {c.count} Items
-                </Badge>
+                <h4 className="font-bold text-sm text-foreground">{category.name}</h4>
+                <Badge variant="outline" className="text-xs font-bold font-mono text-teal">Active</Badge>
               </div>
-              <p className="text-xs text-muted-foreground">{c.desc}</p>
+              <p className="text-xs text-muted-foreground">Managed dynamically by administrators.</p>
             </div>
           ))}
         </div>
