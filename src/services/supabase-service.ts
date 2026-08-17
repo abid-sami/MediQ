@@ -1048,3 +1048,52 @@ export async function createSupabaseAuditLog(payload: {
     return { data: null, error: err };
   }
 }
+
+// ============================================================================
+// 13. HOME FEEDBACK SERVICE
+// ============================================================================
+export type HomeFeedback = {
+  id: string;
+  name: string;
+  feedback: string;
+  createdAt: string;
+};
+
+export async function createSupabaseFeedback(payload: { name: string; feedback: string }) {
+  try {
+    const { data, error } = await supabase
+      .from("feedback")
+      .insert({ name: payload.name.trim(), feedback: payload.feedback.trim() })
+      .select("id, name, feedback, created_at")
+      .single();
+    return {
+      data: data ? { id: data.id, name: data.name, feedback: data.feedback, createdAt: data.created_at } : null,
+      error,
+    };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function fetchSupabaseFeedback(): Promise<HomeFeedback[]> {
+  try {
+    const { data, error } = await supabase
+      .from("feedback")
+      .select("id, name, feedback, created_at")
+      .order("created_at", { ascending: false });
+    if (error || !data) return [];
+    return data.map((item: any) => ({ id: item.id, name: item.name, feedback: item.feedback, createdAt: item.created_at }));
+  } catch (err) {
+    console.warn("fetchSupabaseFeedback error:", err);
+    return [];
+  }
+}
+
+export async function deleteSupabaseFeedback(feedbackId: string) {
+  try {
+    const { data, error } = await supabase.from("feedback").delete().eq("id", feedbackId);
+    return { data, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}

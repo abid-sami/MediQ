@@ -21,6 +21,7 @@ import {
   MapPin,
   FileText,
   CreditCard,
+  MessageSquare,
   Bell,
   BarChart,
   History,
@@ -64,6 +65,7 @@ import { BedsAndWardsMonitoringModule } from "./BedsAndWardsMonitoringModule";
 import { BloodBankMonitoringModule } from "./BloodBankMonitoringModule";
 import { PharmacyLabMonitoringModule } from "./PharmacyLabMonitoringModule";
 import { AdminPharmacyManagementModule } from "./AdminPharmacyManagementModule";
+import { FeedbackInboxModule } from "../FeedbackInboxModule";
 import { AuditLogsAndSettingsModule } from "./AuditLogsAndSettingsModule";
 
 export type AdminTab =
@@ -90,6 +92,7 @@ export type AdminTab =
   | "prescriptions"
   | "medical-records"
   | "billing"
+  | "feedback"
   | "notifications"
   | "reports"
   | "audit-logs"
@@ -305,6 +308,7 @@ export function AdminLayout() {
         { id: "prescriptions", label: "Prescriptions", icon: FileText },
         { id: "medical-records", label: "Medical Records", icon: FileText },
         { id: "billing", label: "Billing", icon: CreditCard },
+        { id: "feedback", label: "Feedback", icon: MessageSquare },
       ],
     },
     {
@@ -536,6 +540,7 @@ export function AdminLayout() {
           )}
 
           {activeTab === "pharmacy" && <AdminPharmacyManagementModule />}
+          {activeTab === "feedback" && <FeedbackInboxModule />}
 
           {(activeTab === "diagnostics" ||
             activeTab === "prescriptions" ||

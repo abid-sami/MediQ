@@ -12,6 +12,7 @@ import {
   Stethoscope,
   Bed,
   CreditCard,
+  MessageSquare,
   Siren,
   Bell,
   User,
@@ -57,6 +58,7 @@ import { ReceptionistAppointmentsModule } from "./ReceptionistAppointmentsModule
 import { FrontDeskBillingModule } from "./FrontDeskBillingModule";
 import { EmergencyArrivalsModule } from "./EmergencyArrivalsModule";
 import { ReceptionistProfileModule } from "./ReceptionistProfileModule";
+import { FeedbackInboxModule } from "../FeedbackInboxModule";
 
 export type ReceptionistTab =
   | "dashboard"
@@ -67,6 +69,7 @@ export type ReceptionistTab =
   | "admissions"
   | "beds"
   | "billing"
+  | "feedback"
   | "emergency"
   | "notifications"
   | "profile";
@@ -256,6 +259,7 @@ export function ReceptionistLayout() {
     { id: "admissions", label: "Admissions", icon: Bed, badge: admissions.length },
     { id: "beds", label: "Beds Matrix", icon: Bed },
     { id: "billing", label: "Billing", icon: CreditCard, badge: bills.filter((b) => b.paymentStatus === "Pending").length },
+    { id: "feedback", label: "Feedback", icon: MessageSquare },
     { id: "emergency", label: "Emergency", icon: Siren, badge: 2 },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "profile", label: "Profile", icon: User },
@@ -473,6 +477,7 @@ export function ReceptionistLayout() {
           {activeTab === "emergency" && (
             <EmergencyArrivalsModule />
           )}
+          {activeTab === "feedback" && <FeedbackInboxModule />}
 
           {activeTab === "notifications" && (
             <FastCheckInModule

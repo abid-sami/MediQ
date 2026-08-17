@@ -1,4 +1,5 @@
 import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import { FeedbackForm } from "./FeedbackForm";
 
 const columns = [
   {
@@ -25,7 +26,9 @@ const socials = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-surface">
+    <>
+      <FeedbackForm />
+      <footer className="border-t border-border bg-surface">
       <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
           <div>
@@ -88,6 +91,7 @@ export function Footer() {
           <p className="text-xs text-muted-foreground">Made for better connected healthcare.</p>
         </div>
       </div>
-    </footer>
+      </footer>
+    </>
   );
 }

@@ -38,6 +38,7 @@ import {
 } from "@/data/doctor-schedule-store";
 
 import { useMediQActions } from "./actions-context";
+import { useAuth } from "@/hooks/use-auth";
 
 type Booking = {
   id: string;
@@ -54,6 +55,7 @@ type Booking = {
 
 export function AppointmentModal() {
   const { appointmentOpen, closeAppointment, preselectedDoctorId } = useMediQActions();
+  const { profile, user } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [category, setCategory] = useState("");
@@ -102,6 +104,13 @@ export function AppointmentModal() {
 
   // When opened from a doctor card ("Book Appointment" on a specific
   // doctor), prefill their department + selection instead of starting blank.
+  useEffect(() => {
+    if (appointmentOpen && profile) {
+      setName((current) => current || profile.name || user?.user_metadata?.full_name || "");
+      setPhone((current) => current || profile.phone || user?.user_metadata?.phone || "");
+    }
+  }, [appointmentOpen, profile, user]);
+
   useEffect(() => {
     if (appointmentOpen && preselectedDoctorId) {
       const doctor = getPatientDoctorCards().find((d) => d.id === preselectedDoctorId);
