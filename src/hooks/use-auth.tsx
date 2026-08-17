@@ -450,7 +450,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: mapped,
             age: data.age || null,
             gender: data.gender || "Not specified",
-            bloodGroup: data.bloodGroup || "O+",
+            bloodGroup: data.bloodGroup || "",
             address: data.address || "",
           },
         },
@@ -469,7 +469,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: mapped,
           age: data.age || null,
           gender: data.gender || "Not specified",
-          blood_group: data.bloodGroup || "O+",
+          blood_group: data.bloodGroup || null,
           address: data.address || "",
         });
       }

@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       email,
       phone,
       role,
-      blood_group: bloodGroup || "O+",
+      blood_group: bloodGroup || null,
       address: address || "",
       created_at: new Date().toISOString(),
     });

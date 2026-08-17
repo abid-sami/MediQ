@@ -98,20 +98,28 @@ export async function addDynamicMedicine(newMed: Omit<PharmacyMedicine, "id"> & 
 }
 
 export async function getDynamicPharmacyCategories(): Promise<PharmacyCategory[]> {
-  const { data, error } = await supabase
-    .from("pharmacy_categories")
-    .select("id, name, is_active, sort_order, created_at")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("name", { ascending: true });
-  if (error) throw error;
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    name: row.name,
-    isActive: row.is_active,
-    sortOrder: row.sort_order,
-    createdAt: row.created_at,
-  }));
+  try {
+    const { data, error } = await supabase
+      .from("pharmacy_categories")
+      .select("id, name, is_active, sort_order, created_at")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    if (error) {
+      console.warn("Supabase pharmacy categories fetch error:", error);
+      return [];
+    }
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      isActive: row.is_active,
+      sortOrder: row.sort_order,
+      createdAt: row.created_at,
+    }));
+  } catch (error) {
+    console.warn("Supabase pharmacy categories fetch note:", error);
+    return [];
+  }
 }
 
 export async function addDynamicPharmacyCategory(name: string): Promise<PharmacyCategory> {

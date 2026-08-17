@@ -44,11 +44,17 @@ export function Pharmacy() {
   useEffect(() => {
     let active = true;
     const loadMedicines = async () => {
-      const [data, categoryData] = await Promise.all([getDynamicMedicines(), getDynamicPharmacyCategories()]);
-      if (active) {
-        setMedicines(data);
-        setCategories(categoryData.map((category) => category.name));
-        setLoading(false);
+      try {
+        const [data, categoryData] = await Promise.all([
+          getDynamicMedicines().catch(() => []),
+          getDynamicPharmacyCategories().catch(() => []),
+        ]);
+        if (active) {
+          setMedicines(data);
+          setCategories(categoryData.map((category) => category.name));
+        }
+      } finally {
+        if (active) setLoading(false);
       }
     };
 
@@ -76,9 +82,9 @@ export function Pharmacy() {
         medicine.strength,
         medicine.category,
       ]
+        .map((value) => String(value || "").trim().toLocaleLowerCase())
         .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase();
+        .join(" ");
       const matchesQuery = searchTerms.every((term) => searchableText.includes(term));
       const matchesCat = selectedCategory === "All" || medicine.category === selectedCategory;
       return matchesQuery && matchesCat;

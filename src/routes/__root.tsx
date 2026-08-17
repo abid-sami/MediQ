@@ -14,7 +14,9 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/hooks/use-auth";
 import { MediQActionsProvider } from "@/components/mediq/actions-context";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { LanguageProvider } from "@/hooks/use-language";
 import { Toaster } from "@/components/ui/sonner";
+import { MediQAssistant } from "@/components/mediq/MediQAssistant";
 
 function NotFoundComponent() {
   return (
@@ -147,9 +149,12 @@ function RootComponent() {
       <AuthProvider>
         <MediQActionsProvider>
           <ThemeProvider>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-            <Toaster position="top-right" />
+            <LanguageProvider>
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+              <MediQAssistant />
+              <Toaster position="top-right" />
+            </LanguageProvider>
           </ThemeProvider>
         </MediQActionsProvider>
       </AuthProvider>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTheme } from "@/hooks/use-theme";
+import { LanguageToggle } from "../LanguageToggle";
 import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
@@ -408,7 +409,8 @@ export function DoctorLayout() {
 
             {/* Controls */}
             <div className="flex items-center gap-2">
-              <Button
+              <LanguageToggle />
+            <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleTheme}

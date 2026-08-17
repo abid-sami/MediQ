@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 import { useMediQActions } from "./actions-context";
 import { useAuth, getRouteForRole } from "@/hooks/use-auth";
+import { LanguageToggle } from "./LanguageToggle";
+import { useLanguage } from "@/hooks/use-language";
 
 function Logo() {
   return (
@@ -36,6 +38,7 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { openSos, openLogin, openRegister } = useMediQActions();
   const { user, role, signOut } = useAuth();
+  const { t } = useLanguage();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string>("#home");
@@ -82,7 +85,7 @@ export function Header() {
                   active === link.href && "text-foreground",
                 )}
               >
-                {link.label}
+                {t(link.label)}
                 {active === link.href ? (
                   <motion.span
                     layoutId="nav-active"
@@ -172,6 +175,7 @@ export function Header() {
               )}
             </>
           )}
+          <LanguageToggle />
           <Button
             variant="ghost"
             size="icon"
@@ -184,11 +188,11 @@ export function Header() {
 
           {!user ? (
             <>
-              <Button onClick={openLogin} variant="ghost" className="hidden rounded-full font-semibold md:inline-flex">
-                Login
+                  <Button onClick={openLogin} variant="ghost" className="hidden rounded-full font-semibold md:inline-flex">
+                {t("Login")}
               </Button>
               <Button onClick={openRegister} variant="outline" className="hidden rounded-full font-semibold md:inline-flex">
-                Register
+                {t("Register")}
               </Button>
             </>
           ) : (
@@ -206,8 +210,8 @@ export function Header() {
             className="relative rounded-full gradient-emergency font-semibold text-emergency-foreground hover:opacity-90"
           >
             <Siren className="h-4 w-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">Emergency SOS</span>
-            <span className="sr-only sm:hidden">Emergency SOS</span>
+            <span className="hidden sm:inline">{t("Emergency SOS")}</span>
+            <span className="sr-only sm:hidden">{t("Emergency SOS")}</span>
           </Button>
           <Button
             variant="ghost"
@@ -267,7 +271,7 @@ export function Header() {
                   }}
                   className="rounded-xl px-3 py-3 text-base font-medium text-foreground transition-colors hover:bg-primary/10"
                 >
-                  {link.label}
+                  {t(link.label)}
                 </motion.a>
               ))}
               

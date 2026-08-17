@@ -109,7 +109,7 @@ export async function registerWithSupabase(params: {
           role: params.role,
           age: params.age,
           gender: params.gender || "Not specified",
-          bloodGroup: params.bloodGroup || "O+",
+          bloodGroup: params.bloodGroup || "",
           address: params.address || "",
         },
       },
@@ -134,7 +134,7 @@ export async function registerWithSupabase(params: {
           role: params.role,
           age: params.age,
           gender: params.gender || "Not specified",
-          blood_group: params.bloodGroup || "O+",
+          blood_group: params.bloodGroup || null,
           address: params.address || "",
         });
         if (upsertError) {
