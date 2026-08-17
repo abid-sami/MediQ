@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { CheckCircle2, Crosshair, Loader2, MapPin, Navigation, Siren } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { emergencyTypes } from "@/data/mediq";
 import { createSupabaseSOS, fetchSupabaseProfiles } from "@/services/supabase-service";
 
 import { useMediQActions } from "./actions-context";
+import { useAuth } from "@/hooks/use-auth";
 
 type Dispatch = {
   requestId: string;
@@ -37,6 +38,7 @@ const statusFlow = ["Locating nearest ambulance", "Ambulance assigned", "On the 
 
 export function SOSModal() {
   const { sosOpen, closeSos } = useMediQActions();
+  const { profile, user } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
@@ -45,6 +47,13 @@ export function SOSModal() {
   const [submitting, setSubmitting] = useState(false);
   const [dispatch, setDispatch] = useState<Dispatch | null>(null);
   const [statusStep, setStatusStep] = useState(0);
+
+  useEffect(() => {
+    if (sosOpen && profile) {
+      setName((current) => current || profile.name || user?.user_metadata?.full_name || "");
+      setPhone((current) => current || profile.phone || user?.user_metadata?.phone || "");
+    }
+  }, [sosOpen, profile, user]);
 
   const reset = () => {
     setDispatch(null);

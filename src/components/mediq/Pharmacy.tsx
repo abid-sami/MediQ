@@ -65,11 +65,22 @@ export function Pharmacy() {
   const categoryFilters = ["All", ...categories];
 
   const results = useMemo(() => {
-    return medicines.filter((m) => {
-      const matchesQuery =
-        m.name.toLowerCase().includes(query.trim().toLowerCase()) ||
-        m.genericName.toLowerCase().includes(query.trim().toLowerCase());
-      const matchesCat = selectedCategory === "All" || m.category === selectedCategory;
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const searchTerms = normalizedQuery ? normalizedQuery.split(/\s+/) : [];
+
+    return medicines.filter((medicine) => {
+      const searchableText = [
+        medicine.name,
+        medicine.genericName,
+        medicine.brand,
+        medicine.strength,
+        medicine.category,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase();
+      const matchesQuery = searchTerms.every((term) => searchableText.includes(term));
+      const matchesCat = selectedCategory === "All" || medicine.category === selectedCategory;
       return matchesQuery && matchesCat;
     });
   }, [query, selectedCategory, medicines]);
@@ -88,7 +99,7 @@ export function Pharmacy() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search brand name, generic formulation, or medicine..."
+            placeholder="Search by name, generic, brand, strength, or category..."
             aria-label="Search medicines"
             className="h-14 rounded-2xl border-border bg-card pl-11 pr-4 text-base shadow-soft"
           />
