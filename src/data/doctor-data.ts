@@ -197,7 +197,7 @@ export const initialDoctorProfile: DoctorProfile = {
   qualification: "",
   experience: "",
   consultationFee: 0,
-  currency: "USD",
+  currency: "BDT",
   hospital: "",
   email: "",
   phone: "",

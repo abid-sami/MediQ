@@ -36,6 +36,9 @@ export interface ActiveEmergencyTrip {
   currentStep: EmergencyStepStatus;
   pickupCoords: { lat: number; lng: number };
   hospitalCoords: { lat: number; lng: number };
+  requestTime?: string;
+  assignedDriver?: string;
+  ambulanceStatus?: string;
 }
 
 export interface CompletedTripHistory {

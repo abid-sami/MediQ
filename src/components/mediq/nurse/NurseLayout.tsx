@@ -24,6 +24,7 @@ import {
   Stethoscope,
   Loader2,
   LogOut,
+  Home,
 } from "lucide-react";
 import {
   initialNurseProfile,
@@ -55,7 +56,7 @@ import { MedicationTasksModule } from "./MedicationTasksModule";
 import { BedManagementModule } from "./BedManagementModule";
 import { NurseAlertsModule } from "./NurseAlertsModule";
 import { NurseProfileModule } from "./NurseProfileModule";
-import { NotificationsModule } from "../doctor/NotificationsModule";
+import { DynamicNotificationsModule } from "../DynamicNotificationsModule";
 
 export type NurseTab =
   | "dashboard"
@@ -294,6 +295,10 @@ export function NurseLayout() {
           </div>
 
           <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-210px)]">
+            <a href="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-bold text-primary bg-primary/10 hover:bg-primary/15 transition-colors mb-1">
+              <Home className="h-4 w-4 shrink-0" />
+              <span>Home</span>
+            </a>
             {navItems.map((item) => {
               const IconComp = item.icon;
               const active = activeTab === item.id;
@@ -471,17 +476,12 @@ export function NurseLayout() {
             />
           )}
 
-          {activeTab === "notifications" && (
-            <NurseAlertsModule
-              alerts={alerts}
-              onResolveAlert={handleResolveAlert}
-            />
-          )}
+          {activeTab === "notifications" && <DynamicNotificationsModule userId={authProfile?.id} />}
 
           {activeTab === "profile" && (
             <NurseProfileModule
               profile={nurseProfile}
-              onUpdateProfile={setNurseProfile}
+              onUpdateProfile={(updated) => { setNurseProfile(updated); if (updated.id && updated.avatar) void updateSupabaseProfile(updated.id, { avatar_url: updated.avatar }); }}
             />
           )}
         </main>

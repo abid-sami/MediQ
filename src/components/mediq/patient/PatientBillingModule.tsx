@@ -1,3 +1,4 @@
+import { formatBDT } from "@/lib/currency";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +72,7 @@ export function PatientBillingModule({
 
     setServiceName("");
     setModalOpen(false);
-    toast.success(`New Invoice Created: ${newBill.invoiceNo} ($${newBill.amount})`);
+    toast.success(`New Invoice Created: ${newBill.invoiceNo} (${formatBDT(newBill.amount)})`);
   };
 
   return (
@@ -90,7 +91,7 @@ export function PatientBillingModule({
         <div className="flex items-center gap-3">
           <div className="bg-muted/40 p-3 rounded-xl border border-border">
             <span className="text-[10px] font-bold text-muted-foreground block uppercase">TOTAL OUTSTANDING DUE</span>
-            <span className="text-xl font-black text-destructive">${totalDue.toFixed(2)}</span>
+            <span className="text-xl font-black text-destructive">{formatBDT(totalDue)}</span>
           </div>
 
           <Button
@@ -128,7 +129,7 @@ export function PatientBillingModule({
                     </Badge>
                   </td>
                   <td className="p-4 text-muted-foreground">{b.date}</td>
-                  <td className="p-4 font-bold text-foreground">${b.amount.toFixed(2)}</td>
+                  <td className="p-4 font-bold text-foreground">{formatBDT(b.amount)}</td>
                   <td className="p-4">
                     <Badge
                       className={
@@ -147,11 +148,11 @@ export function PatientBillingModule({
                           size="sm"
                           onClick={() => {
                             onPayBill(b.id);
-                            toast.success(`Paid invoice ${b.invoiceNo} ($${b.amount.toFixed(2)})`);
+                            toast.success(`Paid invoice ${b.invoiceNo} (${formatBDT(b.amount)})`);
                           }}
                           className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl"
                         >
-                          Pay Now (${b.amount.toFixed(2)})
+                          Pay Now ({formatBDT(b.amount)})
                         </Button>
                       ) : (
                         <Button
@@ -211,7 +212,7 @@ export function PatientBillingModule({
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Amount ($USD) *</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Amount (BDT) *</Label>
                 <Input
                   type="number"
                   min={1}

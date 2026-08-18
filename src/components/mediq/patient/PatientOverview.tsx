@@ -1,3 +1,4 @@
+import { formatBDT } from "@/lib/currency";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -113,7 +114,7 @@ export function PatientOverview({
     {
       id: "bill",
       title: "Outstanding Bill",
-      value: `$${outstandingBillAmount.toFixed(2)}`,
+      value: formatBDT(outstandingBillAmount),
       sub: outstandingBillAmount > 0 ? "1 Pending Invoice" : "All invoices settled",
       icon: CreditCard,
       color: "text-purple-500",

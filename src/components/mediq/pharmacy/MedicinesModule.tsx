@@ -1,3 +1,4 @@
+import { formatBDT } from "@/lib/currency";
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -241,7 +242,7 @@ export function MedicinesModule({
               <div className="flex items-center justify-between text-xs">
                 <div>
                   <span className="text-muted-foreground block text-[10px]">PRICE & STOCK</span>
-                  <span className="font-bold text-foreground">${m.price.toFixed(2)}</span> —{" "}
+                  <span className="font-bold text-foreground">{formatBDT(m.price)}</span> —{" "}
                   <span className="font-semibold text-muted-foreground">{m.stock} Units</span>
                 </div>
 
@@ -327,7 +328,7 @@ export function MedicinesModule({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Price per Unit ($) *</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Price per Unit (BDT) *</Label>
                 <Input type="number" step="0.1" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="mt-1 rounded-xl text-xs" />
               </div>
               <div>
@@ -408,7 +409,7 @@ export function MedicinesModule({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs font-bold text-muted-foreground">Price ($)</Label>
+                  <Label className="text-xs font-bold text-muted-foreground">Price (BDT)</Label>
                   <Input
                     type="number"
                     step="0.1"

@@ -27,6 +27,8 @@ interface AmbulanceDriverDashboardProps {
   onUpdateStep: (newStep: EmergencyStepStatus) => void;
   onResetTrip: () => void;
   onNavigateToMap: () => void;
+  newRequestCount?: number;
+  onAcknowledgeRequests?: () => void;
 }
 
 const EMERGENCY_STEPS: EmergencyStepStatus[] = [
@@ -44,6 +46,8 @@ export function AmbulanceDriverDashboard({
   onUpdateStep,
   onResetTrip,
   onNavigateToMap,
+  newRequestCount = 0,
+  onAcknowledgeRequests,
 }: AmbulanceDriverDashboardProps) {
   if (!activeTrip) {
     return (
@@ -51,6 +55,12 @@ export function AmbulanceDriverDashboard({
         <div className="h-24 w-24 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center text-emerald-500 animate-pulse">
           <Radio className="h-10 w-10" />
         </div>
+        {newRequestCount > 0 && (
+          <button type="button" onClick={onAcknowledgeRequests} className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-left text-destructive shadow-soft">
+            <Siren className="h-5 w-5 animate-pulse" />
+            <span><strong>{newRequestCount} new SOS request{newRequestCount === 1 ? "" : "s"}</strong><span className="block text-xs font-medium">Tap to review the latest emergency details.</span></span>
+          </button>
+        )}
         <h2 className="text-2xl font-black tracking-tight text-foreground">
           No Active Emergency
         </h2>
@@ -159,6 +169,18 @@ export function AmbulanceDriverDashboard({
           <div className="p-3.5 rounded-xl bg-muted/20 border border-border space-y-1">
             <span className="text-xs text-muted-foreground block font-normal">PATIENT NAME</span>
             <p className="text-base font-bold text-foreground">{activeTrip.patientName}</p>
+            <p className="text-xs text-muted-foreground">Request ID: {activeTrip.requestId}</p>
+            {activeTrip.requestTime && <p className="text-xs text-muted-foreground">Requested: {new Date(activeTrip.requestTime).toLocaleString()}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3.5 rounded-xl bg-muted/20 border border-border space-y-1">
+              <span className="text-xs text-muted-foreground block font-normal">PHONE</span>
+              <p className="text-sm font-bold text-foreground">{activeTrip.patientPhone || "Not provided"}</p>
+            </div>
+            <div className="p-3.5 rounded-xl bg-muted/20 border border-border space-y-1">
+              <span className="text-xs text-muted-foreground block font-normal">EMERGENCY TYPE</span>
+              <p className="text-sm font-bold text-destructive">{activeTrip.emergencyType}</p>
+            </div>
           </div>
 
           <div className="p-3.5 rounded-xl bg-muted/20 border border-border space-y-1">

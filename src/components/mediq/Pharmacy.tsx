@@ -1,3 +1,4 @@
+import { formatBDT } from "@/lib/currency";
 import {
   Activity,
   ArrowRight,
@@ -185,7 +186,7 @@ export function Pharmacy() {
                   </div>
 
                   <div className="pt-4 border-t border-border flex items-center justify-between gap-3">
-                    <p className="text-lg font-black text-foreground">${medicine.price.toFixed(2)}</p>
+                    <p className="text-lg font-black text-foreground">{formatBDT(medicine.price)}</p>
                     <Link
                       to="/patient"
                       className="inline-flex items-center gap-1 text-xs font-bold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-3 py-1.5 rounded-xl transition-all"

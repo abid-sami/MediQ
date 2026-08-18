@@ -1,3 +1,4 @@
+import { formatBDT } from "@/lib/currency";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +46,7 @@ export function FrontDeskBillingModule({
 
     onCreateBill(newBill);
     setPatientName("");
-    toast.success(`Generated Invoice ${newBill.billId} for $${amount}`);
+    toast.success(`Generated Invoice ${newBill.billId} for ${formatBDT(amount)}`);
   };
 
   const pendingAmountTotal = bills
@@ -90,7 +91,7 @@ export function FrontDeskBillingModule({
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Amount ($)</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Amount (BDT)</Label>
                 <Input type="number" step="1" value={amount} onChange={(e) => setAmount(Number(e.target.value))} required className="mt-1 rounded-xl text-xs font-bold" />
               </div>
             </div>
@@ -124,7 +125,7 @@ export function FrontDeskBillingModule({
                     </td>
                     <td className="p-3.5 font-bold text-foreground">{b.patientName}</td>
                     <td className="p-3.5 max-w-xs text-muted-foreground">{b.services.join(", ")}</td>
-                    <td className="p-3.5 font-extrabold text-foreground text-sm">${b.amount.toFixed(2)}</td>
+                    <td className="p-3.5 font-extrabold text-foreground text-sm">{formatBDT(b.amount)}</td>
                     <td className="p-3.5">
                       <Badge
                         className={
@@ -142,7 +143,7 @@ export function FrontDeskBillingModule({
                           size="sm"
                           onClick={() => {
                             onMarkPaid(b.id);
-                            toast.success(`Collected $${b.amount} for ${b.billId}`);
+                            toast.success(`Collected ${formatBDT(b.amount)} for ${b.billId}`);
                           }}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg"
                         >

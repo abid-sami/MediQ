@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { Upload, Image, X, Loader2 } from "lucide-react";
 
 interface AvatarUploadProps {
@@ -49,7 +50,7 @@ export function AvatarUpload({
 
   const currentImage = preview || value;
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -72,7 +73,32 @@ export function AvatarUpload({
     setError(null);
     setIsUploading(true);
 
-    // Create preview
+    // Prefer a Supabase Storage URL so the profile image remains small and durable.
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file, {
+          cacheControl: "3600",
+          contentType: file.type,
+          upsert: false,
+        });
+        if (!uploadError) {
+          const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
+          if (data.publicUrl) {
+            setPreview(data.publicUrl);
+            onChange(data.publicUrl);
+            setIsUploading(false);
+            return;
+          }
+        }
+      }
+    } catch (storageError) {
+      console.warn("Avatar storage upload unavailable; using profile fallback:", storageError);
+    }
+
+    // Fallback keeps the selected image available for the profile save callback.
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;

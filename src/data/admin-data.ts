@@ -69,7 +69,7 @@ export interface AdminSOSItem {
   emergencyType: string;
   location: string;
   requestTime: string;
-  ambulanceStatus: "En Route" | "Dispatched" | "Arrived" | "Completed" | "Going to Pickup";
+  ambulanceStatus: string;
   assignedDriver: string;
   eta: string;
   destinationHospital: string;

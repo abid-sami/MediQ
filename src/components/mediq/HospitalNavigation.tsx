@@ -24,8 +24,12 @@ import {
   Share2,
   Maximize2,
   Building2,
+  Accessibility,
+  QrCode,
+  LocateFixed,
+  Footprints,
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +80,9 @@ export function HospitalNavigation() {
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [selectedEntrance, setSelectedEntrance] = useState<string>("Main Entrance");
   const [showRouteMode, setShowRouteMode] = useState(false);
+  const [routePreference, setRoutePreference] = useState<"shortest" | "accessible">("shortest");
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const qrVideoRef = useRef<HTMLVideoElement>(null);
   const [animatingStep, setAnimatingStep] = useState<number>(0);
 
   useEffect(() => {
@@ -118,14 +125,15 @@ export function HospitalNavigation() {
     );
   }, [locations, searchTerm]);
 
-  // Active route for the selected location and entrance
+  // Pick the fastest route, or the safest accessible route when requested.
   const activeRoute = useMemo(() => {
     if (!selectedLocation) return null;
-    const found = selectedLocation.predefinedRoutes.find(
-      (r) => r.fromEntrance === selectedEntrance
-    );
-    return found || selectedLocation.predefinedRoutes[0] || null;
-  }, [selectedLocation, selectedEntrance]);
+    const candidates = selectedLocation.predefinedRoutes.filter((r) => r.fromEntrance === selectedEntrance);
+    const fallback = selectedLocation.predefinedRoutes;
+    const routes = candidates.length > 0 ? candidates : fallback;
+    const accessible = routes.filter((r: any) => r.accessible !== false && !r.steps.some((step: string) => /staircase|stairs/i.test(step)));
+    return [...(routePreference === "accessible" && accessible.length > 0 ? accessible : routes)].sort((a, b) => a.estimatedMinutes - b.estimatedMinutes)[0] || null;
+  }, [selectedLocation, selectedEntrance, routePreference]);
 
   // Animate route steps
   useEffect(() => {
@@ -151,6 +159,53 @@ export function HospitalNavigation() {
     handleSelectLocation(loc);
     setShowRouteMode(true);
   };
+
+  useEffect(() => {
+    if (!qrScannerOpen) return;
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+    const scan = async () => {
+      const BarcodeDetectorApi = (window as any).BarcodeDetector;
+      if (!BarcodeDetectorApi) {
+        toast.error("QR scanning is not supported in this browser. Use search instead.");
+        setQrScannerOpen(false);
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (!qrVideoRef.current || cancelled) return;
+        qrVideoRef.current.srcObject = stream;
+        await qrVideoRef.current.play();
+        const detector = new BarcodeDetectorApi({ formats: ["qr_code"] });
+        const read = async () => {
+          if (cancelled || !qrVideoRef.current) return;
+          const codes = await detector.detect(qrVideoRef.current);
+          const value = codes[0]?.rawValue as string | undefined;
+          if (value) {
+            const match = locations.find((loc) => value.includes(loc.id) || value.toLowerCase().includes(loc.name.toLowerCase()) || value.includes(loc.roomNumber));
+            if (match) {
+              handleSelectLocation(match);
+              toast.success(`Location detected: ${match.name}`);
+            } else {
+              toast.error("QR code does not match a MediQ hospital location.");
+            }
+            setQrScannerOpen(false);
+            return;
+          }
+          window.setTimeout(read, 400);
+        };
+        void read();
+      } catch {
+        toast.error("Camera access was denied. Use search or floor selection instead.");
+        setQrScannerOpen(false);
+      }
+    };
+    void scan();
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [qrScannerOpen, locations]);
 
   const handleShareRoute = () => {
     if (!selectedLocation) return;
@@ -249,6 +304,15 @@ export function HospitalNavigation() {
               );
             })}
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant={routePreference === "shortest" ? "default" : "outline"} onClick={() => setRoutePreference("shortest")} className="h-9 rounded-xl text-xs font-bold"><Footprints className="mr-1.5 h-3.5 w-3.5" /> Shortest Route</Button>
+            <Button type="button" variant={routePreference === "accessible" ? "default" : "outline"} onClick={() => setRoutePreference("accessible")} className="h-9 rounded-xl text-xs font-bold"><Accessibility className="mr-1.5 h-3.5 w-3.5" /> Wheelchair Route</Button>
+            <Button type="button" variant="outline" onClick={() => setQrScannerOpen(true)} className="h-9 rounded-xl text-xs font-bold"><QrCode className="mr-1.5 h-3.5 w-3.5" /> Scan Location QR</Button>
+          </div>
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><LocateFixed className="h-3.5 w-3.5 text-primary" /> Start: {selectedEntrance}</span>
         </div>
 
         {/* Main Grid: Interactive Map (Left) & Location Details / Route (Right) */}
@@ -544,6 +608,11 @@ export function HospitalNavigation() {
                   )}
                 </div>
 
+                <div className="flex items-center justify-between gap-2 rounded-xl bg-primary/5 px-3 py-2 text-xs font-semibold text-primary">
+                  <span>{routePreference === "accessible" ? "Wheelchair-accessible route" : "Shortest available route"}</span>
+                  <span>~{activeRoute?.estimatedMinutes || 2} min</span>
+                </div>
+
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2 pt-2">
                   <Button
@@ -575,6 +644,15 @@ export function HospitalNavigation() {
           </div>
         </div>
       </div>
+      <Dialog open={qrScannerOpen} onOpenChange={setQrScannerOpen}>
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><QrCode className="h-5 w-5 text-primary" /> Scan MediQ Location QR</DialogTitle></DialogHeader>
+          <div className="overflow-hidden rounded-2xl border border-border bg-black">
+            <video ref={qrVideoRef} className="aspect-video w-full object-cover" muted playsInline />
+          </div>
+          <p className="text-xs text-muted-foreground">Point your camera at a MediQ location QR code to set your current location and open the matching destination.</p>
+        </DialogContent>
+      </Dialog>
     </Section>
   );
 }

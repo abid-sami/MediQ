@@ -863,6 +863,8 @@ export async function fetchSupabaseSOS() {
       assignedDriver: s.assigned_driver,
       eta: s.eta,
       ambulanceStatus: s.ambulance_status,
+      requestTime: s.created_at || "",
+      createdAt: s.created_at || "",
     }));
   } catch (e) {
     console.warn("fetchSupabaseSOS error:", e);
@@ -893,9 +895,7 @@ export async function createSupabaseSOS(payload: {
         assigned_driver: payload.assignedDriver,
         eta: payload.eta,
         ambulance_status: "Going to Pickup",
-      })
-      .select()
-      .single();
+      });
 
     return { data, error };
   } catch (err: any) {
@@ -913,7 +913,103 @@ export async function updateSupabaseSOSStatus(requestId: string, status: string)
 }
 
 // ============================================================================
-// 11. PROFILES SERVICE (staff & patient directory)
+// 11. RESQ ACCIDENT ALERTS SERVICE
+// ============================================================================
+
+export type ResQAccidentAlert = {
+  id: string;
+  alertId: string;
+  vehicleId: string;
+  vehiclePlate: string;
+  driverName: string;
+  driverPhone: string;
+  severity: string;
+  impactType: string;
+  location: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  occupants: number;
+  injuries: number;
+  fireRisk: boolean;
+  medicalAssistanceNeeded: boolean;
+  status: string;
+  createdAt: string;
+};
+
+function mapResQAlert(row: any): ResQAccidentAlert {
+  return {
+    id: String(row.id),
+    alertId: row.alert_id,
+    vehicleId: row.vehicle_id,
+    vehiclePlate: row.vehicle_plate || "",
+    driverName: row.driver_name || "",
+    driverPhone: row.driver_phone || "",
+    severity: row.severity || "High",
+    impactType: row.impact_type || "Collision",
+    location: row.location,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    occupants: Number(row.occupants || 0),
+    injuries: Number(row.injuries || 0),
+    fireRisk: Boolean(row.fire_risk),
+    medicalAssistanceNeeded: Boolean(row.medical_assistance_needed),
+    status: row.status || "New",
+    createdAt: row.created_at || "",
+  };
+}
+
+export async function fetchResQAccidentAlerts() {
+  try {
+    const { data, error } = await supabase.from("resq_accident_alerts").select("*").order("created_at", { ascending: false }).limit(50);
+    if (error) {
+      console.warn("fetchResQAccidentAlerts error:", error);
+      return [];
+    }
+    return (data || []).map(mapResQAlert);
+  } catch (error) {
+    console.warn("fetchResQAccidentAlerts error:", error);
+    return [];
+  }
+}
+
+export async function createDemoResQAccidentAlert() {
+  const alertId = `RESQ-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 89999)}`;
+  const payload = {
+    alert_id: alertId,
+    vehicle_id: `VEH-${Math.floor(100 + Math.random() * 900)}`,
+    vehicle_plate: `DHAKA-METRO-${Math.floor(10 + Math.random() * 90)}-${Math.floor(1000 + Math.random() * 9000)}`,
+    driver_name: "Demo ResQ Driver",
+    driver_phone: "+880 1700 000000",
+    severity: "Critical",
+    impact_type: "High-impact collision",
+    location: "Demo Accident Zone, Dhaka",
+    latitude: 23.8103,
+    longitude: 90.4125,
+    occupants: 3,
+    injuries: 2,
+    fire_risk: true,
+    medical_assistance_needed: true,
+    status: "New",
+  };
+  try {
+    const { data, error } = await supabase.from("resq_accident_alerts").insert(payload).select("*").single();
+    return { data: data ? mapResQAlert(data) : null, error };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+export async function updateResQAccidentStatus(alertId: string, status: string) {
+  try {
+    const { data, error } = await supabase.from("resq_accident_alerts").update({ status }).eq("alert_id", alertId).select("*").maybeSingle();
+    return { data: data ? mapResQAlert(data) : null, error };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+// ============================================================================
+// 12. PROFILES SERVICE (staff & patient directory)
 // ============================================================================
 
 function mapProfile(p: any) {
@@ -1095,5 +1191,103 @@ export async function deleteSupabaseFeedback(feedbackId: string) {
     return { data, error };
   } catch (err: any) {
     return { data: null, error: err };
+  }
+}
+
+// ============================================================================
+// 14. DYNAMIC MEDIQ NOTIFICATIONS
+// ============================================================================
+export interface SupabaseNotification {
+  id: string;
+  recipientId: string;
+  senderId?: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  createdAt: string;
+}
+
+function mapSupabaseNotification(row: any): SupabaseNotification {
+  return {
+    id: row.id,
+    recipientId: row.recipient_id,
+    senderId: row.sender_id || undefined,
+    title: row.title,
+    message: row.message,
+    type: row.notification_type || "general",
+    read: Boolean(row.read_at),
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchSupabaseNotifications(userId: string, limit = 100) {
+  try {
+    const { data, error } = await supabase
+      .from("mediq_notifications")
+      .select("*")
+      .eq("recipient_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return { data: (data || []).map(mapSupabaseNotification), error: null };
+  } catch (error: any) {
+    console.warn("fetchSupabaseNotifications error:", error);
+    return { data: [], error };
+  }
+}
+
+export async function sendSupabaseCustomNotification(payload: {
+  senderId?: string;
+  recipientIds: string[];
+  title: string;
+  message: string;
+  type?: string;
+}) {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const senderId = sessionData.session?.user.id || payload.senderId;
+    if (!senderId) throw new Error("Your authenticated session is not ready. Please sign in again.");
+    const recipientIds = Array.from(new Set(payload.recipientIds.filter(Boolean)));
+    if (recipientIds.length === 0) throw new Error("Select at least one recipient.");
+    if (!payload.title.trim() || !payload.message.trim()) throw new Error("Title and message are required.");
+    const { data, error } = await supabase.functions.invoke("send-mediq-notifications", {
+      body: {
+        recipientIds,
+        title: payload.title.trim(),
+        message: payload.message.trim(),
+        type: payload.type || "general",
+      },
+    });
+    const functionError = error || (data?.error ? { message: data.error } : null);
+    return { data: (data?.data || []).map(mapSupabaseNotification), error: functionError };
+  } catch (error: any) {
+    return { data: [], error };
+  }
+}
+
+export async function markSupabaseNotificationRead(notificationId: string, userId: string) {
+  try {
+    const { error } = await supabase
+      .from("mediq_notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", notificationId)
+      .eq("recipient_id", userId);
+    return { error };
+  } catch (error: any) {
+    return { error };
+  }
+}
+
+export async function markAllSupabaseNotificationsRead(userId: string) {
+  try {
+    const { error } = await supabase
+      .from("mediq_notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("recipient_id", userId)
+      .is("read_at", null);
+    return { error };
+  } catch (error: any) {
+    return { error };
   }
 }

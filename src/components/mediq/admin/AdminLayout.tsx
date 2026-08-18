@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +35,8 @@ import {
   ShieldCheck,
   Loader2,
   LogOut,
+  Home,
+  Radio,
 } from "lucide-react";
 import {
   initialAdminProfile,
@@ -67,6 +69,8 @@ import { BloodBankMonitoringModule } from "./BloodBankMonitoringModule";
 import { PharmacyLabMonitoringModule } from "./PharmacyLabMonitoringModule";
 import { AdminPharmacyManagementModule } from "./AdminPharmacyManagementModule";
 import { FeedbackInboxModule } from "../FeedbackInboxModule";
+import { ResQAccidentAlertsModule } from "../ResQAccidentAlertsModule";
+import { DynamicNotificationsModule } from "../DynamicNotificationsModule";
 import { AuditLogsAndSettingsModule } from "./AuditLogsAndSettingsModule";
 
 export type AdminTab =
@@ -82,6 +86,7 @@ export type AdminTab =
   | "pharmacists"
   | "blood-bank-staff"
   | "drivers"
+  | "resq"
   | "appointments"
   | "emergency"
   | "ambulances"
@@ -114,6 +119,7 @@ export function AdminLayout() {
   const [hospitals, setHospitals] = useState<NetworkHospital[]>([]);
   const [sosItems, setSosItems] = useState<AdminSOSItem[]>([]);
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
+  const seenSOSIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (authProfile) {
@@ -180,6 +186,38 @@ export function AdminLayout() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    let firstLoad = true;
+    let cancelled = false;
+    const refreshSOS = async () => {
+      const data = await fetchSupabaseSOS();
+      if (cancelled) return;
+      const items = (data || []).map((item: any) => ({
+        id: String(item.id || item.requestId),
+        requestId: item.requestId || String(item.id),
+        patientName: item.patientName || "Unknown patient",
+        patientPhone: item.patientPhone || "",
+        emergencyType: item.emergencyType || "General Emergency",
+        location: item.location || "Location pending",
+        requestTime: item.requestTime || item.createdAt || "",
+        ambulanceStatus: item.ambulanceStatus || "Going to Pickup",
+        assignedDriver: item.assignedDriver || "Awaiting dispatch",
+        eta: item.eta || "Pending",
+        destinationHospital: item.destinationHospital || "MediQ Hospital",
+      }));
+      const unseen = items.filter((item) => item.requestId && !seenSOSIds.current.has(item.requestId));
+      items.forEach((item) => seenSOSIds.current.add(item.requestId));
+      if (!firstLoad && unseen.length > 0) {
+        const newest = unseen[0];
+        toast.error(`New Emergency SOS: ${newest.patientName}`, { description: `${newest.emergencyType} • ${newest.location}` });
+      }
+      setSosItems(items);
+      firstLoad = false;
+    };
+    const interval = window.setInterval(() => void refreshSOS(), 8000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, []);
+
   const handleConfirmLogout = async () => {
     setLogoutConfirmOpen(false);
     await signOut();
@@ -229,6 +267,10 @@ export function AdminLayout() {
   };
 
   const navSections = [
+    {
+      group: "RESQ RESPONSE",
+      items: [{ id: "resq", label: "ResQ Alerts", icon: Radio }],
+    },
     {
       group: "OVERVIEW & CONTROL",
       items: [
@@ -365,6 +407,10 @@ export function AdminLayout() {
           </div>
 
           <nav className="p-3 space-y-4 overflow-y-auto max-h-[calc(100vh-210px)] text-xs">
+            <a href="/" onClick={() => setSidebarOpen(false)} className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl font-semibold text-primary bg-primary/10 hover:bg-primary/15 transition-colors">
+              <Home className="h-3.5 w-3.5 shrink-0" />
+              <span>Home</span>
+            </a>
             {navSections.map((sec, idx) => (
               <div key={idx} className="space-y-1">
                 <span className="text-[9px] font-extrabold uppercase tracking-wider text-muted-foreground px-2 block">
@@ -479,6 +525,8 @@ export function AdminLayout() {
 
         {/* Content Body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {activeTab === "resq" && <ResQAccidentAlertsModule showDemoButton />}
+
           {activeTab === "dashboard" && (
             <AdminOverview
               users={users}
@@ -553,10 +601,10 @@ export function AdminLayout() {
 
           {(activeTab === "audit-logs" ||
             activeTab === "settings" ||
-            activeTab === "reports" ||
-            activeTab === "notifications") && (
+            activeTab === "reports") && (
             <AuditLogsAndSettingsModule logs={logs} />
           )}
+          {activeTab === "notifications" && <DynamicNotificationsModule userId={authProfile?.id} canCompose />}
         </main>
       </div>
 

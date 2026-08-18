@@ -25,6 +25,8 @@ import {
   UserPlus,
   Loader2,
   LogOut,
+  Home,
+  Radio,
 } from "lucide-react";
 import {
   initialReceptionistProfile,
@@ -58,6 +60,8 @@ import { AdmissionsAndBedsModule } from "./AdmissionsAndBedsModule";
 import { ReceptionistAppointmentsModule } from "./ReceptionistAppointmentsModule";
 import { FrontDeskBillingModule } from "./FrontDeskBillingModule";
 import { EmergencyArrivalsModule } from "./EmergencyArrivalsModule";
+import { ResQAccidentAlertsModule } from "../ResQAccidentAlertsModule";
+import { DynamicNotificationsModule } from "../DynamicNotificationsModule";
 import { ReceptionistProfileModule } from "./ReceptionistProfileModule";
 import { FeedbackInboxModule } from "../FeedbackInboxModule";
 
@@ -72,6 +76,7 @@ export type ReceptionistTab =
   | "billing"
   | "feedback"
   | "emergency"
+  | "resq"
   | "notifications"
   | "profile";
 
@@ -262,6 +267,7 @@ export function ReceptionistLayout() {
     { id: "billing", label: "Billing", icon: CreditCard, badge: bills.filter((b) => b.paymentStatus === "Pending").length },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
     { id: "emergency", label: "Emergency", icon: Siren, badge: 2 },
+    { id: "resq", label: "ResQ Alerts", icon: Radio },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "profile", label: "Profile", icon: User },
   ];
@@ -314,6 +320,10 @@ export function ReceptionistLayout() {
           </div>
 
           <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-210px)]">
+            <a href="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-bold text-primary bg-primary/10 hover:bg-primary/15 transition-colors mb-1">
+              <Home className="h-4 w-4 shrink-0" />
+              <span>Home</span>
+            </a>
             {navItems.map((item) => {
               const IconComp = item.icon;
               const active = activeTab === item.id;
@@ -477,21 +487,20 @@ export function ReceptionistLayout() {
           )}
 
           {activeTab === "emergency" && (
-            <EmergencyArrivalsModule />
+            <div className="space-y-6">
+              <ResQAccidentAlertsModule />
+              <EmergencyArrivalsModule />
+            </div>
           )}
+          {activeTab === "resq" && <ResQAccidentAlertsModule showDemoButton />}
           {activeTab === "feedback" && <FeedbackInboxModule />}
 
-          {activeTab === "notifications" && (
-            <FastCheckInModule
-              appointments={appointments}
-              onConfirmCheckIn={handleConfirmCheckIn}
-            />
-          )}
+          {activeTab === "notifications" && <DynamicNotificationsModule userId={authProfile?.id} canCompose />}
 
           {activeTab === "profile" && (
             <ReceptionistProfileModule
               profile={profile}
-              onUpdateProfile={setProfile}
+              onUpdateProfile={(updated) => { setProfile(updated); if (updated.id && updated.avatar) void updateSupabaseProfile(updated.id, { avatar_url: updated.avatar }); }}
             />
           )}
         </main>

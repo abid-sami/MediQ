@@ -1,3 +1,4 @@
+import { formatBDT } from "@/lib/currency";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,7 +127,7 @@ export function LabCatalogModule({
             </div>
 
             <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
-              <span className="font-bold text-foreground">${item.price.toFixed(2)}</span>
+              <span className="font-bold text-foreground">{formatBDT(item.price)}</span>
               <span className="text-muted-foreground flex items-center gap-1 font-mono">
                 <Clock className="h-3.5 w-3.5 text-amber-500" /> {item.processingTimeHours} Hour(s) TAT
               </span>
@@ -168,7 +169,7 @@ export function LabCatalogModule({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Price ($)</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Price (BDT)</Label>
                 <Input type="number" step="1" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="mt-1 rounded-xl text-xs font-bold" />
               </div>
               <div>

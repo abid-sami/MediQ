@@ -26,6 +26,7 @@ import {
   ChevronRight,
   LogOut,
   Loader2,
+  Home,
 } from "lucide-react";
 import {
   initialDoctorProfile,
@@ -67,7 +68,7 @@ import { LaboratoryModule } from "./LaboratoryModule";
 import { DiagnosticsModule } from "./DiagnosticsModule";
 import { ReportsModule } from "./ReportsModule";
 import { FollowUpsModule } from "./FollowUpsModule";
-import { NotificationsModule } from "./NotificationsModule";
+import { DynamicNotificationsModule } from "../DynamicNotificationsModule";
 import { DoctorProfileModule } from "./DoctorProfileModule";
 
 export type SidebarTab =
@@ -331,6 +332,10 @@ export function DoctorLayout() {
 
           {/* Menu Items */}
           <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
+            <a href="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-bold text-primary bg-primary/10 hover:bg-primary/15 transition-colors mb-1">
+              <Home className="h-4 w-4 shrink-0" />
+              <span>Home</span>
+            </a>
             {navItems.map((item) => {
               const IconComponent = item.icon;
               const active = activeTab === item.id;
@@ -573,24 +578,12 @@ export function DoctorLayout() {
             />
           )}
 
-          {activeTab === "notifications" && (
-            <NotificationsModule
-              notifications={notifications}
-              onMarkAllRead={() =>
-                setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-              }
-              onMarkRead={(id) =>
-                setNotifications((prev) =>
-                  prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-                )
-              }
-            />
-          )}
+          {activeTab === "notifications" && <DynamicNotificationsModule userId={authProfile?.id} />}
 
           {activeTab === "profile" && (
             <DoctorProfileModule
               profile={doctorProfile}
-              onUpdateProfile={setDoctorProfile}
+              onUpdateProfile={(updated) => { setDoctorProfile(updated); if (updated.id && updated.avatar) void updateSupabaseProfile(updated.id, { avatar_url: updated.avatar }); }}
             />
           )}
         </main>

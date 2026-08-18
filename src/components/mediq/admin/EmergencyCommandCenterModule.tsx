@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSOSItem } from "@/data/admin-data";
+import { ResQAccidentAlertsModule } from "../ResQAccidentAlertsModule";
 
 interface EmergencyCommandCenterModuleProps {
   sosItems: AdminSOSItem[];
@@ -79,6 +80,7 @@ export function EmergencyCommandCenterModule({
 
   return (
     <div className="space-y-6">
+      <ResQAccidentAlertsModule showDemoButton />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
@@ -187,15 +189,17 @@ export function EmergencyCommandCenterModule({
                 <h4 className="font-bold text-foreground text-sm leading-tight">{sos.emergencyType}</h4>
 
                 <div className="text-xs text-muted-foreground space-y-1">
-                  <p>Patient: <strong className="text-foreground">{sos.patientName}</strong> ({sos.patientPhone})</p>
+                  <p>Patient: <strong className="text-foreground">{sos.patientName}</strong> ({sos.patientPhone || "No phone provided"})</p>
+                  {sos.requestTime && <p>Requested: <strong className="text-foreground">{new Date(sos.requestTime).toLocaleString()}</strong></p>}
                   <p>Location: <strong className="text-foreground">{sos.location}</strong></p>
                   <p>Destination: <strong className="text-primary">{sos.destinationHospital}</strong></p>
                 </div>
 
-                <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs text-destructive font-bold">
-                  <span>Unit: {sos.assignedDriver}</span>
-                  <span>ETA: {sos.eta}</span>
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2 text-xs text-destructive font-bold">
+                  <span className="truncate">Unit: {sos.assignedDriver}</span>
+                  <span className="shrink-0">ETA: {sos.eta}</span>
                 </div>
+                {sos.patientPhone && <a href={`tel:${sos.patientPhone}`} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> Call Patient</a>}
               </div>
             ))}
           </div>

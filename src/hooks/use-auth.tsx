@@ -326,11 +326,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // 1. Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchCurrentProfile(
+        await fetchCurrentProfile(
           session.user.id,
           session.user.user_metadata,
           session.user.email

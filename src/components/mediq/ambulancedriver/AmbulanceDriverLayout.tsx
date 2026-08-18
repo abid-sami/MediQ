@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +17,9 @@ import {
   Navigation,
   Loader2,
   LogOut,
+  Bell,
+  BellRing,
+  Home,
 } from "lucide-react";
 import {
   initialAmbulanceDriverProfile,
@@ -27,16 +30,36 @@ import {
   CompletedTripHistory,
   EmergencyStepStatus,
 } from "@/data/ambulance-driver-data";
-import {
-  fetchSupabaseSOS,
-} from "@/services/supabase-service";
+import { toast } from "sonner";
+import { fetchSupabaseSOS, updateSupabaseSOSStatus } from "@/services/supabase-service";
 
 import { AmbulanceDriverDashboard } from "./AmbulanceDriverDashboard";
 import { AmbulanceLiveMapModule } from "./AmbulanceLiveMapModule";
 import { AmbulanceTripHistoryModule } from "./AmbulanceTripHistoryModule";
 import { AmbulanceDriverProfileModule } from "./AmbulanceDriverProfileModule";
+import { ResQAccidentAlertsModule } from "../ResQAccidentAlertsModule";
 
-export type AmbulanceTab = "dispatch" | "map" | "history" | "profile";
+export type AmbulanceTab = "dispatch" | "map" | "history" | "resq" | "profile";
+
+function sosStatusToStep(status?: string): EmergencyStepStatus {
+  switch (status) {
+    case "Going to Pickup":
+    case "Dispatched":
+      return "Going to Pickup";
+    case "Picked Up":
+    case "Patient Picked Up":
+      return "Patient Picked Up";
+    case "En Route":
+    case "Going to Hospital":
+      return "Going to Hospital";
+    case "Arrived":
+      return "Arrived";
+    case "Completed":
+      return "Completed";
+    default:
+      return "Request Received";
+  }
+}
 
 export function AmbulanceDriverLayout() {
   const { theme, toggleTheme } = useTheme();
@@ -46,8 +69,10 @@ export function AmbulanceDriverLayout() {
   const [loading, setLoading] = useState(true);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [profile, setProfile] = useState<AmbulanceDriverProfile>(initialAmbulanceDriverProfile);
-  const [activeTrip, setActiveTrip] = useState<ActiveEmergencyTrip | null>(initialActiveTrip);
+  const [activeTrip, setActiveTrip] = useState<ActiveEmergencyTrip | null>(null);
   const [history, setHistory] = useState<CompletedTripHistory[]>(initialTripHistory);
+  const [newRequestCount, setNewRequestCount] = useState(0);
+  const seenRequestIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (authProfile) {
@@ -61,36 +86,53 @@ export function AmbulanceDriverLayout() {
     }
   }, [authProfile]);
 
-  // Fetch SOS requests on mount
+  // Poll the shared SOS queue so drivers receive new requests without refreshing.
   useEffect(() => {
+    let firstLoad = true;
+    let cancelled = false;
     const loadData = async () => {
       try {
-        setLoading(true);
-
-        // Fetch SOS requests
         const sosData = await fetchSupabaseSOS();
-        if (sosData && sosData.length > 0) {
-          // Set the first SOS request as the active trip
-          const firstSOS = sosData[0];
+        if (cancelled) return;
+        const activeRequests = (sosData || []).filter((item: any) => !["Completed", "Cancelled"].includes(item.ambulanceStatus));
+        const unseen = activeRequests.filter((item: any) => item.requestId && !seenRequestIds.current.has(item.requestId));
+        activeRequests.forEach((item: any) => seenRequestIds.current.add(item.requestId));
+        if (!firstLoad && unseen.length > 0) {
+          setNewRequestCount((count) => count + unseen.length);
+          const newest = unseen[0];
+          toast.info(`New SOS request: ${newest.patientName || "Patient"}`, { description: `${newest.emergencyType || "Emergency"} • ${newest.location || "Location pending"}` });
+        }
+        if (!activeTrip && activeRequests.length > 0) {
+          const request = activeRequests[0];
           setActiveTrip({
-            requestId: firstSOS.requestId,
-            pickupLocation: firstSOS.location,
-            destinationHospital: firstSOS.destinationHospital,
-            patientName: firstSOS.patientName,
-            patientPhone: firstSOS.patientPhone,
-            emergencyType: firstSOS.emergencyType,
-            currentStep: "Going to Pickup",
+            id: String(request.id || request.requestId),
+            requestId: request.requestId,
+            pickupLocation: request.location || "Location pending",
+            destinationHospital: request.destinationHospital || "MediQ Hospital",
+            patientName: request.patientName || "Unknown patient",
+            patientPhone: request.patientPhone || "",
+            emergencyType: request.emergencyType || "General Emergency",
+            requestTime: request.requestTime,
+            assignedDriver: request.assignedDriver,
+            ambulanceStatus: request.ambulanceStatus,
+            etaMinutes: Number.parseInt(String(request.eta || "0"), 10) || 0,
+            distanceKm: 0,
+            currentStep: sosStatusToStep(request.ambulanceStatus),
+            pickupCoords: { lat: 23.8103, lng: 90.4125 },
+            hospitalCoords: { lat: 23.8103, lng: 90.4125 },
           });
         }
+        firstLoad = false;
       } catch (error) {
-        console.error("Error loading ambulance data:", error);
+        console.error("Error loading ambulance SOS data:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-
-    loadData();
-  }, []);
+    void loadData();
+    const interval = window.setInterval(() => void loadData(), 8000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [activeTrip]);
 
   const handleUpdateStep = (newStep: EmergencyStepStatus) => {
     if (!activeTrip) return;
@@ -109,7 +151,9 @@ export function AmbulanceDriverLayout() {
       setHistory((prev) => [newHistoryItem, ...prev]);
     }
 
-    setActiveTrip((prev) => (prev ? { ...prev, currentStep: newStep } : null));
+    setActiveTrip((prev) => (prev ? { ...prev, currentStep: newStep, ambulanceStatus: newStep } : null));
+    const databaseStatus = newStep === "Accepted" ? "Dispatched" : newStep === "Patient Picked Up" ? "Picked Up" : newStep === "Going to Hospital" ? "En Route" : newStep;
+    void updateSupabaseSOSStatus(activeTrip.requestId, databaseStatus);
   };
 
   const handleResetTrip = () => {
@@ -158,6 +202,16 @@ export function AmbulanceDriverLayout() {
 
           <div className="flex items-center gap-2">
             <LanguageToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { setNewRequestCount(0); setActiveTab("dispatch"); }}
+              className="relative rounded-full h-9 w-9"
+              aria-label="Emergency notifications"
+            >
+              {newRequestCount > 0 ? <BellRing className="h-5 w-5 text-destructive animate-pulse" /> : <Bell className="h-5 w-5" />}
+              {newRequestCount > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9px] font-black text-white">{newRequestCount}</span>}
+            </Button>
           <Button
               variant="ghost"
               size="icon"
@@ -178,11 +232,13 @@ export function AmbulanceDriverLayout() {
               <LogOut className="h-4 w-4" />
             </Button>
 
+            <Button variant="ghost" size="sm" onClick={() => setActiveTab("resq")} className={`h-8 rounded-xl px-2 text-xs font-bold ${activeTab === "resq" ? "text-orange-600" : "text-muted-foreground"}`}><Radio className="mr-1 h-3.5 w-3.5" /> ResQ</Button>
             <a
               href="/"
+              aria-label="Home"
               className="text-xs font-bold text-muted-foreground hover:text-foreground flex items-center gap-1 pl-1"
             >
-              Exit <ChevronRight className="h-3 w-3" />
+              Home <ChevronRight className="h-3 w-3" />
             </a>
           </div>
         </div>
@@ -190,13 +246,20 @@ export function AmbulanceDriverLayout() {
 
       {/* Main Body */}
       <main className="flex-1 p-4 sm:p-6 max-w-2xl w-full mx-auto">
+        {activeTab === "resq" && <ResQAccidentAlertsModule showDemoButton />}
+
         {activeTab === "dispatch" && (
-          <AmbulanceDriverDashboard
-            activeTrip={activeTrip}
+          <>
+            <ResQAccidentAlertsModule compact />
+            <AmbulanceDriverDashboard
+              activeTrip={activeTrip}
+              newRequestCount={newRequestCount}
+              onAcknowledgeRequests={() => setNewRequestCount(0)}
             onUpdateStep={handleUpdateStep}
             onResetTrip={handleResetTrip}
             onNavigateToMap={() => setActiveTab("map")}
           />
+          </>
         )}
 
         {activeTab === "map" && (
@@ -210,7 +273,7 @@ export function AmbulanceDriverLayout() {
         {activeTab === "profile" && (
           <AmbulanceDriverProfileModule
             profile={profile}
-            onUpdateProfile={setProfile}
+            onUpdateProfile={(updated) => { setProfile(updated); if (updated.id && updated.avatar) void updateSupabaseProfile(updated.id, { avatar_url: updated.avatar }); }}
           />
         )}
       </main>
@@ -247,6 +310,15 @@ export function AmbulanceDriverLayout() {
           <span>History</span>
         </button>
 
+        <button
+          onClick={() => setActiveTab("resq")}
+          className={`flex flex-col items-center gap-0.5 text-xs font-bold transition-colors ${
+            activeTab === "resq" ? "text-orange-600" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Radio className="h-5 w-5" />
+          <span>ResQ</span>
+        </button>
         <button
           onClick={() => setActiveTab("profile")}
           className={`flex flex-col items-center gap-0.5 text-xs font-bold transition-colors ${

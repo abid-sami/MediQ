@@ -1,3 +1,4 @@
+import { formatBDT } from "@/lib/currency";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -196,7 +197,7 @@ export function PharmacyOrdersModule({
                         ))}
                       </div>
                     </td>
-                    <td className="p-4 font-bold text-foreground">${o.totalAmount.toFixed(2)}</td>
+                    <td className="p-4 font-bold text-foreground">{formatBDT(o.totalAmount)}</td>
                     <td className="p-4">
                       <Badge
                         className={
@@ -299,7 +300,7 @@ export function PharmacyOrdersModule({
             </div>
 
             <div>
-              <Label className="text-xs font-bold text-muted-foreground">Total Price ($USD) *</Label>
+              <Label className="text-xs font-bold text-muted-foreground">Total Price (BDT) *</Label>
               <Input
                 type="number"
                 step="0.01"

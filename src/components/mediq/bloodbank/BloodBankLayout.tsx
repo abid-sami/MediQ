@@ -22,6 +22,7 @@ import {
   Stethoscope,
   Loader2,
   LogOut,
+  Home,
 } from "lucide-react";
 import {
   initialBloodBankStaffProfile,
@@ -53,7 +54,7 @@ import { DonorManagementModule } from "./DonorManagementModule";
 import { DonationsModule } from "./DonationsModule";
 import { ReservationsModule } from "./ReservationsModule";
 import { BloodBankProfileModule } from "./BloodBankProfileModule";
-import { NotificationsModule } from "../doctor/NotificationsModule";
+import { DynamicNotificationsModule } from "../DynamicNotificationsModule";
 
 export type BloodBankTab =
   | "dashboard"
@@ -337,6 +338,10 @@ export function BloodBankLayout() {
           </div>
 
           <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-210px)]">
+            <a href="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-bold text-primary bg-primary/10 hover:bg-primary/15 transition-colors mb-1">
+              <Home className="h-4 w-4 shrink-0" />
+              <span>Home</span>
+            </a>
             {navItems.map((item) => {
               const IconComp = item.icon;
               const active = activeTab === item.id;
@@ -486,21 +491,12 @@ export function BloodBankLayout() {
             <ReservationsModule reservations={reservations} />
           )}
 
-          {activeTab === "notifications" && (
-            <BloodRequestsModule
-              requests={requests}
-              onApprove={handleApproveRequest}
-              onReject={handleRejectRequest}
-              onReserve={handleReserveRequest}
-              onFulfill={handleFulfillRequest}
-              onAddRequest={handleAddRequest}
-            />
-          )}
+          {activeTab === "notifications" && <DynamicNotificationsModule userId={authProfile?.id} />}
 
           {activeTab === "profile" && (
             <BloodBankProfileModule
               profile={staffProfile}
-              onUpdateProfile={setStaffProfile}
+              onUpdateProfile={(updated) => { setStaffProfile(updated); if (updated.id && updated.avatar) void updateSupabaseProfile(updated.id, { avatar_url: updated.avatar }); }}
             />
           )}
         </main>

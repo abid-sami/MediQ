@@ -30,6 +30,7 @@ type Dispatch = {
   requestId: string;
   ambulanceId: string;
   driver: string;
+  driverPhone: string;
   eta: string;
   status: string;
 };
@@ -42,6 +43,7 @@ export function SOSModal() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [type, setType] = useState("");
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -61,6 +63,7 @@ export function SOSModal() {
     setName("");
     setPhone("");
     setLocation("");
+    setUserCoords(null);
     setType("");
   };
 
@@ -73,7 +76,9 @@ export function SOSModal() {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocation(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserCoords(coords);
+        setLocation(`${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`);
         setLocating(false);
         toast.success("Location detected");
       },
@@ -85,6 +90,26 @@ export function SOSModal() {
     );
   };
 
+  const calculateEtaMinutes = (coords: { lat: number; lng: number } | null) => {
+    if (!coords) return null;
+    const hospital = { lat: 23.8103, lng: 90.4125 };
+    const toRadians = (value: number) => (value * Math.PI) / 180;
+    const dLat = toRadians(hospital.lat - coords.lat);
+    const dLng = toRadians(hospital.lng - coords.lng);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(coords.lat)) * Math.cos(toRadians(hospital.lat)) * Math.sin(dLng / 2) ** 2;
+    const distanceKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.max(4, Math.ceil((distanceKm / 28) * 60 * 1.25));
+  };
+
+  const getLiveCoordinates = () => new Promise<{ lat: number; lng: number } | null>((resolve) => {
+    if (!("geolocation" in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 5000 },
+    );
+  });
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone || !location || !type) {
@@ -93,10 +118,17 @@ export function SOSModal() {
     }
     setSubmitting(true);
 
+    const liveCoords = userCoords || await getLiveCoordinates();
+    if (liveCoords && !userCoords) {
+      setUserCoords(liveCoords);
+      setLocation(`${liveCoords.lat.toFixed(5)}, ${liveCoords.lng.toFixed(5)}`);
+    }
+
     const drivers = await fetchSupabaseProfiles("Ambulance Driver");
     const assignedDriver = drivers.length > 0 ? drivers[Math.floor(Math.random() * drivers.length)] : null;
     const requestId = `SOS-${Math.floor(100000 + Math.random() * 899999)}`;
-    const eta = assignedDriver ? `${5 + Math.floor(Math.random() * 10)}` : "Pending";
+    const etaMinutes = calculateEtaMinutes(liveCoords);
+    const eta = etaMinutes ? `${etaMinutes}` : "Pending";
 
     const { data, error } = await createSupabaseSOS({
       requestId,
@@ -120,6 +152,7 @@ export function SOSModal() {
       requestId,
       ambulanceId: data?.id ? String(data.id).slice(0, 8).toUpperCase() : requestId,
       driver: assignedDriver?.name || "Dispatch coordinating nearest driver",
+      driverPhone: assignedDriver?.phone || "Not available",
       eta: eta === "Pending" ? "Pending" : `${eta} minutes`,
       status: statusFlow[0]!,
     });
@@ -278,7 +311,8 @@ export function SOSModal() {
                   ["Ambulance status", statusFlow[statusStep]!],
                   ["Estimated arrival", dispatch.eta === "Pending" ? "Pending" : dispatch.eta],
                   ["Assigned ambulance", dispatch.ambulanceId],
-                  ["Driver", dispatch.driver]] as [string, string][]
+                  ["Driver", dispatch.driver],
+                  ["Driver phone", dispatch.driverPhone]] as [string, string][]
                 ).map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between gap-3 px-4 py-3">
                     <dt className="text-sm text-muted-foreground">{label}</dt>
