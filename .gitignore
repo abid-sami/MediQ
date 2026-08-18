@@ -31,3 +31,6 @@ supabase_schema.sql
 *.njsproj
 *.sln
 *.sw?
+.env
+.env.*
+!.env.example
