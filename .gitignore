@@ -43,3 +43,6 @@ supabase_schema.sql
 .env
 .env.*
 !.env.example
+.env
+.env.*
+!.env.example
