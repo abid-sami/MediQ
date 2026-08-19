@@ -70,3 +70,9 @@
 - [x] Show footer Logout only for authenticated users.
 - [x] Merge nurse Wards and Beds into one sidebar item.
 - [x] Verify both navigation changes and package the refreshed ZIP.
+
+## Phone-number login
+
+- [x] Audit current email-password sign-in and profile phone fields.
+- [x] Add phone-number account lookup and sign-in flow without exposing account data.
+- [x] Validate the new login path and package the refreshed ZIP.

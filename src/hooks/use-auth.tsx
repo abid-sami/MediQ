@@ -196,6 +196,34 @@ export function getRouteForRole(role: UserRole): string {
   return role ? (routes[role] || "/") : "/";
 }
 
+function phoneCandidates(value: string) {
+  const raw = value.trim();
+  const digits = raw.replace(/\D/g, "");
+  const candidates = [raw, digits, digits ? `+${digits}` : ""];
+  if (digits.startsWith("88")) candidates.push(`0${digits.slice(2)}`);
+  if (digits.startsWith("0")) candidates.push(`88${digits}`);
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+async function resolveRegisteredEmailByPhone(phone: string) {
+  for (const candidate of phoneCandidates(phone)) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("phone", candidate)
+      .not("email", "is", null)
+      .limit(1)
+      .maybeSingle();
+
+    if (data?.email) return data.email.trim();
+    if (error && error.code !== "PGRST116") {
+      console.warn("Phone account lookup was unavailable:", error.message);
+      break;
+    }
+  }
+  return null;
+}
+
 // Define fetchProfile BEFORE AuthProvider so it can be used inside
 const fetchProfile = async (
   userId: string,
@@ -392,9 +420,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     selectedRole?: string
   ): Promise<{ error: Error | null; role?: UserRole }> => {
     try {
-      const email = emailOrPhone.includes("@")
-        ? emailOrPhone.trim()
-        : `${emailOrPhone.replace(/\D/g, "")}@mediq.health`;
+      const identifier = emailOrPhone.trim();
+      const phone = identifier.replace(/\D/g, "");
+      const email = identifier.includes("@")
+        ? identifier
+        : (await resolveRegisteredEmailByPhone(identifier)) || `${phone}@mediq.health`;
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -402,7 +432,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        return { error };
+        return { error: new Error("Unable to sign in with the provided email or phone number and password.") };
       }
 
       let activeRole: UserRole = null;

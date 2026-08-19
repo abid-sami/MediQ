@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — authentication is direct and low-friction, with clear choices for registered email or phone access.
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -217,14 +218,15 @@ export function AuthModal() {
             <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
               <div className="space-y-3">
                 <div>
-                  <Label className="text-xs font-bold text-muted-foreground">Email or Phone Number</Label>
+                  <Label className="text-xs font-bold text-muted-foreground">Email address or mobile number</Label>
                   <Input
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
-                    placeholder="patient@gmail.com or 017xxxxxxxxx"
+                    placeholder="name@example.com or 017xxxxxxxxx"
                     className="mt-1.5 rounded-xl text-xs font-semibold"
                   />
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">Use the same phone number saved when your MediQ account was registered.</p>
                 </div>
 
                 <div>
