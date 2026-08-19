@@ -76,3 +76,31 @@
 - [x] Audit current email-password sign-in and profile phone fields.
 - [x] Add phone-number account lookup and sign-in flow without exposing account data.
 - [x] Validate the new login path and package the refreshed ZIP.
+
+## Department persistence and Doctors panel
+
+- [x] Diagnose why newly created departments do not persist to the live data source.
+- [x] Save valid department records and surface them dynamically in the Doctors panel.
+- [x] Build, validate, and package the corrected source archive.
+
+## Department migration enum repair
+
+- [x] Replace the invalid `Super Admin` enum check with the supported administrative role value.
+- [x] Validate the revised migration and package the corrected source archive.
+
+## Doctor Profile department catalogue refresh
+
+- [x] Retrieve the shared department catalogue directly when the Doctor Profile opens or refreshes.
+- [x] Verify newly created admin departments are selectable in the Doctor Profile and package the updated ZIP.
+
+## Doctor Profile stale department fallback
+
+- [x] Remove the General Medicine cache fallback when the shared department catalogue is unavailable or still loading.
+- [x] Resolve the Doctor Profile loading state and verify the selector reflects the current admin catalogue.
+- [x] Build and package the corrected source archive.
+
+## Department catalogue access and profile controls
+
+- [x] Repair read access for the shared departments table.
+- [x] Remove the Doctor Profile department refresh control.
+- [x] Build, validate, and package the corrected source archive.

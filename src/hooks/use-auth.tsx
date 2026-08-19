@@ -29,6 +29,7 @@ export interface UserProfile {
   avatarUrl?: string;
   badgeId?: string;
   specialty?: string;
+  department?: string;
   licenseNo?: string;
   workingHours?: string;
   patientCapacity?: number;
@@ -295,6 +296,7 @@ const fetchProfile = async (
         avatarUrl: profileRow.avatar_url,
         badgeId: profileRow.badge_id,
         specialty: profileRow.specialty,
+        department: profileRow.department,
         licenseNo: profileRow.license_no,
         workingHours: profileRow.working_hours,
         patientCapacity: profileRow.patient_capacity,

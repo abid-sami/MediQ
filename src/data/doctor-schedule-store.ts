@@ -3,7 +3,7 @@
  * Allows doctors to set consultation hours, patient limits, vacation mode, and enables visitor booking with serial numbers.
  */
 
-import { fetchSupabaseProfiles } from "@/services/supabase-service";
+import { fetchSupabaseDepartments, fetchSupabaseProfiles } from "@/services/supabase-service";
 
 export interface DoctorScheduleConfig {
   doctorId: string;
@@ -219,7 +219,7 @@ export async function syncDoctorSchedulesFromProfiles(): Promise<Record<string, 
         doctorId: doc.id,
         doctorName: doc.name || "Doctor",
         specialization: doc.specialty || "General Physician",
-        department: doc.specialty || "General Medicine",
+        department: doc.department || doc.specialty || "General Medicine",
         startTime,
         endTime,
         dailyPatientLimit: doc.patientCapacity || 20,
@@ -244,14 +244,28 @@ export async function syncDepartmentsFromSchedules(): Promise<DepartmentItem[]> 
   if (typeof window === "undefined") return getDepartments();
 
   try {
+    const { data: liveDepartments, error: liveDepartmentError } = await fetchSupabaseDepartments();
     const schedules = await syncDoctorSchedulesFromProfiles();
-    const existingByName = new Map(getDepartments().map((d) => [d.name, d]));
     const countByDept = new Map<string, number>();
 
     for (const doc of Object.values(schedules)) {
       const deptName = doc.department || "General Medicine";
       countByDept.set(deptName, (countByDept.get(deptName) || 0) + 1);
     }
+
+    // Supabase is the authoritative catalogue whenever the departments
+    // migration is present. The cache retains the same records for fast
+    // loading and for a clear offline fallback when a deployment is pending.
+    if (!liveDepartmentError) {
+      const live = liveDepartments.map((department) => ({
+        ...department,
+        doctorCount: countByDept.get(department.name) || 0,
+      }));
+      saveDepartments(live);
+      return live;
+    }
+
+    const existingByName = new Map(getDepartments().map((d) => [d.name, d]));
 
     const merged: DepartmentItem[] = Array.from(countByDept.entries()).map(([deptName, count]) => {
       const existing = existingByName.get(deptName);

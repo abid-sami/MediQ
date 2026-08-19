@@ -1036,6 +1036,7 @@ function mapProfile(p: any) {
     avatarUrl: p.avatar_url,
     badgeId: p.badge_id,
     specialty: p.specialty,
+    department: p.department,
     licenseNo: p.license_no,
     workingHours: p.working_hours,
     patientCapacity: p.patient_capacity,
@@ -1111,7 +1112,99 @@ export async function deleteSupabaseProfile(userId: string) {
 }
 
 // ============================================================================
-// 12. AUDIT LOGS SERVICE
+// 13. DEPARTMENTS SERVICE
+// ============================================================================
+
+export type SupabaseDepartment = {
+  id: string;
+  name: string;
+  code: string;
+  headOfDepartment: string;
+  description: string;
+  doctorCount: number;
+};
+
+function mapDepartment(row: any): SupabaseDepartment {
+  return {
+    id: String(row.id),
+    name: row.name || "",
+    code: row.code || "",
+    headOfDepartment: row.head_of_department || "",
+    description: row.description || "",
+    doctorCount: Number(row.doctor_count || 0),
+  };
+}
+
+export async function fetchSupabaseDepartments() {
+  try {
+    const { data, error } = await supabase
+      .from("departments")
+      .select("*")
+      .order("name", { ascending: true });
+    return { data: (data || []).map(mapDepartment), error };
+  } catch (err: any) {
+    return { data: [] as SupabaseDepartment[], error: err };
+  }
+}
+
+export async function createSupabaseDepartment(payload: {
+  name: string;
+  code: string;
+  headOfDepartment?: string;
+  description?: string;
+  createdBy?: string;
+}) {
+  try {
+    const { data, error } = await supabase
+      .from("departments")
+      .insert({
+        name: payload.name.trim(),
+        code: payload.code.trim().toUpperCase(),
+        head_of_department: payload.headOfDepartment?.trim() || "",
+        description: payload.description?.trim() || "",
+        created_by: payload.createdBy || null,
+      })
+      .select()
+      .single();
+    return { data: data ? mapDepartment(data) : null, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSupabaseDepartment(
+  departmentId: string,
+  payload: { name: string; code: string; headOfDepartment?: string; description?: string },
+) {
+  try {
+    const { data, error } = await supabase
+      .from("departments")
+      .update({
+        name: payload.name.trim(),
+        code: payload.code.trim().toUpperCase(),
+        head_of_department: payload.headOfDepartment?.trim() || "",
+        description: payload.description?.trim() || "",
+      })
+      .eq("id", departmentId)
+      .select()
+      .single();
+    return { data: data ? mapDepartment(data) : null, error };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteSupabaseDepartment(departmentId: string) {
+  try {
+    const { error } = await supabase.from("departments").delete().eq("id", departmentId);
+    return { error };
+  } catch (err: any) {
+    return { error: err };
+  }
+}
+
+// ============================================================================
+// 14. AUDIT LOGS SERVICE
 // ============================================================================
 
 export async function fetchSupabaseAuditLogs() {

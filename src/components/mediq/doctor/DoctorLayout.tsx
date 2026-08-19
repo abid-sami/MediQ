@@ -1,4 +1,5 @@
 // Design: Guided Floorplan — clear clinical hierarchy, with a fixed end-of-sidebar exit action.
+/** MediQ Guided Floorplan: role-specific care operations with Route Blue navigation and live profile state. */
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,9 @@ import {
   fetchSupabaseAppointments,
   fetchSupabaseProfiles,
   fetchSupabaseLabOrders,
+  updateSupabaseProfile,
 } from "@/services/supabase-service";
+import { getDoctorSchedules, updateDoctorSchedule } from "@/data/doctor-schedule-store";
 
 import { DoctorOverview } from "./DoctorOverview";
 import { TodayAppointments } from "./TodayAppointments";
@@ -123,6 +126,9 @@ export function DoctorLayout() {
         avatar: authProfile.avatarUrl || prev.avatar,
         email: authProfile.email || prev.email,
         phone: authProfile.phone || prev.phone,
+        specialization: authProfile.specialty || prev.specialization,
+        department: authProfile.department || prev.department,
+        availableHours: authProfile.workingHours || prev.availableHours,
       }));
     }
   }, [authProfile]);
@@ -586,7 +592,54 @@ export function DoctorLayout() {
           {activeTab === "profile" && (
             <DoctorProfileModule
               profile={doctorProfile}
-              onUpdateProfile={(updated) => { setDoctorProfile(updated); if (updated.id && updated.avatar) void updateSupabaseProfile(updated.id, { avatar_url: updated.avatar }); }}
+              onUpdateProfile={async (updated) => {
+                if (!updated.id) {
+                  return { success: false, message: "Your account profile is not ready. Please refresh and try again." };
+                }
+
+                const profilePayload = {
+                  name: updated.name.trim(),
+                  email: updated.email.trim(),
+                  phone: updated.phone.trim(),
+                  avatar_url: updated.avatar || "",
+                  specialty: updated.specialization.trim() || null,
+                  department: updated.department.trim() || null,
+                  working_hours: updated.availableHours.trim() || null,
+                };
+                let { error } = await updateSupabaseProfile(updated.id, profilePayload);
+
+                // Keeps the panel usable while an older deployment is waiting
+                // for the departments migration, without masking unrelated
+                // Supabase failures.
+                if (error && /department/i.test(error.message || "")) {
+                  const fallback = await updateSupabaseProfile(updated.id, {
+                    name: profilePayload.name,
+                    email: profilePayload.email,
+                    phone: profilePayload.phone,
+                    avatar_url: profilePayload.avatar_url,
+                    specialty: profilePayload.specialty,
+                    working_hours: profilePayload.working_hours,
+                  });
+                  error = fallback.error;
+                }
+
+                if (error) {
+                  return { success: false, message: error.message || "Supabase rejected the profile update." };
+                }
+
+                setDoctorProfile(updated);
+                const currentSchedule = getDoctorSchedules()[updated.id];
+                if (currentSchedule) {
+                  updateDoctorSchedule({
+                    ...currentSchedule,
+                    doctorName: updated.name || currentSchedule.doctorName,
+                    specialization: updated.specialization || currentSchedule.specialization,
+                    department: updated.department || currentSchedule.department,
+                  });
+                }
+
+                return { success: true };
+              }}
             />
           )}
         </main>

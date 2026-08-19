@@ -1,3 +1,4 @@
+/** MediQ Guided Floorplan: doctor workload and availability remain tied to live clinical assignments. */
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,7 @@ export function DoctorOverview({
     doctorId,
     doctorName: authProfile?.name || "Doctor",
     specialization: authProfile?.specialty || "General Physician",
-    department: authProfile?.specialty || "General Medicine",
+    department: authProfile?.department || authProfile?.specialty || "General Medicine",
     startTime: "09:00 AM",
     endTime: "05:00 PM",
     dailyPatientLimit: 20,

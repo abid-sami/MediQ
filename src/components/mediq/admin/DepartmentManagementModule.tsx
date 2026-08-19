@@ -1,3 +1,4 @@
+/** MediQ Guided Floorplan: clear Route Blue clinical governance controls with durable live data. */
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,11 +27,20 @@ import {
   DepartmentItem,
   getDepartments,
   saveDepartments,
+  syncDepartmentsFromSchedules,
 } from "@/data/doctor-schedule-store";
+import {
+  createSupabaseDepartment,
+  deleteSupabaseDepartment,
+  updateSupabaseDepartment,
+} from "@/services/supabase-service";
+import { useAuth } from "@/hooks/use-auth";
 
 export function DepartmentManagementModule() {
   const [departments, setDepartments] = useState<DepartmentItem[]>(() => getDepartments());
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const { user } = useAuth();
 
   // Create Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -46,11 +56,23 @@ export function DepartmentManagementModule() {
   const [deletingDept, setDeletingDept] = useState<DepartmentItem | null>(null);
 
   useEffect(() => {
+    let isActive = true;
     const handleUpdate = () => {
-      setDepartments(getDepartments());
+      if (isActive) setDepartments(getDepartments());
     };
+
+    // SSR renders without browser storage. Hydrate the local cache after the
+    // client mounts, then replace it with the shared Supabase catalogue when
+    // the departments migration is available.
+    syncDepartmentsFromSchedules().then((nextDepartments) => {
+      if (isActive) setDepartments(nextDepartments);
+    });
+
     window.addEventListener("mediq_departments_updated", handleUpdate);
-    return () => window.removeEventListener("mediq_departments_updated", handleUpdate);
+    return () => {
+      isActive = false;
+      window.removeEventListener("mediq_departments_updated", handleUpdate);
+    };
   }, []);
 
   const filtered = departments.filter(
@@ -60,57 +82,122 @@ export function DepartmentManagementModule() {
       d.headOfDepartment.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !code.trim()) {
       toast.error("Please fill in Department Name and Code");
       return;
     }
 
-    const newDep: DepartmentItem = {
+    const normalizedName = name.trim();
+    const normalizedCode = code.trim().toUpperCase();
+    const alreadyExists = departments.some(
+      (department) =>
+        department.name.toLowerCase() === normalizedName.toLowerCase() ||
+        department.code.toUpperCase() === normalizedCode,
+    );
+    if (alreadyExists) {
+      toast.error("A department with this name or code already exists");
+      return;
+    }
+
+    const draft: DepartmentItem = {
       id: `dep-${Date.now()}`,
-      name: name.trim(),
-      code: code.trim().toUpperCase(),
+      name: normalizedName,
+      code: normalizedCode,
       headOfDepartment: headOfDepartment.trim() || "Unassigned",
       description: description.trim() || "Hospital clinical specialized department unit.",
       doctorCount: 0,
     };
 
-    const updated = [newDep, ...departments];
+    setIsSaving(true);
+    const { data, error } = await createSupabaseDepartment({
+      name: draft.name,
+      code: draft.code,
+      headOfDepartment: draft.headOfDepartment,
+      description: draft.description,
+      ...(user?.id ? { createdBy: user.id } : {}),
+    });
+    setIsSaving(false);
+
+    const savedDepartment = data ? { ...data, doctorCount: 0 } : draft;
+    const updated = [savedDepartment, ...departments];
     setDepartments(updated);
     saveDepartments(updated);
-
     setName("");
     setCode("");
     setHeadOfDepartment("");
     setDescription("");
     setCreateModalOpen(false);
 
-    toast.success(`Department "${newDep.name}" Created Successfully`, {
-      description: "Available immediately across MediQ platform for doctor assignment.",
+    if (error || !data) {
+      toast.warning(`Department "${draft.name}" saved on this device`, {
+        description: "Shared Supabase storage will be used as soon as the departments migration is applied.",
+      });
+      return;
+    }
+
+    toast.success(`Department "${savedDepartment.name}" Created Successfully`, {
+      description: "Available immediately across MediQ for doctor assignment.",
     });
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDept) return;
 
-    const updated = departments.map((d) =>
-      d.id === editingDept.id ? editingDept : d
+    const normalized = {
+      ...editingDept,
+      name: editingDept.name.trim(),
+      code: editingDept.code.trim().toUpperCase(),
+      headOfDepartment: editingDept.headOfDepartment.trim() || "Unassigned",
+      description: editingDept.description.trim() || "Hospital clinical specialized department unit.",
+    };
+    if (!normalized.name || !normalized.code) {
+      toast.error("Please fill in Department Name and Code");
+      return;
+    }
+
+    setIsSaving(true);
+    const { data, error } = await updateSupabaseDepartment(normalized.id, normalized);
+    setIsSaving(false);
+    const savedDepartment = data
+      ? { ...data, doctorCount: normalized.doctorCount }
+      : normalized;
+    const updated = departments.map((department) =>
+      department.id === normalized.id ? savedDepartment : department,
     );
     setDepartments(updated);
     saveDepartments(updated);
     setEditingDept(null);
 
-    toast.success(`Department "${editingDept.name}" Updated Successfully`);
+    if (error || !data) {
+      toast.warning(`Department "${normalized.name}" updated on this device`, {
+        description: "Shared Supabase storage will be used as soon as the departments migration is applied.",
+      });
+      return;
+    }
+
+    toast.success(`Department "${savedDepartment.name}" Updated Successfully`);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deletingDept) return;
+
+    setIsSaving(true);
+    const { error } = await deleteSupabaseDepartment(deletingDept.id);
+    setIsSaving(false);
     const updated = departments.filter((d) => d.id !== deletingDept.id);
     setDepartments(updated);
     saveDepartments(updated);
     setDeletingDept(null);
+
+    if (error) {
+      toast.warning(`Department "${deletingDept.name}" removed from this device`, {
+        description: "The shared record will be removed after the departments migration is applied.",
+      });
+      return;
+    }
 
     toast.success(`Department "${deletingDept.name}" Deleted`);
   };
@@ -263,9 +350,10 @@ export function DepartmentManagementModule() {
 
             <Button
               type="submit"
+              disabled={isSaving}
               className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2"
             >
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Save New Department
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> {isSaving ? "Saving Department..." : "Save New Department"}
             </Button>
           </form>
         </DialogContent>
@@ -323,10 +411,11 @@ export function DepartmentManagementModule() {
               </div>
 
               <Button
-                type="submit"
-                className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2"
-              >
-                Save Department Changes
+              type="submit"
+              disabled={isSaving}
+              className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2"
+            >
+                {isSaving ? "Saving Changes..." : "Save Department Changes"}
               </Button>
             </form>
           </DialogContent>
@@ -351,8 +440,8 @@ export function DepartmentManagementModule() {
               <Button variant="outline" size="sm" onClick={() => setDeletingDept(null)} className="rounded-xl text-xs">
                 Cancel
               </Button>
-              <Button variant="destructive" size="sm" onClick={handleDeleteConfirm} className="rounded-xl text-xs font-bold">
-                Delete Department
+              <Button variant="destructive" size="sm" disabled={isSaving} onClick={handleDeleteConfirm} className="rounded-xl text-xs font-bold">
+                {isSaving ? "Deleting..." : "Delete Department"}
               </Button>
             </div>
           </DialogContent>

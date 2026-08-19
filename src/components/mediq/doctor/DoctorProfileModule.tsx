@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+/** MediQ Guided Floorplan: practical, live clinical-profile controls with Route Blue clarity. */
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,15 +33,15 @@ import {
 import { toast } from "sonner";
 import { DoctorProfile } from "@/data/doctor-data";
 import {
-  getDepartments,
   getDoctorSchedules,
   toggleDoctorVacation,
   DepartmentItem,
 } from "@/data/doctor-schedule-store";
+import { fetchSupabaseDepartments } from "@/services/supabase-service";
 
 interface DoctorProfileModuleProps {
   profile: DoctorProfile;
-  onUpdateProfile: (updated: DoctorProfile) => void;
+  onUpdateProfile: (updated: DoctorProfile) => Promise<{ success: boolean; message?: string }>;
 }
 
 export function DoctorProfileModule({
@@ -48,7 +49,25 @@ export function DoctorProfileModule({
   onUpdateProfile,
 }: DoctorProfileModuleProps) {
   const [formData, setFormData] = useState<DoctorProfile & { age?: number; gender?: string }>(profile);
-  const [departments, setDepartments] = useState<DepartmentItem[]>(() => getDepartments());
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentLoadError, setDepartmentLoadError] = useState<string | null>(null);
+
+  const refreshDepartments = useCallback(async () => {
+    setDepartmentsLoading(true);
+    setDepartmentLoadError(null);
+    try {
+      const { data, error } = await fetchSupabaseDepartments();
+      if (error) {
+        setDepartments([]);
+        setDepartmentLoadError(error.message || "The shared department catalogue could not be loaded.");
+        return;
+      }
+      setDepartments(data);
+    } finally {
+      setDepartmentsLoading(false);
+    }
+  }, []);
 
   const docId = profile.id || "doc-101";
   const [onVacation, setOnVacation] = useState<boolean>(() => {
@@ -57,12 +76,21 @@ export function DoctorProfileModule({
   });
 
   useEffect(() => {
-    const handleDeptUpdate = () => {
-      setDepartments(getDepartments());
+    setFormData(profile);
+  }, [profile]);
+
+  useEffect(() => {
+    refreshDepartments().catch(() => {});
+
+    window.addEventListener("focus", refreshDepartments);
+    return () => {
+      window.removeEventListener("focus", refreshDepartments);
     };
-    window.addEventListener("mediq_departments_updated", handleDeptUpdate);
-    return () => window.removeEventListener("mediq_departments_updated", handleDeptUpdate);
-  }, []);
+  }, [refreshDepartments]);
+
+  const selectedDepartment = departments.some((department) => department.name === formData.department)
+    ? formData.department
+    : undefined;
 
   const handleVacationToggle = () => {
     const nextStatus = !onVacation;
@@ -85,11 +113,17 @@ export function DoctorProfileModule({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleProfileSave = (e: React.FormEvent) => {
+  const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateProfile(formData as DoctorProfile);
+    const result = await onUpdateProfile(formData as DoctorProfile);
+    if (!result.success) {
+      toast.error("Doctor Profile Could Not Be Saved", {
+        description: result.message || "Please try again.",
+      });
+      return;
+    }
     toast.success("Doctor Profile Details Updated", {
-      description: "Changes applied successfully across MediQ Doctor Portal",
+      description: "Your department and practice details are saved to MediQ.",
     });
   };
 
@@ -181,7 +215,7 @@ export function DoctorProfileModule({
                 BMDC Reg: <span className="font-mono">{formData.licenseNumber}</span> | Capacity: {formData.maxPatientsPerDay} Patients/Day
               </p>
               <p className="text-xs opacity-80 mt-0.5">
-                Age: {formData.age || 38} yrs | Gender: {formData.gender || "Male"} | Dept: {formData.department || "Cardiology"}
+                Age: {formData.age ?? "Not recorded"} | Gender: {formData.gender || "Not recorded"} | Dept: {formData.department || "Not assigned"}
               </p>
             </div>
           </div>
@@ -274,22 +308,32 @@ export function DoctorProfileModule({
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Department</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs font-bold text-muted-foreground">Department</Label>
+                </div>
                 <Select
-                  value={formData.department || "Cardiology"}
+                  value={selectedDepartment}
                   onValueChange={(val) => setFormData({ ...formData, department: val })}
+                  disabled={departmentsLoading || departments.length === 0}
                 >
                   <SelectTrigger className="mt-1.5 rounded-xl text-xs font-semibold">
-                    <SelectValue placeholder="Select Department" />
+                    <SelectValue placeholder={departmentsLoading ? "Loading departments..." : "Select Department"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.map((d) => (
+                    {departments.length === 0 ? (
+                      <SelectItem value="no-departments-available" disabled>No departments available</SelectItem>
+                    ) : departments.map((d) => (
                       <SelectItem key={d.id} value={d.name}>
                         {d.name} ({d.code})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {departmentLoadError && (
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-destructive" role="alert">
+                    The shared department catalogue is unavailable: {departmentLoadError}
+                  </p>
+                )}
               </div>
 
               <div>
