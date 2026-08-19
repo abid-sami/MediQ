@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — compact, quick-answer conversation that keeps waiting states clear and restrained.
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, Sparkles, X, Bot, UserRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -34,7 +35,7 @@ export function MediQAssistant() {
     setSending(true);
     try {
       const result = await askMediQAssistant({
-        data: { messages: nextMessages.map(({ role, content: text }) => ({ role, content: text })) },
+        data: { messages: nextMessages.slice(-5).map(({ role, content: text }) => ({ role, content: text })) },
       });
       setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: result.answer }]);
     } catch (error: any) {
@@ -65,13 +66,13 @@ export function MediQAssistant() {
                 {message.role === "user" && <span className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"><UserRound className="h-4 w-4" /></span>}
               </div>
             ))}
-            {sending && <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary"><Bot className="h-4 w-4" /></span><Loader2 className="h-4 w-4 animate-spin" /> Thinking...</div>}
+            {sending && <div className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite"><span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary"><Bot className="h-4 w-4" /></span><Loader2 className="h-4 w-4 animate-spin" /> Getting a quick answer...</div>}
             <div ref={endRef} />
           </div>
 
           {messages.length === 1 && <div className="flex gap-2 overflow-x-auto border-t border-border bg-card px-4 py-3 no-scrollbar">{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => void sendMessage(suggestion)} className="shrink-0 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10">{t(suggestion)}</button>)}</div>}
           <form onSubmit={(event) => { event.preventDefault(); void sendMessage(); }} className="flex gap-2 border-t border-border bg-card p-3">
-            <Input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask MediQ Assistant..." aria-label="Ask MediQ Assistant" className="h-11 rounded-2xl bg-background" disabled={sending} />
+            <Input value={input} onChange={(event) => setInput(event.target.value)} maxLength={1800} placeholder="Ask MediQ Assistant..." aria-label="Ask MediQ Assistant" className="h-11 rounded-2xl bg-background" disabled={sending} />
             <Button type="submit" size="icon" className="h-11 w-11 shrink-0 rounded-2xl" disabled={!input.trim() || sending} aria-label="Send message"><Send className="h-4 w-4" /></Button>
           </form>
         </section>

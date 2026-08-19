@@ -59,13 +59,13 @@ export function BloodRequestsModule({
   const [bloodGroup, setBloodGroup] = useState<BloodGroupType>("O+");
   const [unitsNeeded, setUnitsNeeded] = useState("2");
   const [hospitalName, setHospitalName] = useState("MediQ Central Hospital Ward 3B");
-  const [doctorName, setDoctorName] = useState("Dr. Sarah Rahman");
+  const [doctorName, setDoctorName] = useState("");
   const [urgency, setUrgency] = useState<RequestUrgency>("Urgent");
 
   const handleCreateRequest = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientName.trim()) {
-      toast.error("Please enter Patient Name");
+    if (!patientName.trim() || !doctorName.trim()) {
+      toast.error("Please enter the patient and prescribing physician names");
       return;
     }
 
@@ -360,7 +360,7 @@ export function BloodRequestsModule({
                 <Input
                   value={doctorName}
                   onChange={(e) => setDoctorName(e.target.value)}
-                  placeholder="e.g. Dr. Sarah Rahman"
+                  placeholder="Enter prescribing physician name"
                   className="mt-1 rounded-xl text-xs"
                 />
               </div>

@@ -19,8 +19,7 @@ export interface RegisteredPatient {
   patientId: string;
   name: string;
   phone: string;
-  dob: string;
-  age: number;
+  age?: number;
   gender: string;
   bloodGroup: string;
   address: string;

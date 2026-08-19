@@ -592,7 +592,7 @@ export function DigitalPrescriptionBuilder({
 
               <div className="text-center">
                 <div className="h-10 w-32 border-b border-slate-400 mb-1 flex items-center justify-center italic text-sm font-serif text-teal-800">
-                  Dr. Sarah Rahman
+                  {doctor.name || "Signature pending"}
                 </div>
                 <p className="text-xs font-bold text-slate-900">{doctor.name}</p>
                 <p className="text-[10px] text-slate-500">Authorized Medical Practitioner</p>

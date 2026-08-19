@@ -34,16 +34,6 @@ import {
 } from "lucide-react";
 import {
   initialPatientUser,
-  getPatientDoctorCards,
-  initialPatientAppointments,
-  initialMedicalRecords,
-  initialPatientPrescriptions,
-  initialPatientLabTests,
-  initialPatientPharmacyOrders,
-  initialPatientBloodRequests,
-  initialActiveAmbulance,
-  initialPatientBills,
-  initialPatientNotifications,
   PatientUserProfile,
   DoctorCard,
   PatientAppointment,
@@ -60,6 +50,9 @@ import {
   fetchSupabaseAppointments,
   fetchSupabasePharmacyOrders,
   fetchSupabaseLabOrders,
+  fetchSupabaseProfiles,
+  fetchSupabaseBloodRequests,
+  fetchSupabaseSOS,
 } from "@/services/supabase-service";
 
 import { PatientOverview } from "./PatientOverview";
@@ -103,15 +96,15 @@ export function PatientLayout() {
 
   // Global State
   const [patientUser, setPatientUser] = useState<PatientUserProfile>(initialPatientUser);
-  const [doctors, setDoctors] = useState<DoctorCard[]>(() => getPatientDoctorCards());
-  const [appointments, setAppointments] = useState<PatientAppointment[]>(initialPatientAppointments);
-  const [records, setRecords] = useState<MedicalRecordItem[]>(initialMedicalRecords);
-  const [prescriptions, setPrescriptions] = useState<PatientPrescription[]>(initialPatientPrescriptions);
-  const [labTests, setLabTests] = useState<PatientLabTest[]>(initialPatientLabTests);
-  const [pharmacyOrders, setPharmacyOrders] = useState<PatientPharmacyOrder[]>(initialPatientPharmacyOrders);
-  const [bloodRequests, setBloodRequests] = useState<PatientBloodRequest[]>(initialPatientBloodRequests);
-  const [ambulance, setAmbulance] = useState<ActiveAmbulance | null>(initialActiveAmbulance);
-  const [bills, setBills] = useState<PatientBill[]>(initialPatientBills);
+  const [doctors, setDoctors] = useState<DoctorCard[]>([]);
+  const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
+  const [records, setRecords] = useState<MedicalRecordItem[]>([]);
+  const [prescriptions, setPrescriptions] = useState<PatientPrescription[]>([]);
+  const [labTests, setLabTests] = useState<PatientLabTest[]>([]);
+  const [pharmacyOrders, setPharmacyOrders] = useState<PatientPharmacyOrder[]>([]);
+  const [bloodRequests, setBloodRequests] = useState<PatientBloodRequest[]>([]);
+  const [ambulance, setAmbulance] = useState<ActiveAmbulance | null>(null);
+  const [bills, setBills] = useState<PatientBill[]>([]);
 
   useEffect(() => {
     if (authProfile) {
@@ -128,82 +121,116 @@ export function PatientLayout() {
     }
   }, [authProfile]);
 
-  // Fetch data from Supabase on mount
   useEffect(() => {
-    const refreshDoctors = () => setDoctors(getPatientDoctorCards());
-    refreshDoctors();
-    window.addEventListener("mediq_schedule_updated", refreshDoctors);
-    window.addEventListener("mediq_slots_updated", refreshDoctors);
+    const patientName = authProfile?.name?.trim();
+    if (!patientName) {
+      setDoctors([]);
+      setAppointments([]);
+      setLabTests([]);
+      setPharmacyOrders([]);
+      setBloodRequests([]);
+      setAmbulance(null);
+      setLoading(false);
+      return;
+    }
 
-    return () => {
-      window.removeEventListener("mediq_schedule_updated", refreshDoctors);
-      window.removeEventListener("mediq_slots_updated", refreshDoctors);
-    };
-  }, []);
-
-  useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
       try {
         setLoading(true);
+        const [doctorProfiles, appointmentsData, ordersData, labData, bloodData, sosData] = await Promise.all([
+          fetchSupabaseProfiles("Doctor"),
+          fetchSupabaseAppointments(patientName),
+          fetchSupabasePharmacyOrders(patientName),
+          fetchSupabaseLabOrders(patientName),
+          fetchSupabaseBloodRequests(patientName),
+          fetchSupabaseSOS(patientName),
+        ]);
+        if (cancelled) return;
 
-        // Fetch patient appointments
-        const appointmentsData = await fetchSupabaseAppointments();
-        if (appointmentsData && appointmentsData.length > 0) {
-          const transformedAppointments = appointmentsData.map((a: any) => ({
-            id: a.id,
-            appointmentId: a.patientId,
-            doctorId: a.id,
-            doctorName: a.patientName,
-            doctorAvatar: "https://ibb.co.com/39NqwQCP",
-            category: a.department,
-            hospital: "MediQ Hospital",
-            date: a.appointmentTime?.split(" ")[0] || new Date().toLocaleDateString(),
-            time: a.appointmentTime || "10:00 AM",
-            status: a.status,
-            reason: "Consultation",
-            fee: 50,
-          }));
-          setAppointments(transformedAppointments);
-        }
-
-        // Fetch pharmacy orders
-        const ordersData = await fetchSupabasePharmacyOrders();
-        if (ordersData && ordersData.length > 0) {
-          const transformedOrders = ordersData.map((o: any) => ({
-            id: o.id,
-            orderId: o.orderId,
-            date: new Date().toLocaleDateString(),
-            medicines: o.medicines || [],
-            totalAmount: o.totalAmount,
-            status: o.orderStatus,
-          }));
-          setPharmacyOrders(transformedOrders);
-        }
-
-        // Fetch lab orders
-        const labData = await fetchSupabaseLabOrders();
-        if (labData && labData.length > 0) {
-          const transformedLabs = labData.map((l: any) => ({
-            id: l.id,
-            testId: l.testId,
-            testName: l.testName,
-            date: l.date,
-            status: l.status,
-            facility: "MediQ Lab",
-          }));
-          setLabTests(transformedLabs);
-        }
+        setDoctors(doctorProfiles.map((doctor: any) => ({
+          id: doctor.id,
+          name: doctor.name || "",
+          avatar: doctor.avatarUrl || "",
+          specialization: doctor.specialty || "",
+          category: doctor.specialty || "",
+          experience: doctor.licenseNo || "",
+          hospital: doctor.address || "",
+          consultationFee: 0,
+          rating: 0,
+          reviewsCount: 0,
+          availableDays: [],
+          availableTime: doctor.workingHours || "",
+        })));
+        setAppointments(appointmentsData.map((appointment: any) => ({
+          id: appointment.id,
+          appointmentId: appointment.appointmentId,
+          doctorId: appointment.doctorId || "",
+          doctorName: appointment.doctorName || "",
+          doctorAvatar: "",
+          category: appointment.department || appointment.specialty || "",
+          hospital: "",
+          date: appointment.appointmentDate || "",
+          time: appointment.appointmentTime || "",
+          status: appointment.status === "Completed" || appointment.status === "Cancelled" || appointment.status === "Rescheduled" ? appointment.status : "Confirmed",
+          reason: appointment.reason || "",
+          fee: appointment.fee || 0,
+        })));
+        setPharmacyOrders(ordersData.map((order: any) => ({
+          id: order.id,
+          orderNo: order.orderId,
+          date: order.orderTime || "",
+          items: (order.medicines || []).map((item: any) => ({ name: item.medicineName || item.name || "", qty: Number(item.quantity || item.qty || 0), price: Number(item.unitPrice || item.price || 0) })),
+          totalPrice: order.totalAmount || 0,
+          prescriptionRequired: order.prescriptionStatus === "Pending Verification",
+          prescriptionVerified: order.prescriptionStatus === "Verified",
+          status: order.orderStatus === "Delivered" || order.orderStatus === "Ready for Pickup" || order.orderStatus === "Out for Delivery" ? order.orderStatus : "Processing",
+          deliveryAddress: "",
+        })));
+        setLabTests(labData.map((test: any) => ({
+          id: test.id,
+          requisitionNo: test.testId,
+          testName: test.testName || "",
+          category: test.category || "",
+          facility: "",
+          bookedDate: test.date || "",
+          status: test.status === "Completed" || test.status === "Processing" ? test.status : "Booked",
+        })));
+        setBloodRequests(bloodData.map((request: any) => ({
+          id: request.id,
+          requestId: request.requestId,
+          bloodGroup: request.bloodGroup || "",
+          unitsNeeded: Number(request.unitsNeeded || 0),
+          hospital: request.hospitalName || "",
+          urgency: request.urgency === "Emergency" || request.urgency === "Urgent" ? request.urgency : "Routine",
+          requestedDate: request.requiredDate || "",
+          status: request.status === "Approved" || request.status === "Dispatched" || request.status === "Fulfilled" ? request.status : "Pending",
+        })));
+        const activeSOS = sosData.find((request: any) => request.ambulanceStatus !== "Completed");
+        setAmbulance(activeSOS ? {
+          id: activeSOS.id,
+          requestId: activeSOS.requestId,
+          status: activeSOS.ambulanceStatus === "Arrived" ? "Arrived" : "En Route",
+          driverName: activeSOS.assignedDriver || "",
+          driverPhone: "",
+          ambulanceUnit: "",
+          ambulanceType: activeSOS.emergencyType || "",
+          pickupLocation: activeSOS.location || "",
+          destination: activeSOS.destinationHospital || "",
+          etaMinutes: Number.parseInt(activeSOS.eta, 10) || 0,
+        } : null);
       } catch (error) {
         console.error("Error loading patient data:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    loadData();
-  }, []);
+    void loadData();
+    return () => { cancelled = true; };
+  }, [authProfile?.id, authProfile?.name]);
 
-  const unreadNotifs = 2;
+  const unreadNotifs = 0;
 
   const handleConfirmLogout = async () => {
     setLogoutConfirmOpen(false);
@@ -244,23 +271,14 @@ export function PatientLayout() {
     );
   };
 
-  const handleAddRecord = (rec: MedicalRecordItem) => {
-    setRecords((prev) => [rec, ...prev]);
-  };
-
   const handleAddLabTest = (test: PatientLabTest) => {
     setLabTests((prev) => [test, ...prev]);
-  };
-
-  const handleAddBill = (bill: PatientBill) => {
-    setBills((prev) => [bill, ...prev]);
   };
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "find-doctor", label: "Find Doctor", icon: Search },
     { id: "appointments", label: "Appointments", icon: Calendar, badge: appointments.length },
-    { id: "hospitals", label: "Hospitals", icon: Building2 },
     { id: "medical-records", label: "Medical Records", icon: FileText },
     { id: "prescriptions", label: "Prescriptions", icon: Pill, badge: prescriptions.length },
     { id: "diagnostics", label: "Diagnostics", icon: Microscope },
@@ -273,9 +291,9 @@ export function PatientLayout() {
     { id: "profile", label: "Profile", icon: User },
   ];
 
-  const outstandingBill = bills
+  const outstandingBills = bills
     .filter((b) => b.status === "Unpaid")
-    .reduce((acc, c) => acc + c.amount, 0);
+  const outstandingBill = outstandingBills.reduce((acc, c) => acc + c.amount, 0);
 
   const nextApt = appointments.find((a) => a.status === "Confirmed") || null;
 
@@ -456,6 +474,7 @@ export function PatientLayout() {
               bloodRequest={bloodRequests[0] || null}
               pharmacyOrder={pharmacyOrders[0] || null}
               outstandingBillAmount={outstandingBill}
+              outstandingBillCount={outstandingBills.length}
               onNavigateTab={(tab) => setActiveTab(tab as PatientTab)}
             />
           )}
@@ -464,6 +483,8 @@ export function PatientLayout() {
             <FindDoctorModule
               doctors={doctors}
               onBookAppointment={handleBookAppointment}
+              patientName={patientUser.name}
+              patientPhone={patientUser.contact}
             />
           )}
 
@@ -479,7 +500,6 @@ export function PatientLayout() {
           {(activeTab === "hospitals" || activeTab === "medical-records") && (
             <PatientMedicalRecordsModule
               records={records}
-              onAddRecord={handleAddRecord}
             />
           )}
 
@@ -494,6 +514,8 @@ export function PatientLayout() {
             <PatientLaboratoryModule
               labTests={labTests}
               onAddLabTest={handleAddLabTest}
+              patientName={patientUser.name}
+              patientAge={patientUser.age}
             />
           )}
 
@@ -501,8 +523,9 @@ export function PatientLayout() {
             <PatientPharmacyModule
               orders={pharmacyOrders}
               onNewOrder={handleNewPharmacyOrder}
-              onAddBill={handleAddBill}
               patientName={patientUser.name}
+              patientPhone={patientUser.contact}
+              initialDeliveryAddress={patientUser.address}
             />
           )}
 
@@ -516,11 +539,6 @@ export function PatientLayout() {
           {activeTab === "ambulance" && (
             <PatientAmbulanceModule
               ambulance={ambulance}
-              onRequestAmbulance={() => {
-                if (!ambulance) {
-                  setAmbulance(initialActiveAmbulance);
-                }
-              }}
             />
           )}
 
@@ -528,7 +546,6 @@ export function PatientLayout() {
             <PatientBillingModule
               bills={bills}
               onPayBill={handlePayBill}
-              onAddBill={handleAddBill}
             />
           )}
 

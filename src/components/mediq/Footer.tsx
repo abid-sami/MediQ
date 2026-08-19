@@ -1,20 +1,21 @@
-import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+// Design: Guided Floorplan — footer links provide a clear account exit without duplicating entry-point actions.
+import { Facebook, Instagram, Linkedin, LogOut, Twitter } from "lucide-react";
 import { FeedbackForm } from "./FeedbackForm";
+import { useAuth } from "@/hooks/use-auth";
 
 const columns = [
   {
     title: "Platform",
-    links: ["Hospitals", "Doctors", "Appointments", "Diagnostics", "Pharmacy", "Blood Bank"],
+    links: [
+      { label: "Hospitals", href: "/#hospitals" }, { label: "Doctors", href: "/#doctors" }, { label: "Appointments", href: "/#appointments" }, { label: "Diagnostics", href: "/#diagnostics" }, { label: "Pharmacy", href: "/#pharmacy" }, { label: "Blood Bank", href: "/#blood-bank" },
+    ],
   },
-  { title: "Emergency", links: ["SOS", "Ambulance", "Emergency Hospitals", "Blood Requests"] },
+  { title: "Emergency", links: [{ label: "Emergency", href: "/emergency" }, { label: "Ambulance", href: "/ambulance" }, { label: "Emergency Hospitals", href: "/emergency-hospitals" }, { label: "Blood Requests", href: "/blood-requests" }] },
   {
     title: "Account",
-    links: ["Login", "Register", "Patient Dashboard", "Appointments", "Medical Records"],
+    links: [{ label: "Patient Dashboard", href: "/patient" }, { label: "Appointments", href: "/#appointments" }, { label: "Medical Records", href: "/patient" }],
   },
-  {
-    title: "Support",
-    links: ["Help Center", "Contact", "Privacy Policy", "Terms & Conditions"],
-  },
+  { title: "Support", links: [{ label: "Help Center", href: "/help-center" }, { label: "Contact", href: "/contact" }, { label: "Privacy Policy", href: "/privacy-policy" }, { label: "Terms & Conditions", href: "/terms-and-conditions" }] },
 ];
 
 const socials = [
@@ -25,6 +26,13 @@ const socials = [
 ];
 
 export function Footer() {
+  const { user, signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    window.location.href = "/";
+  };
+
   return (
     <>
       <FeedbackForm />
@@ -72,15 +80,26 @@ export function Footer() {
               <h3 className="text-sm font-bold uppercase tracking-wide">{column.title}</h3>
               <ul className="mt-4 space-y-2.5">
                 {column.links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <a
-                      href="#home"
+                      href={link.href}
                       className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
                     >
-                      {link}
+                      {link.label}
                     </a>
                   </li>
                 ))}
+                {column.title === "Account" && user && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive transition-colors duration-200 hover:text-destructive/80"
+                    >
+                      <LogOut className="h-3.5 w-3.5" /> Logout
+                    </button>
+                  </li>
+                )}
               </ul>
             </nav>
           ))}

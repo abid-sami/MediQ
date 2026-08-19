@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+// Design: Guided Floorplan — emergency status reflects the live dispatch feed and never invents a vehicle, driver, or ETA.
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,28 +13,15 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
-import { toast } from "sonner";
 import { ActiveAmbulance } from "@/data/patient-data";
 
 interface PatientAmbulanceModuleProps {
   ambulance: ActiveAmbulance | null;
-  onRequestAmbulance: () => void;
 }
 
 export function PatientAmbulanceModule({
   ambulance,
-  onRequestAmbulance,
 }: PatientAmbulanceModuleProps) {
-  const [requested, setRequested] = useState(!!ambulance);
-
-  const handleTriggerSOS = () => {
-    setRequested(true);
-    onRequestAmbulance();
-    toast.error("EMERGENCY SOS AMBULANCE DISPATCHED", {
-      description: "Cardiac ALS Ambulance unit is en-route to your location.",
-    });
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -43,36 +31,13 @@ export function PatientAmbulanceModule({
             <Siren className="h-6 w-6 animate-pulse" /> Emergency Response & Ambulance Service
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            24/7 priority emergency response. Click below to instantly dispatch the nearest ICU ambulance unit.
+            View the current status of your live MediQ emergency dispatch.
           </p>
-        </div>
-      </div>
-
-      {/* Emergency CTA Card */}
-      <div className="p-8 rounded-3xl gradient-emergency text-emergency-foreground shadow-lift text-center space-y-4 relative overflow-hidden">
-        <div className="max-w-md mx-auto space-y-3">
-          <div className="inline-flex items-center justify-center p-4 rounded-full bg-white/20 backdrop-blur-md border border-white/30 animate-bounce">
-            <Siren className="h-10 w-10 text-white" />
-          </div>
-
-          <h3 className="text-2xl font-black tracking-tight text-white">
-            Need Immediate Medical Assistance?
-          </h3>
-          <p className="text-xs text-white/90 leading-relaxed">
-            Dispatch GPS-tracked Advanced Life Support (ALS) cardiac ambulance to your current location.
-          </p>
-
-          <Button
-            onClick={handleTriggerSOS}
-            className="w-full bg-white text-destructive hover:bg-white/90 font-black text-base py-6 rounded-2xl shadow-2xl transition-transform hover:scale-105"
-          >
-            🚨 REQUEST EMERGENCY AMBULANCE
-          </Button>
         </div>
       </div>
 
       {/* Live Tracking Dashboard */}
-      {requested && ambulance && (
+      {ambulance ? (
         <div className="bg-card border-2 border-destructive/40 rounded-2xl p-6 space-y-6 shadow-md">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
             <div>
@@ -85,7 +50,7 @@ export function PatientAmbulanceModule({
                 </Badge>
               </div>
               <h3 className="text-lg font-bold mt-1 text-foreground">
-                Ambulance En-Route to Your Address
+                Live Dispatch Status
               </h3>
             </div>
 
@@ -94,7 +59,7 @@ export function PatientAmbulanceModule({
               <div>
                 <span className="text-[10px] text-muted-foreground block">ESTIMATED ARRIVAL</span>
                 <span className="text-lg font-extrabold text-destructive">
-                  {ambulance.etaMinutes} MINS
+                  {ambulance.etaMinutes > 0 ? `${ambulance.etaMinutes} MINS` : "Awaiting update"}
                 </span>
               </div>
             </div>
@@ -104,16 +69,14 @@ export function PatientAmbulanceModule({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div className="p-3.5 rounded-xl bg-muted/30 border border-border">
               <span className="text-[10px] font-bold uppercase text-muted-foreground block">DRIVER</span>
-              <span className="font-bold text-sm text-foreground">{ambulance.driverName}</span>
-              <p className="text-[11px] text-primary font-bold mt-1 flex items-center gap-1">
-                <PhoneCall className="h-3 w-3" /> {ambulance.driverPhone}
-              </p>
+              <span className="font-bold text-sm text-foreground">{ambulance.driverName || "Awaiting assignment"}</span>
+              {ambulance.driverPhone && <p className="text-[11px] text-primary font-bold mt-1 flex items-center gap-1"><PhoneCall className="h-3 w-3" /> {ambulance.driverPhone}</p>}
             </div>
 
             <div className="p-3.5 rounded-xl bg-muted/30 border border-border">
               <span className="text-[10px] font-bold uppercase text-muted-foreground block">AMBULANCE UNIT</span>
-              <span className="font-bold text-sm text-foreground">{ambulance.ambulanceUnit}</span>
-              <p className="text-[11px] text-muted-foreground mt-1">{ambulance.ambulanceType}</p>
+              <span className="font-bold text-sm text-foreground">{ambulance.ambulanceUnit || "Awaiting assignment"}</span>
+              <p className="text-[11px] text-muted-foreground mt-1">{ambulance.ambulanceType || "Dispatch details pending"}</p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-muted/30 border border-border">
@@ -126,7 +89,7 @@ export function PatientAmbulanceModule({
             <div className="p-3.5 rounded-xl bg-muted/30 border border-border">
               <span className="text-[10px] font-bold uppercase text-muted-foreground block">DESTINATION</span>
               <span className="font-semibold text-foreground flex items-center gap-1">
-                <Navigation className="h-3.5 w-3.5 text-teal shrink-0" /> {ambulance.destination}
+                <Navigation className="h-3.5 w-3.5 text-teal shrink-0" /> {ambulance.destination || "Not yet confirmed"}
               </span>
             </div>
           </div>
@@ -138,10 +101,17 @@ export function PatientAmbulanceModule({
               <div className="inline-flex items-center justify-center p-3 rounded-full bg-red-500/20 text-red-400 ring-4 ring-red-500/30 animate-pulse">
                 <Navigation className="h-6 w-6" />
               </div>
-              <p className="text-xs font-bold text-white tracking-wider">LIVE GPS TRACKING ACTIVE</p>
-              <p className="text-[10px] text-slate-400">Driver Rashed Mia is 1.4 km away from Dhanmondi</p>
+              <p className="text-xs font-bold text-white tracking-wider">LIVE DISPATCH FEED</p>
+              <p className="text-[10px] text-slate-400">Location updates appear when they are published by the dispatch team.</p>
             </div>
           </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
+          <Siren className="h-9 w-9 text-destructive/70" />
+          <p className="text-base font-bold text-foreground">No active ambulance dispatch</p>
+          <p className="max-w-md text-xs text-muted-foreground">When MediQ receives and assigns an emergency request for your account, the live dispatch details will appear here.</p>
+          <Button asChild className="gradient-emergency text-white font-bold text-xs rounded-xl"><a href="/#emergency">Open Emergency SOS</a></Button>
         </div>
       )}
     </div>

@@ -120,7 +120,7 @@ export function AdminLayout() {
   const [hospitals, setHospitals] = useState<NetworkHospital[]>([]);
   const [sosItems, setSosItems] = useState<AdminSOSItem[]>([]);
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
-  const seenSOSIds = useRef<Set<string>>(new Set());
+  const seenSOSIds = React.useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (authProfile) {
@@ -349,9 +349,6 @@ export function AdminLayout() {
         { id: "diagnostics", label: "Diagnostics", icon: Microscope },
         { id: "pharmacy", label: "Pharmacy", icon: Pill },
         { id: "blood-bank", label: "Blood Bank", icon: Droplet },
-        { id: "prescriptions", label: "Prescriptions", icon: FileText },
-        { id: "medical-records", label: "Medical Records", icon: FileText },
-        { id: "billing", label: "Billing", icon: CreditCard },
         { id: "feedback", label: "Feedback", icon: MessageSquare },
       ],
     },
@@ -359,8 +356,6 @@ export function AdminLayout() {
       group: "PLATFORM GOVERNANCE",
       items: [
         { id: "notifications", label: "Notifications", icon: Bell },
-        { id: "reports", label: "Reports", icon: BarChart },
-        { id: "audit-logs", label: "Audit Logs", icon: History, badge: (logs || []).length },
         { id: "settings", label: "Settings", icon: Settings },
       ],
     },

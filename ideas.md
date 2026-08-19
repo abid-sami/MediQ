@@ -62,3 +62,9 @@ A geometric M/Q monogram shaped like a connected route marker: a solid blue path
 
 ### Signature Brand Color
 **MediQ Route Blue — #155EEF**.
+
+## Style Decisions
+
+- Every public informational route uses a route rail, destination pin, and current-destination cue so Guided Floorplan remains visible beyond the indoor map.
+- MediQ Route Blue is the primary action and navigation color; teal marks progress and active destinations; red is limited to genuine emergency or blood-critical actions.
+- Public pages bring the next meaningful action immediately below the route header rather than delaying it behind brochure-style spacing.

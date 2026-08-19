@@ -26,7 +26,7 @@ export interface NursePatient {
   ward: string;
   diagnosis: string;
   doctorName: string;
-  conditionStatus: "Stable" | "Monitoring" | "Critical" | "Guarded";
+  conditionStatus: "Stable" | "Monitoring" | "Critical" | "Guarded" | "Not recorded";
   currentMedications: string[];
   latestVitals: {
     bp: string;
@@ -83,6 +83,8 @@ export interface WardBed {
   bedNo: string;
   roomNo: string;
   wardName: string;
+  floorNumber?: number;
+  dailyRate?: number;
   patientName?: string;
   status: "Occupied" | "Available" | "Cleaning" | "Maintenance";
 }

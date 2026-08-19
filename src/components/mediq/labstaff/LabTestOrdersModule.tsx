@@ -60,15 +60,15 @@ export function LabTestOrdersModule({
   const [modalOpen, setModalOpen] = useState(false);
   const [patientName, setPatientName] = useState("");
   const [patientAge, setPatientAge] = useState("52");
-  const [doctorName, setDoctorName] = useState("Dr. Sarah Rahman");
+  const [doctorName, setDoctorName] = useState("");
   const [testName, setTestName] = useState("Lipid Profile & HbA1c");
   const [category, setCategory] = useState("Blood Tests");
   const [priority, setPriority] = useState<LabTestPriority>("Urgent");
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientName.trim()) {
-      toast.error("Please enter Patient Name");
+    if (!patientName.trim() || !doctorName.trim()) {
+      toast.error("Please enter the patient and ordering doctor names");
       return;
     }
 
@@ -267,7 +267,7 @@ export function LabTestOrdersModule({
                 <Input
                   value={doctorName}
                   onChange={(e) => setDoctorName(e.target.value)}
-                  placeholder="e.g. Dr. Sarah Rahman"
+                  placeholder="Enter ordering doctor name"
                   className="mt-1 rounded-xl text-xs"
                 />
               </div>

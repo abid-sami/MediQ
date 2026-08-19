@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — clear, compact navigation that prioritizes unambiguous controls at every viewport.
 import { AnimatePresence, motion } from "motion/react";
 import { Menu, Moon, Siren, Sun, X, Stethoscope, User, Activity, Pill, Droplet, Microscope, UserCheck, ShieldCheck, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -74,7 +75,7 @@ export function Header() {
       <div className="mx-auto grid w-full max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-8">
           <Logo />
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
+          <nav className="hidden items-center gap-1 xl:flex" aria-label="Main">
             {navLinks.map((link) => (
               <a
                 key={link.href}
@@ -188,10 +189,10 @@ export function Header() {
 
           {!user ? (
             <>
-                  <Button onClick={openLogin} variant="ghost" className="hidden rounded-full font-semibold md:inline-flex">
+                  <Button onClick={openLogin} variant="ghost" className="hidden rounded-full font-semibold xl:inline-flex">
                 {t("Login")}
               </Button>
-              <Button onClick={openRegister} variant="outline" className="hidden rounded-full font-semibold md:inline-flex">
+              <Button onClick={openRegister} variant="outline" className="hidden rounded-full font-semibold xl:inline-flex">
                 {t("Register")}
               </Button>
             </>
@@ -199,7 +200,7 @@ export function Header() {
             <Button
               onClick={() => setLogoutConfirmOpen(true)}
               variant="ghost"
-              className="hidden items-center gap-1.5 rounded-full font-semibold text-destructive hover:text-destructive md:inline-flex"
+              className="hidden items-center gap-1.5 rounded-full font-semibold text-destructive hover:text-destructive xl:inline-flex"
             >
               <LogOut className="h-4 w-4" /> Logout
             </Button>
@@ -216,7 +217,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full lg:hidden"
+            className="rounded-full xl:hidden"
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
@@ -255,7 +256,7 @@ export function Header() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden border-t border-border glass lg:hidden"
+            className="overflow-hidden border-t border-border glass xl:hidden"
           >
             <nav className="mx-auto flex w-full max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
               {navLinks.map((link, i) => (

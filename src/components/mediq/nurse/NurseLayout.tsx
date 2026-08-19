@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   Users,
   Building2,
-  Bed,
   Activity,
   FileText,
   Pill,
@@ -46,6 +45,9 @@ import {
 import {
   fetchSupabaseBeds,
   fetchSupabaseProfiles,
+  createSupabaseBed,
+  updateSupabaseBedStatus,
+  updateSupabaseProfile,
 } from "@/services/supabase-service";
 
 import { NurseOverview } from "./NurseOverview";
@@ -62,6 +64,7 @@ import { DynamicNotificationsModule } from "../DynamicNotificationsModule";
 export type NurseTab =
   | "dashboard"
   | "my-patients"
+  | "ward-beds"
   | "ward"
   | "beds"
   | "patient-vitals"
@@ -70,6 +73,20 @@ export type NurseTab =
   | "alerts"
   | "notifications"
   | "profile";
+
+function toWardBed(bed: any): WardBed {
+  const supportedStatuses: WardBed["status"][] = ["Occupied", "Available", "Cleaning", "Maintenance"];
+  return {
+    id: bed.id,
+    bedNo: bed.bedNumber || "Unnumbered bed",
+    roomNo: bed.floorNumber ? `Floor ${bed.floorNumber}` : "Floor not assigned",
+    wardName: bed.wardType || "Unassigned ward",
+    floorNumber: Number(bed.floorNumber) || undefined,
+    dailyRate: Number(bed.dailyRate) || 0,
+    patientName: bed.admittedPatientName || undefined,
+    status: supportedStatuses.includes(bed.status) ? bed.status : "Available",
+  };
+}
 
 export function NurseLayout() {
   const { theme, toggleTheme } = useTheme();
@@ -93,6 +110,12 @@ export function NurseLayout() {
   const [selectedPatient, setSelectedPatient] = useState<NursePatient | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
+  const refreshWardBeds = async () => {
+    const bedsData = await fetchSupabaseBeds();
+    setWardBeds(bedsData.map(toWardBed));
+    return bedsData;
+  };
+
   useEffect(() => {
     if (authProfile) {
       setNurseProfile((prev) => ({
@@ -114,46 +137,39 @@ export function NurseLayout() {
         setLoading(true);
 
         // Fetch beds
-        const bedsData = await fetchSupabaseBeds();
-        if (bedsData && bedsData.length > 0) {
-          // Transform to WardBed format
-          const transformedBeds = bedsData.map((b: any) => ({
-            id: b.id,
-            bedNumber: b.bedNumber,
-            wardType: b.wardType,
-            floorNumber: b.floorNumber,
-            dailyRate: b.dailyRate,
-            status: b.status,
-            admittedPatientName: b.admittedPatientName,
-            attendingDoctor: b.attendingDoctor,
-            admissionDate: b.admissionDate,
-          }));
-          setWardBeds(transformedBeds);
-        }
+        const bedsData = await refreshWardBeds();
 
         // Fetch patients
         const patientsData = await fetchSupabaseProfiles("Patient");
         if (patientsData && patientsData.length > 0) {
-          const transformedPatients = patientsData.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            age: 35,
-            gender: "Other",
-            bloodGroup: p.bloodGroup || "O+",
-            admission: p.email ? `${p.email}@hospital` : "ICU",
-            room: "Room A",
-            bed: "Bed 101",
-            attending: "Dr. Smith",
-            diagnosis: "General Care",
-            status: "Stable",
-            latestVitals: {
-              bp: "120/80 mmHg",
-              pulse: "75 bpm",
-              temp: "37°C",
-              spo2: "98%",
-            },
-          }));
+          const assignedBedByPatient = new Map(
+            bedsData.filter((bed: any) => bed.admittedPatientName).map((bed: any) => [String(bed.admittedPatientName).trim().toLowerCase(), bed])
+          );
+          const transformedPatients = patientsData
+            .filter((patient: any) => assignedBedByPatient.has(String(patient.name || "").trim().toLowerCase()))
+            .map((patient: any) => {
+              const assignedBed = assignedBedByPatient.get(String(patient.name || "").trim().toLowerCase());
+              const supportedConditions: NursePatient["conditionStatus"][] = ["Stable", "Monitoring", "Critical", "Guarded"];
+              return {
+                id: patient.id,
+                name: patient.name || "Unnamed patient",
+                age: Number(patient.age) || 0,
+                gender: patient.gender || "Not recorded",
+                bloodGroup: patient.bloodGroup || "None",
+                allergies: Array.isArray(patient.allergies) ? patient.allergies : [],
+                bedNo: assignedBed?.bedNumber || "Unassigned",
+                ward: assignedBed?.wardType || "Unassigned ward",
+                diagnosis: patient.diagnosis || "Not recorded",
+                doctorName: assignedBed?.attendingDoctor || "",
+                conditionStatus: supportedConditions.includes(patient.conditionStatus) ? patient.conditionStatus : "Not recorded",
+                currentMedications: Array.isArray(patient.currentMedications) ? patient.currentMedications : [],
+                latestVitals: patient.latestVitals || { bp: "—", pulse: "—", temp: "—", spo2: "—", rr: "—", weight: "—", recordedAt: "" },
+                alerts: Array.isArray(patient.alerts) ? patient.alerts : [],
+              };
+            });
           setPatients(transformedPatients);
+        } else {
+          setPatients([]);
         }
       } catch (error) {
         console.error("Error loading nurse data:", error);
@@ -215,10 +231,11 @@ export function NurseLayout() {
     );
   };
 
-  const handleUpdateBedStatus = (id: string, newStatus: WardBed["status"]) => {
-    setWardBeds((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
-    );
+  const handleUpdateBedStatus = async (id: string, newStatus: WardBed["status"]) => {
+    const targetBed = wardBeds.find((bed) => bed.id === id);
+    const result = await updateSupabaseBedStatus(id, newStatus, newStatus === "Occupied" ? targetBed?.patientName : undefined);
+    if (!result.error) await refreshWardBeds();
+    return result;
   };
 
   const handleResolveAlert = (id: string) => {
@@ -231,15 +248,21 @@ export function NurseLayout() {
     setPatients((prev) => [pat, ...prev]);
   };
 
-  const handleAddBed = (bed: WardBed) => {
-    setWardBeds((prev) => [bed, ...prev]);
+  const handleAddBed = async (bed: WardBed) => {
+    const result = await createSupabaseBed({
+      bedNumber: bed.bedNo,
+      wardType: bed.wardName,
+      floorNumber: bed.floorNumber,
+      dailyRate: bed.dailyRate,
+    });
+    if (!result.error) await refreshWardBeds();
+    return result;
   };
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "my-patients", label: "My Patients", icon: Users, badge: patients.length },
-    { id: "ward", label: "Ward", icon: Building2 },
-    { id: "beds", label: "Beds", icon: Bed, badge: wardBeds.filter((b) => b.status === "Available").length },
+    { id: "ward-beds", label: "Wards & Beds", icon: Building2, badge: wardBeds.filter((b) => b.status === "Available").length },
     { id: "patient-vitals", label: "Patient Vitals", icon: Activity },
     { id: "nursing-notes", label: "Nursing Notes", icon: FileText, badge: nursingNotes.length },
     { id: "medication-tasks", label: "Medication Tasks", icon: Pill, badge: medicationTasks.filter((m) => m.status === "Pending").length },
@@ -442,7 +465,7 @@ export function NurseLayout() {
             />
           )}
 
-          {(activeTab === "ward" || activeTab === "beds") && (
+          {(activeTab === "ward-beds" || activeTab === "ward" || activeTab === "beds") && (
             <BedManagementModule
               beds={wardBeds}
               onUpdateBedStatus={handleUpdateBedStatus}

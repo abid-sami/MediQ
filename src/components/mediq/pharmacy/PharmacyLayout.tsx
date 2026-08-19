@@ -228,7 +228,6 @@ export function PharmacyLayout() {
     { id: "medicines", label: "Medicines", icon: Pill },
     { id: "inventory", label: "Inventory", icon: Package, badge: medicines.filter((m) => m.stockStatus === "Low Stock" || m.stockStatus === "Out of Stock").length },
     { id: "categories", label: "Categories", icon: Tag },
-    { id: "suppliers", label: "Suppliers", icon: Truck },
     { id: "reports", label: "Reports", icon: FileText },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "profile", label: "Profile", icon: User },

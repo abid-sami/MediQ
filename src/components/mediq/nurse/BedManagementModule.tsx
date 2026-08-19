@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — live ward capacity is grouped clearly, while individual beds stay actionable and traceable.
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,8 +31,8 @@ import { WardBed } from "@/data/nurse-data";
 
 interface BedManagementModuleProps {
   beds: WardBed[];
-  onUpdateBedStatus: (id: string, newStatus: WardBed["status"]) => void;
-  onAddBed?: (newBed: WardBed) => void;
+  onUpdateBedStatus: (id: string, newStatus: WardBed["status"]) => Promise<{ error?: unknown | null }>;
+  onAddBed?: (newBed: WardBed) => Promise<{ error?: unknown | null }>;
 }
 
 const statusBadgeStyles: Record<
@@ -50,39 +51,62 @@ export function BedManagementModule({
   onAddBed,
 }: BedManagementModuleProps) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [bedNo, setBedNo] = useState("Bed-409");
-  const [roomNo, setRoomNo] = useState("Room 409");
-  const [wardName, setWardName] = useState("CCU Ward 4A");
-  const [bedType, setBedType] = useState<WardBed["bedType"]>("ICU Bed");
+  const [bedNo, setBedNo] = useState("");
+  const [wardName, setWardName] = useState("");
+  const [floorNumber, setFloorNumber] = useState("1");
+  const [dailyRate, setDailyRate] = useState("0");
 
   const occupiedCount = beds.filter((b) => b.status === "Occupied").length;
   const availableCount = beds.filter((b) => b.status === "Available").length;
   const cleaningCount = beds.filter((b) => b.status === "Cleaning").length;
   const maintenanceCount = beds.filter((b) => b.status === "Maintenance").length;
+  const wards = Object.values(beds.reduce<Record<string, { name: string; total: number; available: number; occupied: number }>>((groups, bed) => {
+    const name = bed.wardName || "Unassigned ward";
+    if (!groups[name]) groups[name] = { name, total: 0, available: 0, occupied: 0 };
+    groups[name].total += 1;
+    if (bed.status === "Available") groups[name].available += 1;
+    if (bed.status === "Occupied") groups[name].occupied += 1;
+    return groups;
+  }, {}));
 
-  const handleCreateBed = (e: React.FormEvent) => {
+  const handleCreateBed = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bedNo.trim()) {
-      toast.error("Please enter Bed Number");
+    if (!bedNo.trim() || !wardName.trim()) {
+      toast.error("Please enter both a bed number and ward name");
       return;
     }
 
     const newB: WardBed = {
       id: `bed-${Date.now()}`,
       bedNo,
-      roomNo,
       wardName,
+      roomNo: `Floor ${floorNumber || "1"}`,
+      floorNumber: Number(floorNumber) || 1,
+      dailyRate: Number(dailyRate) || 0,
       status: "Available",
-      bedType,
     };
 
     if (onAddBed) {
-      onAddBed(newB);
+      const result = await onAddBed(newB);
+      if (result.error) {
+        toast.error("Could not add the bed. Please try again.");
+        return;
+      }
     }
 
     setBedNo("");
+    setWardName("");
     setModalOpen(false);
-    toast.success(`Registered New Bed: ${newB.bedNo} (${newB.wardName})`);
+    toast.success(`Added ${newB.bedNo} to ${newB.wardName}`);
+  };
+
+  const handleStatusChange = async (bed: WardBed, status: WardBed["status"]) => {
+    const result = await onUpdateBedStatus(bed.id, status);
+    if (result.error) {
+      toast.error(`Could not update ${bed.bedNo}. Please try again.`);
+      return;
+    }
+    toast.success(`Updated ${bed.bedNo} to ${status}`);
   };
 
   return (
@@ -118,8 +142,18 @@ export function BedManagementModule({
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {wards.map((ward) => (
+          <div key={ward.name} className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-bold text-foreground">{ward.name}</p><Building2 className="h-4 w-4 text-primary" /></div>
+            <p className="mt-1 text-xs text-muted-foreground">{ward.total} live bed{ward.total === 1 ? "" : "s"}</p>
+            <div className="mt-3 flex gap-2 text-[11px] font-bold"><span className="text-emerald-600 dark:text-emerald-400">{ward.available} available</span><span className="text-blue-600 dark:text-blue-400">{ward.occupied} occupied</span></div>
+          </div>
+        ))}
+      </div>
+
       {/* Bed Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {beds.length === 0 ? <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center text-sm text-muted-foreground">No live beds are available for this ward view.</div> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {beds.map((b) => {
           const config = statusBadgeStyles[b.status];
           const IconComp = config.icon;
@@ -138,7 +172,7 @@ export function BedManagementModule({
                 </div>
 
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <Building2 className="h-3.5 w-3.5" /> {b.roomNo} ({b.wardName})
+                  <Building2 className="h-3.5 w-3.5" /> {b.roomNo} · {b.wardName}
                 </p>
 
                 {b.patientName ? (
@@ -157,10 +191,7 @@ export function BedManagementModule({
               <div className="pt-2 border-t border-border">
                 <Select
                   value={b.status}
-                  onValueChange={(val) => {
-                    onUpdateBedStatus(b.id, val as WardBed["status"]);
-                    toast.success(`Updated status for ${b.bedNo} to ${val}`);
-                  }}
+                  onValueChange={(val) => { void handleStatusChange(b, val as WardBed["status"]); }}
                 >
                   <SelectTrigger className="h-9 text-xs rounded-xl font-bold">
                     <SelectValue placeholder="Update status" />
@@ -176,7 +207,7 @@ export function BedManagementModule({
             </div>
           );
         })}
-      </div>
+      </div>}
 
       {/* Add Bed Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -201,40 +232,18 @@ export function BedManagementModule({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Room Designation</Label>
-                <Input
-                  value={roomNo}
-                  onChange={(e) => setRoomNo(e.target.value)}
-                  placeholder="e.g. Room 409"
-                  className="mt-1 rounded-xl text-xs"
-                />
+                <Label className="text-xs font-bold text-muted-foreground">Ward *</Label>
+                <Input value={wardName} onChange={(e) => setWardName(e.target.value)} required placeholder="e.g. Cardiology Ward" className="mt-1 rounded-xl text-xs" />
               </div>
-
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Ward</Label>
-                <Input
-                  value={wardName}
-                  onChange={(e) => setWardName(e.target.value)}
-                  placeholder="e.g. CCU Ward 4A"
-                  className="mt-1 rounded-xl text-xs"
-                />
+                <Label className="text-xs font-bold text-muted-foreground">Floor Number</Label>
+                <Input type="number" min="1" value={floorNumber} onChange={(e) => setFloorNumber(e.target.value)} className="mt-1 rounded-xl text-xs" />
               </div>
             </div>
 
             <div>
-              <Label className="text-xs font-bold text-muted-foreground">Bed Category / Spec</Label>
-              <Select value={bedType} onValueChange={(v) => setBedType(v as any)}>
-                <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
-                  <SelectValue placeholder="Bed Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ICU Bed">ICU Bed</SelectItem>
-                  <SelectItem value="CCU Bed">CCU Bed</SelectItem>
-                  <SelectItem value="General Ward Bed">General Ward Bed</SelectItem>
-                  <SelectItem value="Isolation Bed">Isolation Bed</SelectItem>
-                  <SelectItem value="Cabin Bed">Cabin Bed</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-bold text-muted-foreground">Daily Rate</Label>
+              <Input type="number" min="0" value={dailyRate} onChange={(e) => setDailyRate(e.target.value)} className="mt-1 rounded-xl text-xs" />
             </div>
 
             <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">

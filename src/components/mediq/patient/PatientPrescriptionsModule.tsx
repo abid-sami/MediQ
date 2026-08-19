@@ -46,6 +46,13 @@ export function PatientPrescriptionsModule({
       </div>
 
       {/* List */}
+      {prescriptions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
+          <Pill className="h-8 w-8 text-muted-foreground/60" />
+          <p className="text-sm font-bold text-foreground">No verified prescriptions available</p>
+          <p className="max-w-sm text-xs text-muted-foreground">Digital prescriptions issued by your MediQ care team will appear here once they are published to your account.</p>
+        </div>
+      ) : (
       <div className="space-y-4">
         {prescriptions.map((rx) => (
           <div
@@ -123,6 +130,7 @@ export function PatientPrescriptionsModule({
           </div>
         ))}
       </div>
+      )}
 
       {/* Printable Preview Dialog */}
       {selectedRx && (

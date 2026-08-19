@@ -11,14 +11,22 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AmbulanceRouteImport } from './routes/ambulance'
 import { Route as AmbulanceDriverRouteImport } from './routes/ambulance-driver'
 import { Route as BloodBankStaffRouteImport } from './routes/blood-bank-staff'
+import { Route as BloodRequestsRouteImport } from './routes/blood-requests'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DoctorRouteImport } from './routes/doctor'
+import { Route as EmergencyRouteImport } from './routes/emergency'
+import { Route as EmergencyHospitalsRouteImport } from './routes/emergency-hospitals'
+import { Route as HelpCenterRouteImport } from './routes/help-center'
 import { Route as LaboratoryStaffRouteImport } from './routes/laboratory-staff'
 import { Route as NurseRouteImport } from './routes/nurse'
 import { Route as PatientRouteImport } from './routes/patient'
 import { Route as PharmacyRouteImport } from './routes/pharmacy'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ReceptionistRouteImport } from './routes/receptionist'
+import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-conditions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AmbulanceRoute = AmbulanceRouteImport.update({
+  id: '/ambulance',
+  path: '/ambulance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AmbulanceDriverRoute = AmbulanceDriverRouteImport.update({
@@ -40,9 +53,34 @@ const BloodBankStaffRoute = BloodBankStaffRouteImport.update({
   path: '/blood-bank-staff',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BloodRequestsRoute = BloodRequestsRouteImport.update({
+  id: '/blood-requests',
+  path: '/blood-requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DoctorRoute = DoctorRouteImport.update({
   id: '/doctor',
   path: '/doctor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmergencyRoute = EmergencyRouteImport.update({
+  id: '/emergency',
+  path: '/emergency',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmergencyHospitalsRoute = EmergencyHospitalsRouteImport.update({
+  id: '/emergency-hospitals',
+  path: '/emergency-hospitals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpCenterRoute = HelpCenterRouteImport.update({
+  id: '/help-center',
+  path: '/help-center',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LaboratoryStaffRoute = LaboratoryStaffRouteImport.update({
@@ -65,99 +103,165 @@ const PharmacyRoute = PharmacyRouteImport.update({
   path: '/pharmacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReceptionistRoute = ReceptionistRouteImport.update({
   id: '/receptionist',
   path: '/receptionist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsAndConditionsRoute = TermsAndConditionsRouteImport.update({
+  id: '/terms-and-conditions',
+  path: '/terms-and-conditions',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/ambulance': typeof AmbulanceRoute
   '/ambulance-driver': typeof AmbulanceDriverRoute
   '/blood-bank-staff': typeof BloodBankStaffRoute
+  '/blood-requests': typeof BloodRequestsRoute
+  '/contact': typeof ContactRoute
   '/doctor': typeof DoctorRoute
+  '/emergency': typeof EmergencyRoute
+  '/emergency-hospitals': typeof EmergencyHospitalsRoute
+  '/help-center': typeof HelpCenterRoute
   '/laboratory-staff': typeof LaboratoryStaffRoute
   '/nurse': typeof NurseRoute
   '/patient': typeof PatientRoute
   '/pharmacy': typeof PharmacyRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/receptionist': typeof ReceptionistRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/ambulance': typeof AmbulanceRoute
   '/ambulance-driver': typeof AmbulanceDriverRoute
   '/blood-bank-staff': typeof BloodBankStaffRoute
+  '/blood-requests': typeof BloodRequestsRoute
+  '/contact': typeof ContactRoute
   '/doctor': typeof DoctorRoute
+  '/emergency': typeof EmergencyRoute
+  '/emergency-hospitals': typeof EmergencyHospitalsRoute
+  '/help-center': typeof HelpCenterRoute
   '/laboratory-staff': typeof LaboratoryStaffRoute
   '/nurse': typeof NurseRoute
   '/patient': typeof PatientRoute
   '/pharmacy': typeof PharmacyRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/receptionist': typeof ReceptionistRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/ambulance': typeof AmbulanceRoute
   '/ambulance-driver': typeof AmbulanceDriverRoute
   '/blood-bank-staff': typeof BloodBankStaffRoute
+  '/blood-requests': typeof BloodRequestsRoute
+  '/contact': typeof ContactRoute
   '/doctor': typeof DoctorRoute
+  '/emergency': typeof EmergencyRoute
+  '/emergency-hospitals': typeof EmergencyHospitalsRoute
+  '/help-center': typeof HelpCenterRoute
   '/laboratory-staff': typeof LaboratoryStaffRoute
   '/nurse': typeof NurseRoute
   '/patient': typeof PatientRoute
   '/pharmacy': typeof PharmacyRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/receptionist': typeof ReceptionistRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
+    | '/ambulance'
     | '/ambulance-driver'
     | '/blood-bank-staff'
+    | '/blood-requests'
+    | '/contact'
     | '/doctor'
+    | '/emergency'
+    | '/emergency-hospitals'
+    | '/help-center'
     | '/laboratory-staff'
     | '/nurse'
     | '/patient'
     | '/pharmacy'
+    | '/privacy-policy'
     | '/receptionist'
+    | '/terms-and-conditions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
+    | '/ambulance'
     | '/ambulance-driver'
     | '/blood-bank-staff'
+    | '/blood-requests'
+    | '/contact'
     | '/doctor'
+    | '/emergency'
+    | '/emergency-hospitals'
+    | '/help-center'
     | '/laboratory-staff'
     | '/nurse'
     | '/patient'
     | '/pharmacy'
+    | '/privacy-policy'
     | '/receptionist'
+    | '/terms-and-conditions'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/ambulance'
     | '/ambulance-driver'
     | '/blood-bank-staff'
+    | '/blood-requests'
+    | '/contact'
     | '/doctor'
+    | '/emergency'
+    | '/emergency-hospitals'
+    | '/help-center'
     | '/laboratory-staff'
     | '/nurse'
     | '/patient'
     | '/pharmacy'
+    | '/privacy-policy'
     | '/receptionist'
+    | '/terms-and-conditions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  AmbulanceRoute: typeof AmbulanceRoute
   AmbulanceDriverRoute: typeof AmbulanceDriverRoute
   BloodBankStaffRoute: typeof BloodBankStaffRoute
+  BloodRequestsRoute: typeof BloodRequestsRoute
+  ContactRoute: typeof ContactRoute
   DoctorRoute: typeof DoctorRoute
+  EmergencyRoute: typeof EmergencyRoute
+  EmergencyHospitalsRoute: typeof EmergencyHospitalsRoute
+  HelpCenterRoute: typeof HelpCenterRoute
   LaboratoryStaffRoute: typeof LaboratoryStaffRoute
   NurseRoute: typeof NurseRoute
   PatientRoute: typeof PatientRoute
   PharmacyRoute: typeof PharmacyRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ReceptionistRoute: typeof ReceptionistRoute
+  TermsAndConditionsRoute: typeof TermsAndConditionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -176,6 +280,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ambulance': {
+      id: '/ambulance'
+      path: '/ambulance'
+      fullPath: '/ambulance'
+      preLoaderRoute: typeof AmbulanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ambulance-driver': {
       id: '/ambulance-driver'
       path: '/ambulance-driver'
@@ -190,11 +301,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BloodBankStaffRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blood-requests': {
+      id: '/blood-requests'
+      path: '/blood-requests'
+      fullPath: '/blood-requests'
+      preLoaderRoute: typeof BloodRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/doctor': {
       id: '/doctor'
       path: '/doctor'
       fullPath: '/doctor'
       preLoaderRoute: typeof DoctorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/emergency': {
+      id: '/emergency'
+      path: '/emergency'
+      fullPath: '/emergency'
+      preLoaderRoute: typeof EmergencyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/emergency-hospitals': {
+      id: '/emergency-hospitals'
+      path: '/emergency-hospitals'
+      fullPath: '/emergency-hospitals'
+      preLoaderRoute: typeof EmergencyHospitalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help-center': {
+      id: '/help-center'
+      path: '/help-center'
+      fullPath: '/help-center'
+      preLoaderRoute: typeof HelpCenterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/laboratory-staff': {
@@ -225,11 +371,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PharmacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/receptionist': {
       id: '/receptionist'
       path: '/receptionist'
       fullPath: '/receptionist'
       preLoaderRoute: typeof ReceptionistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms-and-conditions': {
+      id: '/terms-and-conditions'
+      path: '/terms-and-conditions'
+      fullPath: '/terms-and-conditions'
+      preLoaderRoute: typeof TermsAndConditionsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -238,14 +398,22 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  AmbulanceRoute: AmbulanceRoute,
   AmbulanceDriverRoute: AmbulanceDriverRoute,
   BloodBankStaffRoute: BloodBankStaffRoute,
+  BloodRequestsRoute: BloodRequestsRoute,
+  ContactRoute: ContactRoute,
   DoctorRoute: DoctorRoute,
+  EmergencyRoute: EmergencyRoute,
+  EmergencyHospitalsRoute: EmergencyHospitalsRoute,
+  HelpCenterRoute: HelpCenterRoute,
   LaboratoryStaffRoute: LaboratoryStaffRoute,
   NurseRoute: NurseRoute,
   PatientRoute: PatientRoute,
   PharmacyRoute: PharmacyRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   ReceptionistRoute: ReceptionistRoute,
+  TermsAndConditionsRoute: TermsAndConditionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -36,6 +36,7 @@ interface PatientOverviewProps {
   bloodRequest?: PatientBloodRequest | null;
   pharmacyOrder?: PatientPharmacyOrder | null;
   outstandingBillAmount: number;
+  outstandingBillCount: number;
   onNavigateTab: (tab: string) => void;
 }
 
@@ -48,6 +49,7 @@ export function PatientOverview({
   bloodRequest,
   pharmacyOrder,
   outstandingBillAmount,
+  outstandingBillCount,
   onNavigateTab,
 }: PatientOverviewProps) {
   const cards = [
@@ -115,7 +117,7 @@ export function PatientOverview({
       id: "bill",
       title: "Outstanding Bill",
       value: formatBDT(outstandingBillAmount),
-      sub: outstandingBillAmount > 0 ? "1 Pending Invoice" : "All invoices settled",
+      sub: outstandingBillAmount > 0 ? `${outstandingBillCount} pending invoice${outstandingBillCount === 1 ? "" : "s"}` : "All posted invoices settled",
       icon: CreditCard,
       color: "text-purple-500",
       bg: "bg-purple-500/10 border-purple-500/20",

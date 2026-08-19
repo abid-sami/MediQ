@@ -48,11 +48,15 @@ import { cn } from "@/lib/utils";
 interface FindDoctorModuleProps {
   doctors: DoctorCard[];
   onBookAppointment: (newApt: PatientAppointment) => void;
+  patientName: string;
+  patientPhone: string;
 }
 
 export function FindDoctorModule({
   doctors,
   onBookAppointment,
+  patientName,
+  patientPhone,
 }: FindDoctorModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -78,7 +82,7 @@ export function FindDoctorModule({
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorCard | null>(null);
   const [bookingDate, setBookingDate] = useState<Date | undefined>(undefined);
   const [bookingTime, setBookingTime] = useState("");
-  const [reason, setReason] = useState("Routine Health Check & Consultation");
+  const [reason, setReason] = useState("");
   const [bookingOpen, setBookingOpen] = useState(false);
 
   const activeDocSchedule = useMemo(() => {
@@ -100,7 +104,10 @@ export function FindDoctorModule({
     () => ["All", ...Array.from(new Set(doctors.map((d) => d.category).filter(Boolean))).sort()],
     [doctors]
   );
-  const hospitals = ["All", "MediQ Heart & Vascular Institute", "MediQ Central Neuroscience Unit", "MediQ Orthopedic Hospital", "MediQ Skin & Wellness Clinic"];
+  const hospitals = useMemo(
+    () => ["All", ...Array.from(new Set(doctors.map((d) => d.hospital).filter(Boolean))).sort()],
+    [doctors]
+  );
 
   const filteredDoctors = useMemo(() => {
     return doctors.filter((doc) => {
@@ -118,9 +125,19 @@ export function FindDoctorModule({
     });
   }, [doctors, schedules, searchTerm, categoryFilter, hospitalFilter]);
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!selectedDoctor || !bookingDate || !bookingTime) {
       toast.error("Please select a date and time slot.");
+      return;
+    }
+
+    if (!activeDocSchedule) {
+      toast.error("This doctor has not published live appointment availability yet.");
+      return;
+    }
+
+    if (!patientName.trim()) {
+      toast.error("Your patient profile is still loading. Please try again in a moment.");
       return;
     }
 
@@ -132,7 +149,7 @@ export function FindDoctorModule({
     }
 
     const aptId = `MQ-APT-${Math.floor(1000 + Math.random() * 9000)}`;
-    const feeAmount = activeDocSchedule?.consultationFee || selectedDoctor.consultationFee || 50;
+    const feeAmount = activeDocSchedule.consultationFee ?? selectedDoctor.consultationFee;
 
     // Mark slot booked
     markSlotBooked(selectedDoctor.id, dateStr, bookingTime);
@@ -152,11 +169,10 @@ export function FindDoctorModule({
       fee: feeAmount,
     };
 
-    // Sync to Supabase & localStorage so Doctor Panel immediately receives it
-    createSupabaseAppointment({
+    const { error } = await createSupabaseAppointment({
       appointmentId: aptId,
-      patientName: "Logged-In Patient",
-      patientPhone: "+1 (555) 234-5678",
+      patientName,
+      patientPhone,
       doctorName: selectedDoctor.name,
       doctorId: selectedDoctor.id,
       specialty: `${selectedDoctor.category} - ${selectedDoctor.specialization}`,
@@ -166,6 +182,11 @@ export function FindDoctorModule({
       serialToken: `Serial #${Math.floor(1 + Math.random() * 15)}`,
       fee: feeAmount,
     });
+
+    if (error) {
+      toast.error("Could not save the appointment. Please try again.");
+      return;
+    }
 
     onBookAppointment(newApt);
     setBookingOpen(false);
@@ -234,7 +255,7 @@ export function FindDoctorModule({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredDoctors.map((doc) => {
           const docSched = schedules[doc.id];
-          const fee = docSched?.consultationFee || doc.consultationFee || 50;
+          const fee = docSched?.consultationFee ?? doc.consultationFee;
           const workingDays = docSched?.workingDays || doc.availableDays;
           const workingHours = docSched ? `${docSched.startTime} - ${docSched.endTime}` : doc.availableTime;
 
@@ -244,23 +265,25 @@ export function FindDoctorModule({
               className="bg-card border border-border rounded-2xl p-5 hover:border-primary/40 transition-all card-lift shadow-xs flex flex-col justify-between space-y-4"
             >
               <div className="flex items-start gap-4">
-                <img
-                  src={doc.avatar}
-                  alt={doc.name}
-                  className="h-16 w-16 rounded-2xl object-cover border-2 border-primary/20 shadow-xs shrink-0"
-                />
+                {doc.avatar ? (
+                  <img src={doc.avatar} alt={doc.name} className="h-16 w-16 rounded-2xl object-cover border-2 border-primary/20 shadow-xs shrink-0" />
+                ) : (
+                  <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border-2 border-primary/20 bg-primary/10 text-xl font-black text-primary">
+                    {doc.name.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <Badge className="bg-primary/20 text-primary border-primary/30 font-bold text-[11px]">
                       {doc.category} - {doc.specialization}
                     </Badge>
-                    <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
-                      <Star className="h-3.5 w-3.5 fill-current" />
-                      <span>{doc.rating}</span>
-                      <span className="text-[10px] text-muted-foreground font-normal">
-                        ({doc.reviewsCount})
-                      </span>
-                    </div>
+                    {doc.rating > 0 && (
+                      <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
+                        <Star className="h-3.5 w-3.5 fill-current" />
+                        <span>{doc.rating}</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">({doc.reviewsCount})</span>
+                      </div>
+                    )}
                   </div>
 
                   <h3 className="font-extrabold text-base text-foreground mt-1.5 truncate flex items-center gap-1.5">
@@ -271,16 +294,16 @@ export function FindDoctorModule({
                   <div className="mt-2.5 space-y-1 text-xs text-muted-foreground">
                     <p className="flex items-center gap-1.5 truncate">
                       <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span className="truncate">{doc.hospital}</span>
+                      <span className="truncate">{doc.hospital || "Location not published"}</span>
                     </p>
                     <p className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-teal shrink-0" />
-                      <span>{workingHours}</span>
+                      <span>{workingHours || "Schedule not published"}</span>
                     </p>
                     <p className="flex items-center gap-1.5">
                       <CalendarIcon className="h-3.5 w-3.5 text-primary shrink-0" />
                       <span className="text-[11px] font-medium text-foreground">
-                        Days: {workingDays.join(", ")}
+                        Days: {workingDays.length ? workingDays.join(", ") : "Not published"}
                       </span>
                     </p>
                   </div>
@@ -290,9 +313,7 @@ export function FindDoctorModule({
               <div className="flex items-center justify-between pt-3 border-t border-border">
                 <div>
                   <span className="text-[10px] text-muted-foreground block font-bold">CONSULTATION FEE</span>
-                  <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                    ${fee}
-                  </span>
+                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{fee > 0 ? `$${fee}` : "Set by clinic"}</span>
                 </div>
 
                 <Button
@@ -326,11 +347,11 @@ export function FindDoctorModule({
               {/* Prominently Highlighted Doctor Banner */}
               <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/10 via-teal/5 to-primary/5 border border-primary/30 flex items-start justify-between gap-3 shadow-xs">
                 <div className="flex items-center gap-3">
-                  <img
-                    src={selectedDoctor.avatar}
-                    alt={selectedDoctor.name}
-                    className="h-14 w-14 rounded-2xl object-cover border-2 border-primary/30"
-                  />
+                  {selectedDoctor.avatar ? (
+                    <img src={selectedDoctor.avatar} alt={selectedDoctor.name} className="h-14 w-14 rounded-2xl object-cover border-2 border-primary/30" />
+                  ) : (
+                    <span className="grid h-14 w-14 place-items-center rounded-2xl border-2 border-primary/30 bg-primary/10 text-lg font-black text-primary">{selectedDoctor.name.slice(0, 1).toUpperCase()}</span>
+                  )}
                   <div>
                     <span className="text-[10px] uppercase font-bold text-primary tracking-wider">
                       SELECTED SPECIALIST
@@ -344,9 +365,7 @@ export function FindDoctorModule({
 
                 <div className="text-right shrink-0 bg-card/80 p-2.5 rounded-xl border border-border">
                   <span className="text-[10px] text-muted-foreground block font-bold">FEE</span>
-                  <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                    ${activeDocSchedule?.consultationFee || selectedDoctor.consultationFee || 50}
-                  </span>
+                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{(activeDocSchedule?.consultationFee ?? selectedDoctor.consultationFee) > 0 ? `$${activeDocSchedule?.consultationFee ?? selectedDoctor.consultationFee}` : "Set by clinic"}</span>
                 </div>
               </div>
 
@@ -472,4 +491,3 @@ export function FindDoctorModule({
     </div>
   );
 }
-

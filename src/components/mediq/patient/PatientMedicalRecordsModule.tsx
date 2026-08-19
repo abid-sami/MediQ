@@ -1,22 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   FileText,
   Stethoscope,
@@ -26,56 +10,15 @@ import {
   Building2,
   Calendar,
   ExternalLink,
-  Plus,
-  CheckCircle2,
 } from "lucide-react";
-import { toast } from "sonner";
 import { MedicalRecordItem } from "@/data/patient-data";
 
 interface PatientMedicalRecordsModuleProps {
   records: MedicalRecordItem[];
-  onAddRecord?: (newRecord: MedicalRecordItem) => void;
 }
 
-export function PatientMedicalRecordsModule({ records, onAddRecord }: PatientMedicalRecordsModuleProps) {
+export function PatientMedicalRecordsModule({ records }: PatientMedicalRecordsModuleProps) {
   const [filterType, setFilterType] = useState<string>("All");
-
-  // Add Record Modal State
-  const [modalOpen, setModalOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState<MedicalRecordItem["type"]>("Consultation");
-  const [doctorName, setDoctorName] = useState("");
-  const [facility, setFacility] = useState("MediQ Hospital Network");
-  const [summary, setSummary] = useState("");
-
-  const handleCreateRecord = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      toast.error("Please enter a Title for your medical record");
-      return;
-    }
-
-    const newRec: MedicalRecordItem = {
-      id: `rec-${Date.now()}`,
-      title,
-      type,
-      date: new Date().toISOString().split("T")[0],
-      doctorName: doctorName || "Self Uploaded / Attending Physician",
-      facility: facility || "MediQ Central Healthcare",
-      summary: summary || "Personal medical document uploaded to MediQ Health Portal",
-      status: "Final",
-    };
-
-    if (onAddRecord) {
-      onAddRecord(newRec);
-    }
-
-    setTitle("");
-    setDoctorName("");
-    setSummary("");
-    setModalOpen(false);
-    toast.success(`Medical Record "${newRec.title}" Uploaded Successfully!`);
-  };
 
   const filtered = records.filter((r) =>
     filterType === "All" ? true : r.type === filterType
@@ -94,12 +37,6 @@ export function PatientMedicalRecordsModule({ records, onAddRecord }: PatientMed
           </p>
         </div>
 
-        <Button
-          onClick={() => setModalOpen(true)}
-          className="gradient-primary text-primary-foreground font-bold text-xs rounded-xl shadow-md shrink-0"
-        >
-          <Plus className="mr-1.5 h-4 w-4" /> Add Personal Health Record
-        </Button>
       </div>
 
       {/* Filter Tabs */}
@@ -128,7 +65,14 @@ export function PatientMedicalRecordsModule({ records, onAddRecord }: PatientMed
       </div>
 
       {/* Timeline List */}
-      <div className="relative pl-6 border-l-2 border-primary/20 space-y-6">
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
+          <FileText className="h-8 w-8 text-muted-foreground/60" />
+          <p className="text-sm font-bold text-foreground">No verified medical records available</p>
+          <p className="max-w-sm text-xs text-muted-foreground">Records from MediQ consultations, laboratory reports, and connected care teams will appear here when they are published to your account.</p>
+        </div>
+      ) : (
+      <div className="relative space-y-6 border-l-2 border-primary/20 pl-6">
         {filtered.map((item) => (
           <div key={item.id} className="relative group">
             <span className="absolute -left-[31px] top-1.5 h-4 w-4 rounded-full bg-primary border-4 border-background" />
@@ -168,84 +112,7 @@ export function PatientMedicalRecordsModule({ records, onAddRecord }: PatientMed
           </div>
         ))}
       </div>
-
-      {/* Add Record Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" /> Add Medical Health Record
-            </DialogTitle>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateRecord} className="space-y-3 text-xs mt-2">
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground">Record Title *</Label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                placeholder="e.g. Cardiology Echo Report"
-                className="mt-1 rounded-xl text-xs font-semibold"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs font-bold text-muted-foreground">Record Type</Label>
-                <Select value={type} onValueChange={(v) => setType(v as any)}>
-                  <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Consultation">Consultation</SelectItem>
-                    <SelectItem value="Diagnosis">Diagnosis</SelectItem>
-                    <SelectItem value="Prescription">Prescription</SelectItem>
-                    <SelectItem value="Lab Report">Lab Report</SelectItem>
-                    <SelectItem value="Diagnostic">Diagnostic</SelectItem>
-                    <SelectItem value="Hospital Visit">Hospital Visit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-xs font-bold text-muted-foreground">Doctor / Practitioner</Label>
-                <Input
-                  value={doctorName}
-                  onChange={(e) => setDoctorName(e.target.value)}
-                  placeholder="e.g. Dr. Sarah Rahman"
-                  className="mt-1 rounded-xl text-xs"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground">Hospital / Facility</Label>
-              <Input
-                value={facility}
-                onChange={(e) => setFacility(e.target.value)}
-                placeholder="e.g. MediQ Heart Institute"
-                className="mt-1 rounded-xl text-xs"
-              />
-            </div>
-
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground">Clinical Summary & Findings</Label>
-              <Textarea
-                rows={3}
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                placeholder="Clinical observations, results, or advice..."
-                className="mt-1 rounded-xl text-xs leading-relaxed"
-              />
-            </div>
-
-            <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Save Medical Record
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      )}
     </div>
   );
 }

@@ -31,37 +31,53 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PatientLabTest } from "@/data/patient-data";
+import { createSupabaseLabOrder } from "@/services/supabase-service";
 
 interface PatientLaboratoryModuleProps {
   labTests: PatientLabTest[];
   onAddLabTest?: (newTest: PatientLabTest) => void;
+  patientName: string;
+  patientAge: number;
 }
 
-export function PatientLaboratoryModule({ labTests, onAddLabTest }: PatientLaboratoryModuleProps) {
+export function PatientLaboratoryModule({ labTests, onAddLabTest, patientName, patientAge }: PatientLaboratoryModuleProps) {
   const [selectedReport, setSelectedReport] = useState<PatientLabTest | null>(null);
 
   // Request Lab Test Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [testName, setTestName] = useState("");
   const [category, setCategory] = useState("Blood Tests");
-  const [facility, setFacility] = useState("MediQ Central Pathology Lab");
 
-  const handleCreateLabRequest = (e: React.FormEvent) => {
+  const handleCreateLabRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testName.trim()) {
-      toast.error("Please enter a Test Name");
+    if (!testName.trim() || !patientName.trim()) {
+      toast.error("Your patient profile is still loading. Please try again shortly.");
+      return;
+    }
+
+    const requisitionNo = `LAB-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const { error } = await createSupabaseLabOrder({
+      testId: requisitionNo,
+      patientName,
+      patientAge,
+      doctorName: "",
+      testName,
+      category,
+      priority: "Routine",
+    });
+    if (error) {
+      toast.error("Could not submit the laboratory request. Please try again.");
       return;
     }
 
     const newLab: PatientLabTest = {
-      id: `lab-${Date.now()}`,
+      id: requisitionNo,
       testName,
       category,
       bookedDate: new Date().toISOString().split("T")[0],
-      facility: facility || "MediQ Pathology Center",
-      status: "Processing",
-      requisitionNo: `REQ-2026-${Math.floor(1000 + Math.random() * 8999)}`,
-      resultSummary: "Sample collected & undergoing diagnostic analysis in Pathology Lab.",
+      facility: "",
+      status: "Booked",
+      requisitionNo,
     };
 
     if (onAddLabTest) {
@@ -70,7 +86,7 @@ export function PatientLaboratoryModule({ labTests, onAddLabTest }: PatientLabor
 
     setTestName("");
     setModalOpen(false);
-    toast.success(`Requested Laboratory Test "${newLab.testName}" (${newLab.requisitionNo})`);
+    toast.success(`Laboratory request ${newLab.requisitionNo} submitted successfully.`);
   };
 
   return (
@@ -95,6 +111,13 @@ export function PatientLaboratoryModule({ labTests, onAddLabTest }: PatientLabor
       </div>
 
       {/* Grid */}
+      {labTests.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
+          <Microscope className="h-8 w-8 text-muted-foreground/60" />
+          <p className="text-sm font-bold text-foreground">No laboratory records available</p>
+          <p className="max-w-sm text-xs text-muted-foreground">New requests and published laboratory results linked to your MediQ profile will appear here.</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {labTests.map((lab) => (
           <div
@@ -145,6 +168,7 @@ export function PatientLaboratoryModule({ labTests, onAddLabTest }: PatientLabor
           </div>
         ))}
       </div>
+      )}
 
       {/* Request Lab Test Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -181,16 +205,6 @@ export function PatientLaboratoryModule({ labTests, onAddLabTest }: PatientLabor
                   <SelectItem value="Urinalysis">Urinalysis</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground">Preferred Lab Facility</Label>
-              <Input
-                value={facility}
-                onChange={(e) => setFacility(e.target.value)}
-                placeholder="e.g. MediQ Pathology Center"
-                className="mt-1 rounded-xl text-xs"
-              />
             </div>
 
             <Button type="submit" className="w-full gradient-primary text-primary-foreground font-bold rounded-xl py-5 shadow-md mt-2">
@@ -235,7 +249,7 @@ export function PatientLaboratoryModule({ labTests, onAddLabTest }: PatientLabor
                   Technician Sign-off & Interpretation
                 </h4>
                 <p className="text-muted-foreground leading-relaxed">
-                  All biochemical markers verified by MediQ Central Laboratory Pathology Board.
+                  Interpretation and sign-off details are published by the laboratory team with the completed report.
                 </p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ReceptionAppointment, AppointmentStatus } from "@/data/receptionist-data";
+import { fetchSupabaseProfiles } from "@/services/supabase-service";
 
 interface ReceptionistAppointmentsModuleProps {
   appointments: ReceptionAppointment[];
@@ -37,21 +38,31 @@ export function ReceptionistAppointmentsModule({
 
   // Create form state
   const [patientName, setPatientName] = useState("");
-  const [doctorName, setDoctorName] = useState("Dr. Sarah Rahman");
-  const [department, setDepartment] = useState("Cardiology");
-  const [date, setDate] = useState("2026-08-14");
-  const [time, setTime] = useState("11:00 AM");
+  const [doctorName, setDoctorName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [doctors, setDoctors] = useState<Array<{ id: string; name: string; specialty?: string }>>([]);
+
+  useEffect(() => {
+    void fetchSupabaseProfiles("Doctor").then((profiles) => {
+      setDoctors(profiles.map((doctor: any) => ({ id: doctor.id, name: doctor.name || "", specialty: doctor.specialty || "" })).filter((doctor) => doctor.name));
+    });
+  }, []);
 
   const handleCreateAppointment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientName) return;
+    if (!patientName || !doctorName || !date || !time) {
+      toast.error("Please complete the patient, doctor, date, and time fields.");
+      return;
+    }
 
     const newApt: ReceptionAppointment = {
       id: `apt-${Date.now()}`,
       appointmentId: `APT-2026-${Math.floor(700 + Math.random() * 200)}`,
       patientId: `PAT-2026-${Math.floor(9000 + Math.random() * 999)}`,
       patientName,
-      patientPhone: "+1 (555) 400-0000",
+      patientPhone: "",
       doctorName,
       department,
       date,
@@ -100,14 +111,17 @@ export function ReceptionistAppointmentsModule({
 
               <div>
                 <Label className="text-xs font-bold text-muted-foreground">Doctor Name</Label>
-                <Select value={doctorName} onValueChange={setDoctorName}>
+                <Select value={doctorName} onValueChange={(value) => {
+                  setDoctorName(value);
+                  setDepartment(doctors.find((doctor) => doctor.name === value)?.specialty || "");
+                }}>
                   <SelectTrigger className="mt-1 rounded-xl text-xs font-bold">
                     <SelectValue placeholder="Doctor" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Dr. Sarah Rahman">Dr. Sarah Rahman (Cardiology)</SelectItem>
-                    <SelectItem value="Dr. Tanvir Ahmed">Dr. Tanvir Ahmed (Neurology)</SelectItem>
-                    <SelectItem value="Dr. Nusrat Parveen">Dr. Nusrat Parveen (Orthopedics)</SelectItem>
+                    {doctors.length > 0 ? doctors.map((doctor) => (
+                      <SelectItem key={doctor.id} value={doctor.name}>{doctor.name}{doctor.specialty ? ` (${doctor.specialty})` : ""}</SelectItem>
+                    )) : <p className="px-2 py-1.5 text-xs text-muted-foreground">No doctors available</p>}
                   </SelectContent>
                 </Select>
               </div>

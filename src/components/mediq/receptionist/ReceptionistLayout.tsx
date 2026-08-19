@@ -11,7 +11,6 @@ import {
   Users,
   Calendar,
   UserCheck,
-  Stethoscope,
   Bed,
   CreditCard,
   MessageSquare,
@@ -65,6 +64,7 @@ import { ResQAccidentAlertsModule } from "../ResQAccidentAlertsModule";
 import { DynamicNotificationsModule } from "../DynamicNotificationsModule";
 import { ReceptionistProfileModule } from "./ReceptionistProfileModule";
 import { FeedbackInboxModule } from "../FeedbackInboxModule";
+import { DriverAccountDetailsModule, DriverAccountDetails } from "./DriverAccountDetailsModule";
 
 export type ReceptionistTab =
   | "dashboard"
@@ -72,6 +72,7 @@ export type ReceptionistTab =
   | "appointments"
   | "check-in"
   | "doctor-queue"
+  | "driver-accounts"
   | "admissions"
   | "beds"
   | "billing"
@@ -95,6 +96,7 @@ export function ReceptionistLayout() {
   const [patients, setPatients] = useState<RegisteredPatient[]>(initialRegisteredPatients);
   const [appointments, setAppointments] = useState<ReceptionAppointment[]>(initialReceptionAppointments);
   const [doctorQueues, setDoctorQueues] = useState<DoctorQueueItem[]>(initialDoctorQueues);
+  const [driverAccounts, setDriverAccounts] = useState<DriverAccountDetails[]>([]);
   const [admissions, setAdmissions] = useState<HospitalAdmission[]>(initialAdmissions);
   const [bedCategories, setBedCategories] = useState<BedCategoryAvailability[]>(initialBedCategories);
   const [liveBeds, setLiveBeds] = useState<any[]>([]);
@@ -140,6 +142,16 @@ export function ReceptionistLayout() {
           }));
           setPatients(transformedPatients);
         }
+
+        const driversData = await fetchSupabaseProfiles("Ambulance Driver");
+        setDriverAccounts(driversData.map((driver: any) => ({
+          id: driver.id,
+          name: driver.name || "",
+          email: driver.email || "",
+          phone: driver.phone || "",
+          avatarUrl: driver.avatarUrl || "",
+          badgeId: driver.badgeId || "",
+        })).filter((driver) => driver.name));
 
         // Fetch appointments
         const appointmentsData = await fetchSupabaseAppointments();
@@ -262,7 +274,7 @@ export function ReceptionistLayout() {
     { id: "patients", label: "Patients", icon: Users, badge: patients.length },
     { id: "appointments", label: "Appointments", icon: Calendar, badge: appointments.length },
     { id: "check-in", label: "Check-In", icon: UserCheck, badge: pendingCheckInCount },
-    { id: "doctor-queue", label: "Doctor Queue", icon: Stethoscope },
+    { id: "driver-accounts", label: "Driver Account Details", icon: Siren, badge: driverAccounts.length },
     { id: "admissions", label: "Admissions", icon: Bed, badge: admissions.length },
     { id: "beds", label: "Beds Matrix", icon: Bed },
     { id: "billing", label: "Billing", icon: CreditCard, badge: bills.filter((b) => b.paymentStatus === "Pending").length },
@@ -471,9 +483,9 @@ export function ReceptionistLayout() {
             />
           )}
 
-          {activeTab === "doctor-queue" && (
-            <DoctorQueueModule queues={doctorQueues} />
-          )}
+          {activeTab === "doctor-queue" && <DoctorQueueModule queues={doctorQueues} />}
+
+          {activeTab === "driver-accounts" && <DriverAccountDetailsModule drivers={driverAccounts} />}
 
           {(activeTab === "admissions" || activeTab === "beds") && (
             <AdmissionsAndBedsModule

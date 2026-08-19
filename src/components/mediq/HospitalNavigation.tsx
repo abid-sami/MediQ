@@ -23,26 +23,15 @@ import {
   Info,
   CheckCircle2,
   Share2,
-  Maximize2,
   Building2,
   Accessibility,
   QrCode,
-  LocateFixed,
   Footprints,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -81,14 +70,12 @@ export function HospitalNavigation() {
   const [selectedLocation, setSelectedLocation] = useState<HospitalLocation | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
-  const [selectedEntrance, setSelectedEntrance] = useState<string>("Main Entrance");
   const [showRouteMode, setShowRouteMode] = useState(false);
   const [routePreference, setRoutePreference] = useState<"shortest" | "accessible">("shortest");
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const qrVideoRef = useRef<HTMLVideoElement>(null);
   const [animatingStep, setAnimatingStep] = useState<number>(0);
   const [mobilePane, setMobilePane] = useState<"map" | "details">("map");
-  const [mapZoom, setMapZoom] = useState(1);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -133,12 +120,10 @@ export function HospitalNavigation() {
   // Pick the fastest route, or the safest accessible route when requested.
   const activeRoute = useMemo(() => {
     if (!selectedLocation) return null;
-    const candidates = selectedLocation.predefinedRoutes.filter((r) => r.fromEntrance === selectedEntrance);
-    const fallback = selectedLocation.predefinedRoutes;
-    const routes = candidates.length > 0 ? candidates : fallback;
+    const routes = selectedLocation.predefinedRoutes;
     const accessible = routes.filter((r: any) => r.accessible !== false && !r.steps.some((step: string) => /staircase|stairs/i.test(step)));
     return [...(routePreference === "accessible" && accessible.length > 0 ? accessible : routes)].sort((a, b) => a.estimatedMinutes - b.estimatedMinutes)[0] || null;
-  }, [selectedLocation, selectedEntrance, routePreference]);
+  }, [selectedLocation, routePreference]);
 
   // Animate route steps
   useEffect(() => {
@@ -289,7 +274,6 @@ export function HospitalNavigation() {
                     setSelectedFloor(floor);
                     setShowRouteMode(false);
                     setMobilePane("map");
-                    setMapZoom(1);
                   }}
                   className={cn(
                     "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0",
@@ -320,7 +304,6 @@ export function HospitalNavigation() {
             <Button type="button" variant={routePreference === "accessible" ? "default" : "outline"} onClick={() => setRoutePreference("accessible")} className="h-10 justify-center rounded-xl text-xs font-bold sm:h-9 sm:justify-start"><Accessibility className="mr-1.5 h-3.5 w-3.5" /> Wheelchair Route</Button>
             <Button type="button" variant="outline" onClick={() => setQrScannerOpen(true)} className="h-10 justify-center rounded-xl text-xs font-bold sm:h-9 sm:justify-start"><QrCode className="mr-1.5 h-3.5 w-3.5" /> Scan Location QR</Button>
           </div>
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><LocateFixed className="h-3.5 w-3.5 text-primary" /> Start: {selectedEntrance}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-muted/30 p-1.5 lg:hidden">
@@ -369,10 +352,6 @@ export function HospitalNavigation() {
 
             {/* Interactive 2D Floor Plan Canvas Container */}
             <div className="relative aspect-[4/3] w-full touch-manipulation select-none overflow-hidden rounded-2xl border border-border bg-surface/90 p-2 sm:aspect-[16/10] sm:p-3">
-              <div
-                className="absolute inset-0 origin-center transition-transform duration-200 ease-out"
-                style={{ transform: `scale(${mapZoom})` }}
-              >
               {/* Floor Plan Blueprint Grid Background */}
               <div
                 className="absolute inset-0 opacity-[0.25]"
@@ -494,15 +473,6 @@ export function HospitalNavigation() {
                   )}
                 </svg>
               )}
-              </div>
-
-              <div className="absolute bottom-3 left-3 z-40 flex items-center overflow-hidden rounded-xl border border-border bg-card/95 shadow-soft backdrop-blur sm:bottom-4 sm:left-4">
-                <Button type="button" variant="ghost" size="icon" onClick={() => setMapZoom((zoom) => Math.max(1, Number((zoom - 0.1).toFixed(1))))} disabled={mapZoom <= 1} className="h-9 w-9 rounded-none" aria-label="Zoom out of floor plan"><ZoomOut className="h-4 w-4" /></Button>
-                <span className="min-w-12 border-x border-border px-2 text-center text-[10px] font-bold text-muted-foreground">{Math.round(mapZoom * 100)}%</span>
-                <Button type="button" variant="ghost" size="icon" onClick={() => setMapZoom((zoom) => Math.min(1.4, Number((zoom + 0.1).toFixed(1))))} disabled={mapZoom >= 1.4} className="h-9 w-9 rounded-none" aria-label="Zoom in on floor plan"><ZoomIn className="h-4 w-4" /></Button>
-              </div>
-
-              <Button type="button" variant="secondary" size="sm" onClick={() => setMapZoom(1)} className="absolute bottom-3 right-3 z-40 h-9 rounded-xl border border-border bg-card/95 px-3 text-[10px] font-bold shadow-soft backdrop-blur sm:bottom-4 sm:right-4" aria-label="Reset floor plan zoom"><Maximize2 className="mr-1.5 h-3.5 w-3.5" /> Reset</Button>
             </div>
 
             {/* Map Legend */}
@@ -570,17 +540,6 @@ export function HospitalNavigation() {
                     <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
                       <RouteIcon className="h-4 w-4 text-teal" /> Step-by-Step Route
                     </Label>
-
-                    {/* Entrance selector */}
-                    <Select value={selectedEntrance} onValueChange={setSelectedEntrance}>
-                      <SelectTrigger className="h-7 text-[11px] rounded-lg w-36 font-semibold">
-                        <SelectValue placeholder="From Entrance" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Main Entrance">Main Entrance</SelectItem>
-                        <SelectItem value="Emergency Gate">Emergency Gate</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
 
                   {activeRoute ? (
@@ -588,8 +547,6 @@ export function HospitalNavigation() {
                       {/* Highlighted Route Breadcrumb */}
                       <div className="p-3 rounded-xl bg-teal/10 border border-teal/20 text-xs font-bold text-teal-foreground dark:text-teal space-y-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span>{selectedEntrance}</span>
-                          <ArrowRight className="h-3 w-3 opacity-60 shrink-0" />
                           {selectedLocation.floor !== "Ground Floor" && (
                             <>
                               <span>Elevator Bank A</span>
@@ -629,7 +586,7 @@ export function HospitalNavigation() {
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground p-3 rounded-xl bg-muted/40 border border-border">
-                      No direct predefined route from {selectedEntrance}. Please use Main Entrance.
+                      No direct predefined route is available for this location.
                     </p>
                   )}
                 </div>

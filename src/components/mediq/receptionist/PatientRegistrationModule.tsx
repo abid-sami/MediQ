@@ -15,7 +15,6 @@ import {
   UserPlus,
   Search,
   Phone,
-  Calendar,
   MapPin,
   AlertCircle,
   CheckCircle2,
@@ -41,9 +40,8 @@ export function PatientRegistrationModule({
   // Registration Form State
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [dob, setDob] = useState("1990-01-01");
   const [gender, setGender] = useState("Male");
-  const [bloodGroup, setBloodGroup] = useState("O+");
+  const [bloodGroup, setBloodGroup] = useState("None");
   const [address, setAddress] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
   const [medicalNotes, setMedicalNotes] = useState("");
@@ -77,8 +75,6 @@ export function PatientRegistrationModule({
         patientId: newPatientId,
         name,
         phone,
-        dob,
-        age: new Date().getFullYear() - new Date(dob).getFullYear(),
         gender,
         bloodGroup,
         address,
@@ -140,15 +136,9 @@ export function PatientRegistrationModule({
                 <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Nusrat Jahan" className="mt-1 rounded-xl text-xs font-semibold" />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs font-bold text-muted-foreground">Phone Number</Label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} required placeholder="+1 (555)..." className="mt-1 rounded-xl text-xs font-semibold" />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-muted-foreground">Date of Birth</Label>
-                  <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="mt-1 rounded-xl text-xs font-semibold" />
-                </div>
+              <div>
+                <Label className="text-xs font-bold text-muted-foreground">Phone Number</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} required placeholder="+1 (555)..." className="mt-1 rounded-xl text-xs font-semibold" />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -173,6 +163,7 @@ export function PatientRegistrationModule({
                       <SelectValue placeholder="Group" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="None">None</SelectItem>
                       <SelectItem value="A+">A+</SelectItem>
                       <SelectItem value="A-">A-</SelectItem>
                       <SelectItem value="B+">B+</SelectItem>
@@ -245,7 +236,7 @@ export function PatientRegistrationModule({
 
                   <h3 className="font-bold text-base text-foreground">{pat.name}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {pat.gender}, {pat.age} yrs | Phone: <strong className="text-foreground">{pat.phone}</strong>
+                    {pat.gender}{pat.age !== undefined ? `, ${pat.age} yrs` : ""} | Phone: <strong className="text-foreground">{pat.phone}</strong>
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                     <MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> <span className="truncate">{pat.address}</span>

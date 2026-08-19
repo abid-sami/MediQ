@@ -59,7 +59,7 @@ export function MyPatientsModule({
   const [bloodGroup, setBloodGroup] = useState("O+");
   const [bedNo, setBedNo] = useState("Bed-409");
   const [diagnosis, setDiagnosis] = useState("Acute Coronary Syndrome");
-  const [attendingDoctor, setAttendingDoctor] = useState("Dr. Sarah Rahman");
+  const [attendingDoctor, setAttendingDoctor] = useState("");
 
   const handleAdmitPatient = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,9 +78,10 @@ export function MyPatientsModule({
       ward: "CCU Ward 4A",
       admissionDate: new Date().toISOString().split("T")[0],
       diagnosis,
-      attendingDoctor,
+      doctorName: attendingDoctor,
       conditionStatus: "Stable",
       allergies: ["None reported"],
+      currentMedications: [],
       latestVitals: {
         bp: "120/80 mmHg",
         pulse: "75 bpm",
@@ -90,7 +91,6 @@ export function MyPatientsModule({
         weight: "70 kg",
         recordedAt: "Just now",
       },
-      carePlan: "Standard Bedside Care & Vitals Monitoring Protocol",
       alerts: [],
     };
 
@@ -103,11 +103,12 @@ export function MyPatientsModule({
     toast.success(`Patient ${newPatient.name} Admitted to ${newPatient.bedNo}`);
   };
 
-  const filtered = patients.filter((p) => {
+  const safePatients = Array.isArray(patients) ? patients : [];
+  const filtered = safePatients.filter((p) => {
     const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.bedNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.diagnosis.toLowerCase().includes(searchTerm.toLowerCase());
+      String(p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(p.bedNo || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(p.diagnosis || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCond = conditionFilter === "All" || p.conditionStatus === conditionFilter;
     return matchesSearch && matchesCond;
   });
@@ -118,7 +119,7 @@ export function MyPatientsModule({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
         <div>
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" /> Assigned Ward Patients ({patients.length})
+            <Users className="h-6 w-6 text-primary" /> Assigned Ward Patients ({safePatients.length})
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Monitor real-time bedside condition, latest vital signs, active alerts, and doctor treatment plans.
@@ -161,7 +162,10 @@ export function MyPatientsModule({
 
       {/* Patients Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filtered.map((patient) => (
+        {filtered.map((patient) => {
+          const vitals = patient.latestVitals || { bp: "—", pulse: "—", temp: "—", spo2: "—", rr: "—", weight: "—", recordedAt: "" };
+          const alerts = Array.isArray(patient.alerts) ? patient.alerts : [];
+          return (
           <div
             key={patient.id}
             className="bg-card border border-border rounded-2xl p-5 hover:border-primary/40 transition-all shadow-xs space-y-4 flex flex-col justify-between"
@@ -186,7 +190,7 @@ export function MyPatientsModule({
                       : "bg-emerald-500 text-white font-bold"
                   }
                 >
-                  {patient.conditionStatus}
+                  {patient.conditionStatus || "Not recorded"}
                 </Badge>
               </div>
 
@@ -197,7 +201,7 @@ export function MyPatientsModule({
                 {patient.name}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {patient.gender}, {patient.age} yrs | Blood:{" "}
+                {patient.gender || "Not recorded"}{patient.age > 0 ? `, ${patient.age} yrs` : ""} | Blood:{" "}
                 <strong className="text-red-500">{patient.bloodGroup}</strong>
               </p>
               <p className="text-xs font-semibold text-foreground mt-1">
@@ -208,22 +212,22 @@ export function MyPatientsModule({
               <div className="mt-3 p-3 rounded-xl bg-muted/30 border border-border/80 text-xs grid grid-cols-3 gap-2 text-center">
                 <div>
                   <span className="text-[10px] text-muted-foreground block">BP</span>
-                  <span className="font-bold text-foreground">{patient.latestVitals.bp}</span>
+                  <span className="font-bold text-foreground">{vitals.bp}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-muted-foreground block">PULSE</span>
-                  <span className="font-bold text-teal">{patient.latestVitals.pulse}</span>
+                  <span className="font-bold text-teal">{vitals.pulse}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-muted-foreground block">SpO2</span>
-                  <span className="font-bold text-emerald-500">{patient.latestVitals.spo2}</span>
+                  <span className="font-bold text-emerald-500">{vitals.spo2}</span>
                 </div>
               </div>
 
               {/* Active Alerts */}
-              {patient.alerts.length > 0 && (
+              {alerts.length > 0 && (
                 <div className="mt-3 space-y-1">
-                  {patient.alerts.map((al, idx) => (
+                  {alerts.map((al, idx) => (
                     <div
                       key={idx}
                       className="text-[11px] p-2 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 font-semibold flex items-center gap-1.5"
@@ -265,7 +269,8 @@ export function MyPatientsModule({
               </Button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Admit Patient Modal */}
@@ -350,7 +355,7 @@ export function MyPatientsModule({
                 <Input
                   value={attendingDoctor}
                   onChange={(e) => setAttendingDoctor(e.target.value)}
-                  placeholder="e.g. Dr. Sarah Rahman"
+                  placeholder="Enter attending doctor name"
                   className="mt-1 rounded-xl text-xs"
                 />
               </div>

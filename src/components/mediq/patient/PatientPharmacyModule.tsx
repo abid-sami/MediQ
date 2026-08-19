@@ -31,7 +31,7 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PatientPharmacyOrder, PatientBill } from "@/data/patient-data";
+import { PatientPharmacyOrder } from "@/data/patient-data";
 import { PharmacyMedicine } from "@/data/pharmacy-data";
 import {
   getDynamicMedicines,
@@ -49,15 +49,17 @@ interface CartItem {
 interface PatientPharmacyModuleProps {
   orders: PatientPharmacyOrder[];
   onNewOrder: (order: PatientPharmacyOrder) => void;
-  onAddBill?: (bill: PatientBill) => void;
-  patientName?: string;
+  patientName: string;
+  patientPhone: string;
+  initialDeliveryAddress: string;
 }
 
 export function PatientPharmacyModule({
   orders: initialPropOrders,
   onNewOrder,
-  onAddBill,
-  patientName = "Patient",
+  patientName,
+  patientPhone: initialPatientPhone,
+  initialDeliveryAddress,
 }: PatientPharmacyModuleProps) {
   // Navigation tab
   const [activeTab, setActiveTab] = useState<"catalog" | "orders">("catalog");
@@ -73,8 +75,8 @@ export function PatientPharmacyModule({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState<boolean>(false);
   const [deliveryType, setDeliveryType] = useState<"Home Delivery" | "Store Pickup">("Home Delivery");
-  const [deliveryAddress, setDeliveryAddress] = useState<string>("House 14, Road 5, Dhanmondi, Dhaka");
-  const [patientPhone, setPatientPhone] = useState<string>("+1 (555) 234-5678");
+  const [deliveryAddress, setDeliveryAddress] = useState<string>(initialDeliveryAddress || "");
+  const [patientPhone, setPatientPhone] = useState<string>(initialPatientPhone || "");
   const [prescriptionNote, setPrescriptionNote] = useState<string>("");
   const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -90,8 +92,8 @@ export function PatientPharmacyModule({
       setMedicines(meds);
       setCategories(categoryData.map((category) => category.name));
 
-      const dynamicOrders = await getDynamicPharmacyOrders();
-      if (dynamicOrders && dynamicOrders.length > 0) {
+      const dynamicOrders = (await getDynamicPharmacyOrders()).filter((order) => order.patientName === patientName);
+      if (dynamicOrders.length > 0) {
         const transformed: PatientPharmacyOrder[] = dynamicOrders.map((o) => ({
           id: o.id,
           orderNo: o.orderId,
@@ -108,6 +110,8 @@ export function PatientPharmacyModule({
           deliveryAddress: o.deliveryType,
         }));
         setOrders(transformed);
+      } else {
+        setOrders(initialPropOrders);
       }
     } catch (e) {
       console.warn("Error loading pharmacy catalog:", e);
@@ -117,8 +121,17 @@ export function PatientPharmacyModule({
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    void loadData();
+  }, [patientName]);
+
+  useEffect(() => {
+    setOrders(initialPropOrders);
+  }, [initialPropOrders]);
+
+  useEffect(() => {
+    setDeliveryAddress(initialDeliveryAddress || "");
+    setPatientPhone(initialPatientPhone || "");
+  }, [initialDeliveryAddress, initialPatientPhone]);
 
   // Filter Categories loaded from Supabase
   const categoryFilters = ["All", ...categories];
@@ -253,21 +266,7 @@ export function PatientPharmacyModule({
         });
       }
 
-      // 3. Automatically Generate Invoice in Patient's Billing!
-      if (onAddBill) {
-        const newBillInvoice: PatientBill = {
-          id: `bill-ph-${Date.now()}`,
-          invoiceNo: `INV-${orderNo.replace("ORD-", "")}`,
-          serviceName: `Pharmacy Order: ${cart.map((it) => `${it.medicine.name} x${it.quantity}`).join(", ")}`,
-          category: "Pharmacy",
-          date: todayDate,
-          amount: cartTotal,
-          status: "Unpaid",
-        };
-        onAddBill(newBillInvoice);
-      }
-
-      // 4. Update local state & notify
+      // 3. Update local state & notify
       onNewOrder(newPatientOrder);
       setOrders((prev) => [newPatientOrder, ...prev]);
 
@@ -281,9 +280,7 @@ export function PatientPharmacyModule({
       setPrescriptionNote("");
       setCartOpen(false);
 
-      toast.success(`Pharmacy Order ${orderNo} Confirmed!`, {
-        description: `Total $${cartTotal.toFixed(2)} has been added to your Billing invoices. Pharmacist is preparing your order.`,
-      });
+      toast.success(`Pharmacy Order ${orderNo} Confirmed!`, { description: "Your order is now available in the live pharmacy order feed." });
 
       // Switch to orders tab
       setActiveTab("orders");

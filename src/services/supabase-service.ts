@@ -183,12 +183,14 @@ function mapAppointment(a: any) {
   };
 }
 
-export async function fetchSupabaseAppointments() {
+export async function fetchSupabaseAppointments(patientName?: string) {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("appointments")
       .select("*")
       .order("created_at", { ascending: false });
+    if (patientName?.trim()) query = query.eq("patient_name", patientName.trim());
+    const { data, error } = await query;
 
     if (error || !data) return [];
     return data.map(mapAppointment);
@@ -464,9 +466,11 @@ export async function deleteSupabaseBed(bedId: string) {
 // 4. LABORATORY TEST REQUISITIONS SERVICE
 // ============================================================================
 
-export async function fetchSupabaseLabOrders() {
+export async function fetchSupabaseLabOrders(patientName?: string) {
   try {
-    const { data, error } = await supabase.from("lab_test_orders").select("*").order("created_at", { ascending: false });
+    let query = supabase.from("lab_test_orders").select("*").order("created_at", { ascending: false });
+    if (patientName?.trim()) query = query.eq("patient_name", patientName.trim());
+    const { data, error } = await query;
     if (error || !data) return [];
     return data.map((o: any) => ({
       id: o.id,
@@ -576,9 +580,11 @@ export async function createSupabaseLabTest(payload: {
 // 6. PHARMACY ORDERS SERVICE
 // ============================================================================
 
-export async function fetchSupabasePharmacyOrders() {
+export async function fetchSupabasePharmacyOrders(patientName?: string) {
   try {
-    const { data, error } = await supabase.from("pharmacy_orders").select("*").order("created_at", { ascending: false });
+    let query = supabase.from("pharmacy_orders").select("*").order("created_at", { ascending: false });
+    if (patientName?.trim()) query = query.eq("patient_name", patientName.trim());
+    const { data, error } = await query;
     if (error || !data) return [];
     return data.map((p: any) => ({
       id: p.id,
@@ -731,9 +737,11 @@ export async function updateSupabaseBloodInventory(bloodGroup: string, available
   }
 }
 
-export async function fetchSupabaseBloodRequests() {
+export async function fetchSupabaseBloodRequests(patientName?: string) {
   try {
-    const { data, error } = await supabase.from("blood_requests").select("*").order("created_at", { ascending: false });
+    let query = supabase.from("blood_requests").select("*").order("created_at", { ascending: false });
+    if (patientName?.trim()) query = query.eq("patient_name", patientName.trim());
+    const { data, error } = await query;
     if (error || !data) return [];
     return data.map((r: any) => ({
       id: r.id,
@@ -848,9 +856,11 @@ export async function createSupabaseBloodDonor(payload: {
 // 10. EMERGENCY SOS DISPATCHES SERVICE
 // ============================================================================
 
-export async function fetchSupabaseSOS() {
+export async function fetchSupabaseSOS(patientName?: string) {
   try {
-    const { data, error } = await supabase.from("sos_requests").select("*").order("created_at", { ascending: false });
+    let query = supabase.from("sos_requests").select("*").order("created_at", { ascending: false });
+    if (patientName?.trim()) query = query.eq("patient_name", patientName.trim());
+    const { data, error } = await query;
     if (error || !data) return [];
     return data.map((s: any) => ({
       id: s.id,
