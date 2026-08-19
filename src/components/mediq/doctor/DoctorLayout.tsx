@@ -129,6 +129,7 @@ export function DoctorLayout() {
         specialization: authProfile.specialty || prev.specialization,
         department: authProfile.department || prev.department,
         availableHours: authProfile.workingHours || prev.availableHours,
+        consultationFee: authProfile.consultationFee ?? prev.consultationFee,
       }));
     }
   }, [authProfile]);
@@ -605,6 +606,7 @@ export function DoctorLayout() {
                   specialty: updated.specialization.trim() || null,
                   department: updated.department.trim() || null,
                   working_hours: updated.availableHours.trim() || null,
+                  consultation_fee_bdt: Math.max(0, Number(updated.consultationFee) || 0),
                 };
                 let { error } = await updateSupabaseProfile(updated.id, profilePayload);
 
@@ -619,6 +621,7 @@ export function DoctorLayout() {
                     avatar_url: profilePayload.avatar_url,
                     specialty: profilePayload.specialty,
                     working_hours: profilePayload.working_hours,
+                    consultation_fee_bdt: profilePayload.consultation_fee_bdt,
                   });
                   error = fallback.error;
                 }
@@ -635,6 +638,7 @@ export function DoctorLayout() {
                     doctorName: updated.name || currentSchedule.doctorName,
                     specialization: updated.specialization || currentSchedule.specialization,
                     department: updated.department || currentSchedule.department,
+                    consultationFee: Math.max(0, Number(updated.consultationFee) || 0),
                   });
                 }
 

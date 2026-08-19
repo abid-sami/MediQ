@@ -212,7 +212,7 @@ export function AppointmentModal() {
       ? `${activeDoctorSchedule.startTime} - ${activeDoctorSchedule.endTime}`
       : "09:00 AM - 05:00 PM";
     const aptId = `APT-${Math.floor(10000 + Math.random() * 89999)}`;
-    const feeAmount = activeDoctorSchedule?.consultationFee || 50;
+    const feeAmount = Math.max(0, Number(activeDoctorSchedule?.consultationFee ?? 0));
 
     // Mark slot booked locally & dispatch event
     markSlotBooked(doctorId, dateStr, time);
@@ -304,7 +304,7 @@ export function AppointmentModal() {
               </div>
               <div className="flex justify-between border-b border-border pb-2">
                 <span className="text-muted-foreground">Consultation Fee:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">${booking.fee}</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">৳{booking.fee.toLocaleString("en-BD")}</span>
               </div>
               <div className="flex justify-between border-b border-border pb-2">
                 <span className="text-muted-foreground">Date:</span>
@@ -450,7 +450,7 @@ export function AppointmentModal() {
                   <div className="text-right shrink-0 bg-card/80 p-2.5 rounded-xl border border-border">
                     <span className="text-[10px] text-muted-foreground block font-bold">CONSULTATION FEE</span>
                     <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                      ${activeDoctorSchedule.consultationFee || 50}
+                      ৳{Number(activeDoctorSchedule.consultationFee ?? 0).toLocaleString("en-BD")}
                     </span>
                   </div>
                 </div>
@@ -573,4 +573,3 @@ export function AppointmentModal() {
     </Dialog>
   );
 }
-

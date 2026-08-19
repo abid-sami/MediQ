@@ -211,23 +211,22 @@ export async function syncDoctorSchedulesFromProfiles(): Promise<Record<string, 
     const current = getDoctorSchedules();
 
     for (const doc of doctorProfiles) {
-      // Don't clobber hours/limits a doctor has already configured locally.
-      if (current[doc.id]) continue;
-
+      const existing = current[doc.id];
       const { startTime, endTime } = parseWorkingHours(doc.workingHours);
       current[doc.id] = {
+        ...existing,
         doctorId: doc.id,
         doctorName: doc.name || "Doctor",
         specialization: doc.specialty || "General Physician",
         department: doc.department || doc.specialty || "General Medicine",
-        startTime,
-        endTime,
-        dailyPatientLimit: doc.patientCapacity || 20,
-        currentBookedCount: 0,
+        startTime: existing?.startTime || startTime,
+        endTime: existing?.endTime || endTime,
+        dailyPatientLimit: existing?.dailyPatientLimit || doc.patientCapacity || 20,
+        currentBookedCount: existing?.currentBookedCount || 0,
         isAcceptingBookings: doc.onlineBookingEnabled !== false,
-        workingDays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
-        consultationFee: 0,
-        onVacation: false,
+        workingDays: existing?.workingDays || ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
+        consultationFee: Number(doc.consultationFee ?? 0),
+        onVacation: existing?.onVacation || false,
       };
     }
 

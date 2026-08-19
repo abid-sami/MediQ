@@ -208,14 +208,7 @@ export function Pharmacy() {
             Open Patient Pharmacy & Cart <ArrowRight className="ml-1.5 h-4 w-4" />
           </Button>
         </Link>
-        <Link to="/patient">
-          <Button
-            variant="outline"
-            className="rounded-xl font-semibold w-full sm:w-auto"
-          >
-            <Upload className="mr-2 h-4 w-4" /> Upload & Verify Prescription
-          </Button>
-        </Link>
+        
       </div>
     </Section>
   );

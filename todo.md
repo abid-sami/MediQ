@@ -125,6 +125,12 @@
 
 ## Ambulance Driver portal runtime repair
 
-- [ ] Identify and correct the undefined `useRef` reference in the Ambulance Driver portal.
-- [ ] Validate the repaired portal with a production build.
-- [ ] Package and deliver the refreshed MediQ source ZIP.
+- [x] Identify and correct the undefined `useRef` reference in the Ambulance Driver portal.
+- [x] Validate the repaired portal with a production build.
+- [x] Package and deliver the refreshed MediQ source ZIP.
+
+## Doctor consultation-fee persistence and booking display
+
+- [x] Inspect the Doctor Profile fee field, Supabase schema, and appointment-booking mapping.
+- [x] Persist the consultation fee and show the selected doctor’s dynamic amount in BDT.
+- [x] Build, validate, and package the refreshed MediQ source archive.

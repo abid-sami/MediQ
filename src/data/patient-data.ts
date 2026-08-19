@@ -201,7 +201,7 @@ export function getPatientDoctorCards(): DoctorCard[] {
       category: schedule.department,
       experience: "Specialist",
       hospital: "MediQ Hospital",
-      consultationFee: schedule.consultationFee ?? 50,
+      consultationFee: Number(schedule.consultationFee ?? 0),
       rating: 4.8,
       reviewsCount: 128 + (index * 17),
       availableDays: schedule.workingDays,

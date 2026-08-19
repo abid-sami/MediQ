@@ -1041,6 +1041,7 @@ function mapProfile(p: any) {
     workingHours: p.working_hours,
     patientCapacity: p.patient_capacity,
     onlineBookingEnabled: p.online_booking_enabled,
+    consultationFee: Number(p.consultation_fee_bdt ?? 0),
     isFeatured: p.is_featured || false,
   };
 }

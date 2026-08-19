@@ -34,6 +34,7 @@ export interface UserProfile {
   workingHours?: string;
   patientCapacity?: number;
   onlineBookingEnabled?: boolean;
+  consultationFee?: number;
 }
 
 export interface SignUpData {
@@ -301,6 +302,7 @@ const fetchProfile = async (
         workingHours: profileRow.working_hours,
         patientCapacity: profileRow.patient_capacity,
         onlineBookingEnabled: profileRow.online_booking_enabled,
+        consultationFee: Number(profileRow.consultation_fee_bdt ?? 0),
       };
       setProfile?.(userProfile);
     } else if (userId) {

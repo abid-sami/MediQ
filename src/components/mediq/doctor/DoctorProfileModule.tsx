@@ -235,7 +235,7 @@ export function DoctorProfileModule({
             </div>
             <span className="opacity-80 mt-1">Consultation Fee</span>
             <span className="text-xl font-bold">
-              ${formData.consultationFee} <span className="text-xs font-normal opacity-90">/ Session</span>
+              ৳{Number(formData.consultationFee || 0).toLocaleString("en-BD")} <span className="text-xs font-normal opacity-90">/ Session</span>
             </span>
           </div>
         </div>
@@ -355,9 +355,11 @@ export function DoctorProfileModule({
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-muted-foreground">Consultation Fee ($ USD)</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Consultation Fee (BDT)</Label>
                 <Input
                   type="number"
+                  min={0}
+                  step="1"
                   value={formData.consultationFee}
                   onChange={(e) =>
                     setFormData({ ...formData, consultationFee: Number(e.target.value) })
