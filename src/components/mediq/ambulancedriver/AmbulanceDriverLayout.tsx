@@ -73,7 +73,7 @@ export function AmbulanceDriverLayout() {
   const [activeTrip, setActiveTrip] = useState<ActiveEmergencyTrip | null>(null);
   const [history, setHistory] = useState<CompletedTripHistory[]>(initialTripHistory);
   const [newRequestCount, setNewRequestCount] = useState(0);
-  const seenRequestIds = useRef<Set<string>>(new Set());
+  const seenRequestIds = React.useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (authProfile) {

@@ -104,3 +104,27 @@
 - [x] Repair read access for the shared departments table.
 - [x] Remove the Doctor Profile department refresh control.
 - [x] Build, validate, and package the corrected source archive.
+
+## MediQ feature presentation
+
+- [x] Consolidate the platform feature set and presentation visual assets.
+- [x] Create a modern animated presentation explaining MediQ’s end-to-end experience.
+- [x] Deliver the finished presentation.
+
+## MediQ 12-slide healthcare ecosystem PPTX
+
+- [x] Consolidate the supplied 24-slide outline into a verified 12-slide MediQ narrative.
+- [x] Create a professional 12-slide product presentation and export it as PPTX.
+- [x] Deliver the new PowerPoint file.
+
+## MediQ architecture and workflow guide
+
+- [x] Inspect the active project architecture, dependencies, routes, and data paths.
+- [x] Document the user, role-based, authentication, and operational workflows.
+- [x] Deliver the completed MediQ technical guide.
+
+## Ambulance Driver portal runtime repair
+
+- [ ] Identify and correct the undefined `useRef` reference in the Ambulance Driver portal.
+- [ ] Validate the repaired portal with a production build.
+- [ ] Package and deliver the refreshed MediQ source ZIP.
