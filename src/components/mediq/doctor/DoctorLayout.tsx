@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — clear clinical hierarchy, with a fixed end-of-sidebar exit action.
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -374,16 +375,18 @@ export function DoctorLayout() {
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> On Duty
-          </span>
-          <a
-            href="/"
-            className="hover:text-foreground flex items-center gap-1 font-semibold transition-colors"
-          >
-            Main Site <ChevronRight className="h-3 w-3" />
-          </a>
+        <div className="space-y-3 border-t border-border p-3">
+          <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> On Duty
+            </span>
+            <a href="/" className="flex items-center gap-1 font-semibold transition-colors hover:text-foreground">
+              Main Site <ChevronRight className="h-3 w-3" />
+            </a>
+          </div>
+          <Button variant="ghost" onClick={() => { setSidebarOpen(false); setLogoutConfirmOpen(true); }} className="h-10 w-full justify-start gap-2.5 rounded-xl text-xs font-bold text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Sign out of MediQ">
+            <LogOut className="h-4 w-4" /> Sign out
+          </Button>
         </div>
       </aside>
 
@@ -588,6 +591,24 @@ export function DoctorLayout() {
           )}
         </main>
       </div>
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="max-w-xs rounded-2xl border-border bg-card p-6">
+          <DialogHeader>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <LogOut className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-center text-xl">Confirm Sign Out</DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground">
+              Are you sure you want to sign out of your MediQ account?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setLogoutConfirmOpen(false)}>Cancel</Button>
+            <Button variant="destructive" className="flex-1" onClick={handleConfirmLogout}>Sign Out</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Patient Profile Slide-over Modal */}
       <PatientProfileModal

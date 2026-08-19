@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — public care discovery stays immediately available while account state initializes in the background.
 import { createFileRoute } from "@tanstack/react-router";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -38,18 +39,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  useAuth();
 
   return (
     <ThemeProvider>

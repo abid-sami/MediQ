@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — high-key clinical wayfinding with dark, reliable text contrast.
 import { motion } from "motion/react";
 import { CalendarCheck, Siren, ShieldCheck, Clock, Activity } from "lucide-react";
 
@@ -17,7 +18,12 @@ export function Hero() {
 
   return (
     <section id="home" className="relative overflow-hidden hero-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
-      <div className="mx-auto grid w-full max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-8 lg:px-8">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-cover bg-right-bottom bg-no-repeat opacity-65"
+        style={{ backgroundImage: "url('/manus-storage/mediq-hero-wayfinding_a73f3383.png')" }}
+      />
+      <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-8 lg:px-8">
         <div>
           <motion.span
             initial={{ opacity: 0, y: 12 }}

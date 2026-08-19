@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — the connected-record marker remains a single, stable line at every breakpoint.
 import { motion, useReducedMotion } from "motion/react";
 import {
   Ambulance,
@@ -8,7 +9,6 @@ import {
   MapPin,
   Pill,
   Stethoscope,
-  User,
 } from "lucide-react";
 
 type Node = {
@@ -113,13 +113,18 @@ export function HeroVisual() {
       })}
 
       <motion.div
-        className="absolute -bottom-6 left-1/2 -translate-x-1/2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold shadow-soft"
+        className="absolute -bottom-6 left-1/2 w-max max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-full border border-border bg-card px-3 py-2 text-[11px] font-semibold shadow-soft sm:px-4 sm:text-xs"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1, duration: 0.4 }}
       >
-        <span className="flex items-center gap-2">
-          <User className="h-3.5 w-3.5 text-primary" /> One patient · One connected record
+        <span className="flex items-center gap-2 whitespace-nowrap">
+          <img
+            src="/manus-storage/mediq-route-logo_78eb28a0.png"
+            alt=""
+            className="h-4 w-4 shrink-0 object-contain"
+          />
+          One patient · One connected record
         </span>
       </motion.div>
     </div>

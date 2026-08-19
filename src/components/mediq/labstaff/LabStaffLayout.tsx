@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — clear clinical hierarchy, with a fixed end-of-sidebar exit action.
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -261,11 +262,16 @@ export function LabStaffLayout() {
           </nav>
         </div>
 
-        <div className="p-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-          <span>Central Pathology Station</span>
-          <a href="/" className="hover:text-foreground font-semibold flex items-center gap-1">
-            Home <ChevronRight className="h-3 w-3" />
-          </a>
+        <div className="space-y-3 border-t border-border p-3">
+          <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+            <span>Central Pathology Station</span>
+            <a href="/" className="flex items-center gap-1 font-semibold hover:text-foreground">
+              Home <ChevronRight className="h-3 w-3" />
+            </a>
+          </div>
+          <Button variant="ghost" onClick={() => { setSidebarOpen(false); setLogoutConfirmOpen(true); }} className="h-10 w-full justify-start gap-2.5 rounded-xl text-xs font-bold text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Sign out of MediQ">
+            <LogOut className="h-4 w-4" /> Sign out
+          </Button>
         </div>
       </aside>
 

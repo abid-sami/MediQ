@@ -1,3 +1,4 @@
+// Design: Guided Floorplan — map-first clinical wayfinding with thumb-reachable mobile controls and open plan space.
 import { motion, AnimatePresence } from "motion/react";
 import {
   Compass,
@@ -28,6 +29,8 @@ import {
   QrCode,
   LocateFixed,
   Footprints,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
@@ -84,6 +87,8 @@ export function HospitalNavigation() {
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const qrVideoRef = useRef<HTMLVideoElement>(null);
   const [animatingStep, setAnimatingStep] = useState<number>(0);
+  const [mobilePane, setMobilePane] = useState<"map" | "details">("map");
+  const [mapZoom, setMapZoom] = useState(1);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -153,6 +158,7 @@ export function HospitalNavigation() {
     setSelectedLocation(loc);
     setSelectedFloor(loc.floor);
     setSearchTerm("");
+    setMobilePane("details");
   };
 
   const handleStartRoute = (loc: HospitalLocation) => {
@@ -227,7 +233,7 @@ export function HospitalNavigation() {
 
       <div className="mt-8 space-y-6">
         {/* Top Controls: Search Bar & Floor Selector */}
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-card border border-border p-4 sm:p-5 rounded-3xl shadow-soft">
+        <div className="flex flex-col items-stretch justify-between gap-4 rounded-3xl border border-border bg-card p-4 shadow-soft sm:p-5 lg:flex-row lg:items-center">
           {/* Quick Search */}
           <div className="relative w-full lg:w-96">
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
@@ -271,7 +277,7 @@ export function HospitalNavigation() {
           </div>
 
           {/* Floor Switcher Buttons */}
-          <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-surface border border-border overflow-x-auto max-w-full">
+          <div className="-mx-1 flex max-w-full items-center gap-1.5 overflow-x-auto rounded-2xl border border-border bg-surface p-1.5 sm:mx-0">
             {floorsList.map((floor) => {
               const count = locations.filter((l) => l.floor === floor).length;
               const isActive = selectedFloor === floor;
@@ -282,6 +288,8 @@ export function HospitalNavigation() {
                   onClick={() => {
                     setSelectedFloor(floor);
                     setShowRouteMode(false);
+                    setMobilePane("map");
+                    setMapZoom(1);
                   }}
                   className={cn(
                     "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0",
@@ -306,19 +314,24 @@ export function HospitalNavigation() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant={routePreference === "shortest" ? "default" : "outline"} onClick={() => setRoutePreference("shortest")} className="h-9 rounded-xl text-xs font-bold"><Footprints className="mr-1.5 h-3.5 w-3.5" /> Shortest Route</Button>
-            <Button type="button" variant={routePreference === "accessible" ? "default" : "outline"} onClick={() => setRoutePreference("accessible")} className="h-9 rounded-xl text-xs font-bold"><Accessibility className="mr-1.5 h-3.5 w-3.5" /> Wheelchair Route</Button>
-            <Button type="button" variant="outline" onClick={() => setQrScannerOpen(true)} className="h-9 rounded-xl text-xs font-bold"><QrCode className="mr-1.5 h-3.5 w-3.5" /> Scan Location QR</Button>
+        <div className="flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs sm:flex-row sm:items-center">
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <Button type="button" variant={routePreference === "shortest" ? "default" : "outline"} onClick={() => setRoutePreference("shortest")} className="h-10 justify-center rounded-xl text-xs font-bold sm:h-9 sm:justify-start"><Footprints className="mr-1.5 h-3.5 w-3.5" /> Shortest Route</Button>
+            <Button type="button" variant={routePreference === "accessible" ? "default" : "outline"} onClick={() => setRoutePreference("accessible")} className="h-10 justify-center rounded-xl text-xs font-bold sm:h-9 sm:justify-start"><Accessibility className="mr-1.5 h-3.5 w-3.5" /> Wheelchair Route</Button>
+            <Button type="button" variant="outline" onClick={() => setQrScannerOpen(true)} className="h-10 justify-center rounded-xl text-xs font-bold sm:h-9 sm:justify-start"><QrCode className="mr-1.5 h-3.5 w-3.5" /> Scan Location QR</Button>
           </div>
           <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><LocateFixed className="h-3.5 w-3.5 text-primary" /> Start: {selectedEntrance}</span>
         </div>
 
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-muted/30 p-1.5 lg:hidden">
+          <Button type="button" variant={mobilePane === "map" ? "default" : "ghost"} onClick={() => setMobilePane("map")} className="h-10 rounded-xl text-xs font-bold"><Layers className="mr-1.5 h-3.5 w-3.5" /> 2D Map</Button>
+          <Button type="button" variant={mobilePane === "details" ? "default" : "ghost"} onClick={() => setMobilePane("details")} className="h-10 rounded-xl text-xs font-bold"><Info className="mr-1.5 h-3.5 w-3.5" /> Destination</Button>
+        </div>
+
         {/* Main Grid: Interactive Map (Left) & Location Details / Route (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-12">
           {/* Map Plan Viewport */}
-          <div className="lg:col-span-8 bg-card border border-border rounded-3xl p-4 sm:p-6 shadow-soft space-y-4">
+          <div className={cn("space-y-4 rounded-3xl border border-border bg-card p-3 shadow-soft sm:p-6 lg:col-span-8", mobilePane === "details" && "hidden lg:block")}>
             {/* Map Header Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
               <div className="flex items-center gap-2.5">
@@ -355,14 +368,18 @@ export function HospitalNavigation() {
             </div>
 
             {/* Interactive 2D Floor Plan Canvas Container */}
-            <div className="relative aspect-[16/10] w-full rounded-2xl bg-surface/90 border border-border overflow-hidden p-3 select-none">
+            <div className="relative aspect-[4/3] w-full touch-manipulation select-none overflow-hidden rounded-2xl border border-border bg-surface/90 p-2 sm:aspect-[16/10] sm:p-3">
+              <div
+                className="absolute inset-0 origin-center transition-transform duration-200 ease-out"
+                style={{ transform: `scale(${mapZoom})` }}
+              >
               {/* Floor Plan Blueprint Grid Background */}
               <div
                 className="absolute inset-0 opacity-[0.25]"
                 style={{
                   backgroundImage:
-                    "linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)",
-                  backgroundSize: "24px 24px",
+                    "linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px), url('/manus-storage/mediq-map-texture_4240f817.png')",
+                  backgroundSize: "24px 24px, 24px 24px, cover",
                 }}
               />
 
@@ -477,6 +494,15 @@ export function HospitalNavigation() {
                   )}
                 </svg>
               )}
+              </div>
+
+              <div className="absolute bottom-3 left-3 z-40 flex items-center overflow-hidden rounded-xl border border-border bg-card/95 shadow-soft backdrop-blur sm:bottom-4 sm:left-4">
+                <Button type="button" variant="ghost" size="icon" onClick={() => setMapZoom((zoom) => Math.max(1, Number((zoom - 0.1).toFixed(1))))} disabled={mapZoom <= 1} className="h-9 w-9 rounded-none" aria-label="Zoom out of floor plan"><ZoomOut className="h-4 w-4" /></Button>
+                <span className="min-w-12 border-x border-border px-2 text-center text-[10px] font-bold text-muted-foreground">{Math.round(mapZoom * 100)}%</span>
+                <Button type="button" variant="ghost" size="icon" onClick={() => setMapZoom((zoom) => Math.min(1.4, Number((zoom + 0.1).toFixed(1))))} disabled={mapZoom >= 1.4} className="h-9 w-9 rounded-none" aria-label="Zoom in on floor plan"><ZoomIn className="h-4 w-4" /></Button>
+              </div>
+
+              <Button type="button" variant="secondary" size="sm" onClick={() => setMapZoom(1)} className="absolute bottom-3 right-3 z-40 h-9 rounded-xl border border-border bg-card/95 px-3 text-[10px] font-bold shadow-soft backdrop-blur sm:bottom-4 sm:right-4" aria-label="Reset floor plan zoom"><Maximize2 className="mr-1.5 h-3.5 w-3.5" /> Reset</Button>
             </div>
 
             {/* Map Legend */}
@@ -506,7 +532,7 @@ export function HospitalNavigation() {
           </div>
 
           {/* Right Panel: Location Details & Step-by-Step Route Guidance */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className={cn("space-y-4 lg:col-span-4", mobilePane === "map" && "hidden lg:block")}>
             {selectedLocation ? (
               <div className="bg-card border border-border rounded-3xl p-5 shadow-soft space-y-5">
                 {/* Location Header */}

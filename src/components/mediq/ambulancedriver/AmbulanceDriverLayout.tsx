@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+// Design: Guided Floorplan — mobile-first emergency navigation keeps the exit action at the end of the primary control strip.
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -327,6 +328,14 @@ export function AmbulanceDriverLayout() {
         >
           <User className="h-5 w-5" />
           <span>Profile</span>
+        </button>
+        <button
+          onClick={() => setLogoutConfirmOpen(true)}
+          className="flex flex-col items-center gap-0.5 text-xs font-bold text-destructive transition-colors hover:text-destructive"
+          aria-label="Sign out of MediQ"
+        >
+          <LogOut className="h-5 w-5" />
+          <span>Sign out</span>
         </button>
       </nav>
 
