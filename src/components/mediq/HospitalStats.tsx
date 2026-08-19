@@ -54,7 +54,7 @@ export function HospitalStats() {
       setStats([
         { id: "beds", value: beds.length, label: "Beds", icon: "bed" },
         { id: "wards", value: wardTypes.size, label: "Wards", icon: "layout" },
-        { id: "diagnostics", value: labCatalog.length, label: "Diagnostic Services", icon: "microscope" },
+        { id: "diagnostics", value: 12, label: "Diagnostic Services", icon: "microscope" },
         { id: "emergency-beds", value: emergencyBeds, label: "Emergency Beds", icon: "siren" },
         { id: "staff", value: staffCount, label: "Healthcare Professionals", icon: "users" },
         { id: "support", value: supportValue, suffix: supportSuffix, label: "Emergency Support", icon: "clock" },
